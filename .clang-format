@@ -1,0 +1,8 @@
+BasedOnStyle: Google
+DerivePointerAlignment: false
+PointerAlignment: Right
+ColumnLimit: 120
+TabWidth: 2
+IndentWidth: 2
+
+IncludeBlocks: Preserve
