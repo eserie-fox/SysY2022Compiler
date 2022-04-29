@@ -8,16 +8,16 @@ FILE(GLOB_RECURSE lsrcs "*.l")
 LIST(GET ysrcs 0 ysrc)
 LIST(GET lsrcs 0 lsrc)
 
-BISON_TARGET(parser ${ysrc} ${CMAKE_CURRENT_BINARY_DIR}/HFParser.cpp
+BISON_TARGET(parser ${ysrc} ${CMAKE_CURRENT_BINARY_DIR}/HFParser.cc
             DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/HFParser.h)
 
-FLEX_TARGET(lexer ${lsrc} ${CMAKE_CURRENT_BINARY_DIR}/HFLexer.cpp
-            COMPILE_FLAGS )
+FLEX_TARGET(lexer ${lsrc} ${CMAKE_CURRENT_BINARY_DIR}/HFLexer.cc
+            DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/HFLexer.h)
 
 ADD_FLEX_BISON_DEPENDENCY(lexer parser)
 
-set(srcs    ${CMAKE_CURRENT_BINARY_DIR}/HFParser.cpp 
-            ${CMAKE_CURRENT_BINARY_DIR}/HFLexer.cpp)
+set(srcs    ${CMAKE_CURRENT_BINARY_DIR}/HFParser.cc 
+            ${CMAKE_CURRENT_BINARY_DIR}/HFLexer.cc)
 
 add_library(HaveFunParser STATIC ${srcs})
 

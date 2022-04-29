@@ -3,30 +3,34 @@
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <variant>
 #include <unordered_map>
+#include "HFLexer.h"
 
-extern int yylineno;
-int yylex();
 void yyerror(const char* msg);
 std::unordered_map<std::string,int> val_map;
-extern FILE * yyin;
 %}
 
-%union
-{
-	int num;
-	char* str;
-}
+%language "c++"
+
+%define api.value.type{std::variant<int,float,std::string>}
+
+// %union
+// {
+// 	int num;
+// 	std::string str;
+// }
 
 %left '+' '-'
 %left '*' '/'
 
-%token <num> INTEGER
-%token <str> IDENTIFIER
+%token INT EQ NE LT LE GT GE IF ELSE WHILE CONTINUE RETURN LA LO LN FLOAT CONST VOID BREAK
+%token <int> INTEGER
+%token <std::string> IDENTIFIER
 
-%type <num> expression
-%type <num> assignment
-%type <num> assignments
+%type <int> expression
+%type <int> assignment
+%type <int> assignments
 
 %%
 
