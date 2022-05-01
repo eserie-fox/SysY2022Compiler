@@ -5,15 +5,17 @@
 #include <string>
 #include <variant>
 #include <unordered_map>
-#include "HFLexer.h"
+//#include "HFLexer.hh"
 
 void yyerror(const char* msg);
 std::unordered_map<std::string,int> val_map;
 %}
 
+%require "3.2"
 %language "c++"
 
-%define api.value.type{std::variant<int,float,std::string>}
+%define api.value.type variant
+%define api.token.constructor
 
 // %union
 // {

@@ -1,6 +1,6 @@
 
 FILE(GLOB_RECURSE srcs "source/*.cc")
-FILE(GLOB_RECURSE hdrs "include/*.h")
+FILE(GLOB_RECURSE hdrs "include/*.hh")
 
 add_library(HaveFunLib STATIC ${srcs} ${hdrs})
 

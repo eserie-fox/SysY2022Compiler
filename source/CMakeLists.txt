@@ -1,5 +1,5 @@
 FILE(GLOB_RECURSE srcs "*.cc")
-FILE(GLOB_RECURSE hdrs "include/*.h")
+FILE(GLOB_RECURSE hdrs "include/*.hh")
 
 add_executable(hfb ${srcs} ${hdrs})
 

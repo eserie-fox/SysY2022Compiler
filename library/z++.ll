@@ -1,7 +1,7 @@
 %{
 #include <stdlib.h>
 #include <string>
-#include "HFParser.h"
+#include "HFParser.hh"
 
 %}
 %option nounput

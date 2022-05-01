@@ -1,6 +1,7 @@
-#include "TAC/Symbol.h"
+#include "TAC/Symbol.hh"
 
-namespace ThreeAddressCode{
+namespace HaveFunCompiler{
+namespace ThreeAddressCode {
 enum class OperationType {
   Undefined,
   Add,
@@ -21,11 +22,9 @@ enum class OperationType {
   FunctionEnd,
   Label,
   Declaration,
-  
-};
-
-struct ThreeAddressCode {
 
 };
+
+struct ThreeAddressCode {};
+}  // namespace ThreeAddressCode
 }
-

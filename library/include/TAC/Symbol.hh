@@ -1,6 +1,7 @@
 #include <optional>
 #include <string>
 
+namespace HaveFunCompiler{
 namespace ThreeAddressCode {
 enum class SymbolType {
   Undefined,
@@ -27,3 +28,4 @@ struct Symbol {
   SymbolValue value_;
 };
 }  // namespace ThreeAddressCode
+}
