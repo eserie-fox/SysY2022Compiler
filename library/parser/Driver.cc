@@ -63,7 +63,8 @@ void HaveFunCompiler::Parser::Driver::add_lower() {
   words++;
 }
 
-void HaveFunCompiler::Parser::Driver::add_word(const std::string & word) {
+void HaveFunCompiler::Parser::Driver::add_word(const std::string &word) {
+  std::cout << "WORD" << std::endl;
   words++;
   chars += word.length();
   for (const char &c : word) {
