@@ -43,19 +43,22 @@ struct ThreeAddressCode {
 };
 
 class ThreeAddressCodeList {
-  NONCOPYABLE(ThreeAddressCodeList)
   using list_t = std::list<std::shared_ptr<ThreeAddressCode>>;
 
  public:
   using iterator = list_t::iterator;
   using const_iterator = list_t::const_iterator;
   ThreeAddressCodeList() = default;
+  //复制构造
+  ThreeAddressCodeList(const ThreeAddressCodeList &other);
   //移动
   ThreeAddressCodeList(ThreeAddressCodeList &&move_obj);
   //单语句
   ThreeAddressCodeList(std::shared_ptr<ThreeAddressCode> tac);
 
   ThreeAddressCodeList operator+(const ThreeAddressCodeList &other) const;
+
+  ThreeAddressCodeList &operator=(const ThreeAddressCodeList &other);
 
   ThreeAddressCodeList &operator+=(const ThreeAddressCodeList &other);
 

@@ -15,11 +15,28 @@ enum class SymbolType {
 };
 
 struct SymbolValue {
+ public:
+  enum ValueType {
+    Float,
+    Int,
+    Str,
+  };
+  SymbolValue() = default;
+  SymbolValue(float v);
+  SymbolValue(int v);
+  SymbolValue(const char *v);
+  float GetFloat();
+  int GetInt();
+  const char *GetStr();
+  ValueType Type() const { return type; }
+
+ private:
   union {
     float floatValue;
     int intValue;
     const char *strValue;
   };
+  ValueType type;
 };
 
 struct Symbol {
