@@ -1,4 +1,6 @@
 #include "TAC/TAC.hh"
+#include <iostream>
+#include <sstream>
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
@@ -28,11 +30,17 @@ ExpressionPtr TACFactory::NewExp(TACListPtr tac, SymbolPtr ret) {
   return exp;
 }
 
-TACListPtr TACFactory::MakeFunction(SymbolPtr label, TACListPtr args, TACListPtr body) {
+ArgListPtr TACFactory::NewArgList() { return std::make_shared<ArgumentList>(); }
+ParamListPtr TACFactory::NewParamList() { return std::make_shared<ParameterList>(); }
+
+TACListPtr TACFactory::MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body) {
+  func_label->value_ = SymbolValue(params);
   auto tac_list = NewTACList();
-  (*tac_list) += NewTAC(TACOperationType::Label, label);
+  (*tac_list) += NewTAC(TACOperationType::Label, func_label);
   (*tac_list) += NewTAC(TACOperationType::FunctionBegin);
-  (*tac_list) += (*args);
+  for (auto sym : *params) {
+    (*tac_list) += NewTAC(TACOperationType::Parameter, sym);
+  }
   (*tac_list) += (*body);
   (*tac_list) += NewTAC(TACOperationType::FunctionEnd);
   return tac_list;
@@ -44,7 +52,7 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
   return NewExp(tac_list, var);
 }
 
-TACListPtr TACFactory::MakeCall(const std::string &name, ExpListPtr args) {
+TACListPtr TACFactory::MakeCall(const std::string &name, ArgListPtr args) {
   auto tac_list = NewTACList();
   for (auto exp : *args) {
     (*tac_list) += *exp->tac;
@@ -56,7 +64,7 @@ TACListPtr TACFactory::MakeCall(const std::string &name, ExpListPtr args) {
   return tac_list;
 }
 
-ExpressionPtr TACFactory::MakeCallWithRet(const std::string &name, ExpListPtr args, SymbolPtr ret_sym) {
+ExpressionPtr TACFactory::MakeCallWithRet(const std::string &name, ArgListPtr args, SymbolPtr ret_sym) {
   auto tac_list = NewTACList();
   (*tac_list) += NewTAC(TACOperationType::Variable, ret_sym);
   for (auto exp : *args) {
@@ -104,9 +112,15 @@ TACListPtr TACFactory::MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr m
   return NewTACList(*init + *MakeWhile(cond, label_cont, label_brk, NewTACList(*stmt + *modify)));
 }
 
-TACBuilder::TACBuilder() : cur_temp_var_(0), cur_temp_label_(0) {}
+std::string TACFactory::ToFuncLabelName(const std::string name) { return "Func_" + name; }
+std::string TACFactory::ToCustomerLabelName(const std::string name) { return "Cus_" + name; }
+std::string TACFactory::ToTempLabelName(uint64_t id) { return "_TmpL_" + std::to_string(id); }
+std::string TACFactory::ToVariableName(const std::string name) { return "Var_" + name; }
+std::string TACFactory::ToTempVariableName(uint64_t id) { return "_TmpV_" + std::to_string(id); }
 
-void TACBuilder::EnterSubscope() { symbol_stack_.emplace_back(); }
+TACBuilder::TACBuilder() : cur_temp_var_(0), cur_temp_label_(0), cur_symtab_id_(0) { EnterSubscope(); }
+
+void TACBuilder::EnterSubscope() { symbol_stack_.emplace_back(cur_symtab_id_++); }
 
 void TACBuilder::ExitSubscope() { symbol_stack_.pop_back(); }
 
@@ -123,10 +137,67 @@ SymbolPtr TACBuilder::CreateText(const std::string &text) {
   }
   stored_text_.push_back(text);
 
-  auto ret = TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0,
-                                               SymbolValue(stored_text_.back().c_str()));
+  auto ret =
+      TACFactory::Instance()->NewSymbol(SymbolType::Text, std::nullopt, 0, SymbolValue(stored_text_.back().c_str()));
   text_tab_[text] = ret;
   return ret;
+}
+void TACBuilder::Error(const std::string &message) {
+  std::cerr << message << std::endl;
+  exit(EXIT_FAILURE);
+}
+std::string TACBuilder::AppendScopePrefix(const std::string &name) {
+  return std::string("S") + std::to_string(symbol_stack_.back().get_tabel_id()) + name;
+}
+
+SymbolPtr TACBuilder::CreateFunctionLabel(const std::string &name) {
+  std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToFuncLabelName(name));
+  if (symbol_stack_.back().count(label_name)) {
+    Error("Already exist function named '" + name + "' in current scope!");
+  }
+  auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Function, label_name);
+  symbol_stack_.back()[label_name] = sym;
+  return sym;
+}
+
+SymbolPtr TACBuilder::CreateCustomerLabel(const std::string &name) {
+  std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToCustomerLabelName(name));
+  if (symbol_stack_.back().count(label_name)) {
+    Error("Already exist label named '" + name + "' in current scope!");
+  }
+  auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Label, label_name);
+  symbol_stack_.back()[label_name] = sym;
+  return sym;
+}
+
+SymbolPtr TACBuilder::CreateTempLabel() {
+  std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToTempLabelName(cur_temp_label_++));
+  auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Label, label_name);
+  symbol_stack_.back()[label_name] = sym;
+  return sym;
+}
+
+SymbolPtr TACBuilder::CreateVariable(const std::string &name, SymbolValue::ValueType type) {
+  std::string var_name = AppendScopePrefix(TACFactory::Instance()->ToVariableName(name));
+  if (symbol_stack_.back().count(var_name)) {
+    Error("Already exist variable named '" + name + "' in current scope!");
+  }
+  auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, var_name);
+  sym->value_.SetType(type);
+  symbol_stack_.back()[var_name] = sym;
+  return sym;
+}
+SymbolPtr TACBuilder::CreateTempVariable(SymbolValue::ValueType type) {
+  std::string var_name = AppendScopePrefix(TACFactory::Instance()->ToTempVariableName(cur_temp_var_++));
+  auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, var_name);
+  sym->value_.SetType(type);
+  symbol_stack_.back()[var_name] = sym;
+  return sym;
+}
+
+TACListPtr TACBuilder::CreateFunction(const std::string &name, ParamListPtr params, TACListPtr body) {
+  auto func_label = CreateFunctionLabel(name);
+  return TACFactory::Instance()->MakeFunction(func_label, params, body);
 }
 
 }  // namespace ThreeAddressCode

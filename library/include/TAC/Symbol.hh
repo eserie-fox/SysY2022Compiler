@@ -1,9 +1,14 @@
 #pragma once
 
+#include <list>
+#include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 
-namespace HaveFunCompiler{
+namespace HaveFunCompiler {
 namespace ThreeAddressCode {
 enum class SymbolType {
   Undefined,
@@ -13,24 +18,32 @@ enum class SymbolType {
   Constant,
   Label,
 };
+class ParameterList;
 
 struct SymbolValue {
  public:
-  enum ValueType {
+  enum class ValueType {
+    Void,
     Float,
     Int,
     Str,
+    Parameters,
   };
-  SymbolValue() = default;
+  SymbolValue();
   SymbolValue(float v);
   SymbolValue(int v);
   SymbolValue(const char *v);
+  SymbolValue(std::shared_ptr<ParameterList> v);
   float GetFloat();
   int GetInt();
   const char *GetStr();
+  std::shared_ptr<ParameterList> GetParameters();
+
+  void SetType(ValueType type) { this->type = type; }
   ValueType Type() const { return type; }
 
  private:
+  std::variant<float, int, const char *, std::shared_ptr<ParameterList>> value;
   union {
     float floatValue;
     int intValue;
@@ -46,5 +59,27 @@ struct Symbol {
   int offset_;
   SymbolValue value_;
 };
+
+class ParameterList : protected std::vector<std::shared_ptr<Symbol>> {
+  using Base = std::vector<std::shared_ptr<Symbol>>;
+
+ public:
+  inline void push_back_parameter(std::shared_ptr<Symbol> sym) { push_back(sym); }
+  using Base::begin;
+  using Base::cbegin;
+  using Base::cend;
+  using Base::end;
+};
+
+class SymbolTable : public std::unordered_map<std::string, std::shared_ptr<Symbol>> {
+ public:
+  SymbolTable(uint64_t table_id) : table_id_(table_id) {}
+
+  inline uint64_t get_tabel_id() const { return table_id_; }
+
+ private:
+  const uint64_t table_id_;
+};
+
 }  // namespace ThreeAddressCode
-}
+}  // namespace HaveFunCompiler

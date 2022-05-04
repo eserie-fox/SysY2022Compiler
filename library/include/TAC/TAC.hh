@@ -19,7 +19,8 @@ using SymbolPtr = std::shared_ptr<Symbol>;
 using ThreeAddressCodePtr = std::shared_ptr<ThreeAddressCode>;
 using TACListPtr = std::shared_ptr<ThreeAddressCodeList>;
 using ExpressionPtr = std::shared_ptr<Expression>;
-using ExpListPtr = std::shared_ptr<ExpressionList>;
+using ArgListPtr = std::shared_ptr<ArgumentList>;
+using ParamListPtr = std::shared_ptr<ParameterList>;
 
 class TACFactory {
   NONCOPYABLE(TACFactory)
@@ -28,6 +29,7 @@ class TACFactory {
     static TACFactory factory;
     return &factory;
   }
+  //新TAC列表
   template <typename... _Args>
   inline std::shared_ptr<ThreeAddressCodeList> NewTACList(_Args &&...__args) {
     return std::make_shared<ThreeAddressCodeList>(std::forward<_Args>(__args)...);
@@ -37,18 +39,29 @@ class TACFactory {
                       SymbolValue value = {});
   //新TAC
   ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a, SymbolPtr b = nullptr, SymbolPtr c = nullptr);
+  //新表达式
   ExpressionPtr NewExp(TACListPtr tac, SymbolPtr ret);
+  //新实参列表，用于Call函数
+  ArgListPtr NewArgList();
+  //新形参列表，用于定义函数
+  ParamListPtr NewParamList();
 
-  TACListPtr MakeFunction(SymbolPtr label, TACListPtr args, TACListPtr body);
+  TACListPtr MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
-  TACListPtr MakeCall(const std::string &name, ExpListPtr args);
-  ExpressionPtr MakeCallWithRet(const std::string &name, ExpListPtr args, SymbolPtr ret_sym);
+  TACListPtr MakeCall(const std::string &name, ArgListPtr args);
+  ExpressionPtr MakeCallWithRet(const std::string &name, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
   TACListPtr MakeTest(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
                       TACListPtr stmt_false);
   TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt);
   TACListPtr MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont, SymbolPtr label_brk,
                      TACListPtr stmt);
+
+  std::string ToFuncLabelName(const std::string name);
+  std::string ToCustomerLabelName(const std::string name);
+  std::string ToTempLabelName(uint64_t id);
+  std::string ToVariableName(const std::string name);
+  std::string ToTempVariableName(uint64_t id);
 
  private:
   TACFactory() = default;
@@ -77,24 +90,29 @@ class TACBuilder {
   SymbolPtr CreateConst(float fn);
   SymbolPtr CreateText(const std::string &text);
 
-  SymbolPtr CreateFuncLabel(const char *name);
-  SymbolPtr CreateCustomerLabel(const char *name);
+  SymbolPtr CreateFunctionLabel(const std::string &name);
+  SymbolPtr CreateCustomerLabel(const std::string &name);
   SymbolPtr CreateTempLabel();
-  SymbolPtr CreateFunction(const char *name);
-  SymbolPtr CreateVariable(const char *name);
-  SymbolPtr CreateParameter(const char *name);
+  SymbolPtr CreateVariable(const std::string &name, SymbolValue::ValueType type);
+  SymbolPtr CreateTempVariable(SymbolValue::ValueType type);
+
+  TACListPtr CreateFunction(const std::string &name, ParamListPtr params, TACListPtr body);
 
   //查找Variant
-  SymbolPtr FindVariant(const char *name);
+  SymbolPtr FindVariant(const std::string &name);
+
+  void Error(const std::string &message);
 
  private:
+  std::string AppendScopePrefix(const std::string &name);
   UnionStack compiler_stack_;
   //目前临时变量标号
-  int cur_temp_var_;
+  uint64_t cur_temp_var_;
   //目前临时标签标号
-  int cur_temp_label_;
-  using SymbolTable = std::unordered_map<std::string, std::shared_ptr<Symbol>>;
+  uint64_t cur_temp_label_;
+  uint64_t cur_symtab_id_;
   std::vector<SymbolTable> symbol_stack_;
+
   //储存text的表
   std::unordered_map<std::string, std::shared_ptr<Symbol>> text_tab_;
   std::vector<std::string> stored_text_;
