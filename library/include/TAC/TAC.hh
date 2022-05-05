@@ -48,10 +48,10 @@ class TACFactory {
 
   TACListPtr MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
-  TACListPtr MakeCall(const std::string &name, ArgListPtr args);
-  ExpressionPtr MakeCallWithRet(const std::string &name, ArgListPtr args, SymbolPtr ret_sym);
+  TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
+  TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
-  TACListPtr MakeTest(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
+  TACListPtr MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
                       TACListPtr stmt_false);
   TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt);
   TACListPtr MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont, SymbolPtr label_brk,
@@ -96,15 +96,26 @@ class TACBuilder {
   SymbolPtr CreateVariable(const std::string &name, SymbolValue::ValueType type);
   SymbolPtr CreateTempVariable(SymbolValue::ValueType type);
 
-  TACListPtr CreateFunction(const std::string &name, ParamListPtr params, TACListPtr body);
+  TACListPtr CreateFunction(const std::string &func_name, ParamListPtr params, TACListPtr body);
+  TACListPtr CreateCall(const std::string &func_name, ArgListPtr args);
+  TACListPtr CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym);
+  TACListPtr CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label);
+  TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false, SymbolPtr *out_label_true,
+                          SymbolPtr *out_label_false);
+  TACListPtr CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
+  TACListPtr CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt, SymbolPtr*out_label_cont,
+                       SymbolPtr *out_label_brk);
 
   //查找Variant
   SymbolPtr FindVariant(const std::string &name);
+  SymbolPtr FindFunctionLabel(const std::string &name);
+  SymbolPtr FindCustomerLabel(const std::string &name);
 
   void Error(const std::string &message);
 
  private:
   std::string AppendScopePrefix(const std::string &name);
+  SymbolPtr FindSymbolWithName(const std::string &name);
   UnionStack compiler_stack_;
   //目前临时变量标号
   uint64_t cur_temp_var_;
