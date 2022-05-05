@@ -41,7 +41,7 @@ TACListPtr TACFactory::MakeFunction(SymbolPtr func_label, ParamListPtr params, T
   for (auto sym : *params) {
     (*tac_list) += NewTAC(TACOperationType::Parameter, sym);
   }
-  (*tac_list) += (*body);
+  (*tac_list) += body;
   (*tac_list) += NewTAC(TACOperationType::FunctionEnd);
   return tac_list;
 }
@@ -55,7 +55,7 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
 TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
   auto tac_list = NewTACList();
   for (auto exp : *args) {
-    (*tac_list) += *exp->tac;
+    (*tac_list) += exp->tac;
   }
   for (auto exp : *args) {
     (*tac_list) += NewTAC(TACOperationType::Argument, exp->ret);
@@ -68,7 +68,7 @@ TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, Sy
   auto tac_list = NewTACList();
   (*tac_list) += NewTAC(TACOperationType::Variable, ret_sym);
   for (auto exp : *args) {
-    (*tac_list) += *exp->tac;
+    (*tac_list) += exp->tac;
   }
   for (auto exp : *args) {
     (*tac_list) += NewTAC(TACOperationType::Argument, exp->ret);
@@ -78,22 +78,22 @@ TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, Sy
 }
 TACListPtr TACFactory::MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt) {
   auto tac_list = NewTACList();
-  (*tac_list) += *cond->tac;
+  (*tac_list) += cond->tac;
   (*tac_list) += NewTAC(TACOperationType::IfZero, label, cond->ret);
-  (*tac_list) += *stmt;
+  (*tac_list) += stmt;
   (*tac_list) += NewTAC(TACOperationType::Label, label);
   return tac_list;
 }
 
 TACListPtr TACFactory::MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
-                                TACListPtr stmt_false) {
+                                  TACListPtr stmt_false) {
   auto tac_list = NewTACList();
-  (*tac_list) += *cond->tac;
+  (*tac_list) += cond->tac;
   (*tac_list) += NewTAC(TACOperationType::IfZero, label_true, cond->ret);
-  (*tac_list) += *stmt_true;
+  (*tac_list) += stmt_true;
   (*tac_list) += NewTAC(TACOperationType::Goto, label_false);
   (*tac_list) += NewTAC(TACOperationType::Label, label_true);
-  (*tac_list) += *stmt_false;
+  (*tac_list) += stmt_false;
   (*tac_list) += NewTAC(TACOperationType::Label, label_false);
 
   return tac_list;
@@ -101,10 +101,10 @@ TACListPtr TACFactory::MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACL
 
 TACListPtr TACFactory::MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt) {
   auto new_stmt = NewTACList();
-  (*new_stmt) += *stmt;
+  (*new_stmt) += stmt;
   (*new_stmt) += NewTAC(TACOperationType::Goto, label_cont);
   auto tac_list = NewTACList(NewTAC(TACOperationType::Label, label_cont));
-  (*tac_list) += *MakeIf(cond, label_brk, new_stmt);
+  (*tac_list) += MakeIf(cond, label_brk, new_stmt);
   return tac_list;
 }
 TACListPtr TACFactory::MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont,
@@ -124,11 +124,12 @@ void TACBuilder::EnterSubscope() { symbol_stack_.emplace_back(cur_symtab_id_++);
 
 void TACBuilder::ExitSubscope() { symbol_stack_.pop_back(); }
 
-SymbolPtr TACBuilder::CreateConst(int n) {
-  return TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(n));
-}
-SymbolPtr TACBuilder::CreateConst(float fn) {
-  return TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(fn));
+ExpressionPtr TACBuilder::CreateConstExp(int n) { return CreateConstExp(SymbolValue(n)); }
+ExpressionPtr TACBuilder::CreateConstExp(float fn) { return CreateConstExp(SymbolValue(fn)); }
+
+ExpressionPtr TACBuilder::CreateConstExp(SymbolValue v) {
+  return TACFactory::Instance()->NewExp(nullptr,
+                                        TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, v));
 }
 
 SymbolPtr TACBuilder::CreateText(const std::string &text) {
@@ -203,7 +204,7 @@ TACListPtr TACBuilder::CreateFunction(const std::string &name, ParamListPtr para
   return TACFactory::Instance()->MakeFunction(func_label, params, body);
 }
 
-SymbolPtr TACBuilder::FindSymbolWithName(const std::string &name){
+SymbolPtr TACBuilder::FindSymbolWithName(const std::string &name) {
   for (auto s_it = symbol_stack_.rbegin(); s_it != symbol_stack_.rend(); ++s_it) {
     if (auto it = s_it->find(name); it != s_it->end()) {
       return it->second;
@@ -223,6 +224,73 @@ SymbolPtr TACBuilder::FindFunctionLabel(const std::string &name) {
 SymbolPtr TACBuilder::FindCustomerLabel(const std::string &name) {
   std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToCustomerLabelName(name));
   return FindSymbolWithName(label_name);
+}
+
+ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, ExpressionPtr exp1, ExpressionPtr exp2) {
+  if (exp1->ret->type_ == SymbolType::Constant) {
+    auto val1 = exp1->ret->value_;
+    switch (arith_op) {
+      case TACOperationType::UnaryPositive:
+        return CreateConstExp(+val1);
+
+      case TACOperationType::UnaryMinus:
+        return CreateConstExp(-val1);
+
+      case TACOperationType::UnaryNot:
+        return CreateConstExp(!val1);
+
+      default:
+        break;
+    }
+    if (exp2->ret->type_ == SymbolType::Constant) {
+      auto val2 = exp2->ret->value_;
+      switch (arith_op) {
+        case TACOperationType::Add:
+          return CreateConstExp(val1 + val2);
+        case TACOperationType::Sub:
+          return CreateConstExp(val1 - val2);
+        case TACOperationType::Mul:
+          return CreateConstExp(val1 * val2);
+        case TACOperationType::Div:
+          return CreateConstExp(val1 / val2);
+        case TACOperationType::Mod:
+          return CreateConstExp(val1 % val2);
+        case TACOperationType::LessThan:
+          return CreateConstExp(val1 < val2);
+        case TACOperationType::LessOrEqual:
+          return CreateConstExp(val1 <= val2);
+        case TACOperationType::GreaterThan:
+          return CreateConstExp(val1 > val2);
+        case TACOperationType::GreaterOrEqual:
+          return CreateConstExp(val1 >= val2);
+        case TACOperationType::Equal:
+          return CreateConstExp(val1 == val2);
+        case TACOperationType::NotEqual:
+          return CreateConstExp(val1 != val2);
+        case TACOperationType::LogicAnd:
+          return CreateConstExp(val1 && val2);
+        case TACOperationType::LogicOr:
+          return CreateConstExp(val1 || val2);
+        default:
+          Error("Unknown operation type : " + std::to_string((int)arith_op));
+          return nullptr;
+      }
+    }
+  }
+
+  switch (arith_op) {
+    case TACOperationType::UnaryPositive:
+    case TACOperationType::UnaryMinus:
+    case TACOperationType::UnaryNot: {
+      auto tmpSym = CreateTempVariable(exp1->ret->value_.Type());
+      auto tac_list = TACFactory::Instance()->NewTACList();
+      (*tac_list) += exp1->tac;
+      (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
+    }
+
+    default:
+      break;
+  }
 }
 
 }  // namespace ThreeAddressCode

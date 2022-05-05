@@ -1,7 +1,7 @@
 #pragma once
 
-#include <memory>
 #include <list>
+#include <memory>
 #include "MacroUtil.hh"
 
 namespace HaveFunCompiler {
@@ -13,13 +13,18 @@ enum class TACOperationType {
   Sub,
   Mul,
   Div,
+  Mod,
   Equal,
   NotEqual,
   LessThan,
   LessOrEqual,
   GreaterThan,
   GreaterOrEqual,
+  LogicAnd,
+  LogicOr,
   UnaryMinus,
+  UnaryNot,
+  UnaryPositive,
   Assign,
   Goto,
   IfZero,
@@ -61,6 +66,8 @@ class ThreeAddressCodeList {
   ThreeAddressCodeList &operator=(const ThreeAddressCodeList &other);
 
   ThreeAddressCodeList &operator+=(const ThreeAddressCodeList &other);
+
+  ThreeAddressCodeList &operator+=(std::shared_ptr<ThreeAddressCodeList> other);
 
   ThreeAddressCodeList &operator+=(std::shared_ptr<ThreeAddressCode> other);
 

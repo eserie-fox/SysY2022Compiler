@@ -25,6 +25,13 @@ ThreeAddressCodeList &ThreeAddressCodeList::operator+=(const ThreeAddressCodeLis
   return *this;
 }
 
+ThreeAddressCodeList &ThreeAddressCodeList::operator+=(std::shared_ptr<ThreeAddressCodeList> other) {
+  if (other == nullptr) {
+    return *this;
+  }
+  return (*this += *other);
+}
+
 ThreeAddressCodeList &ThreeAddressCodeList::operator+=(std::shared_ptr<ThreeAddressCode> other) {
   list_.push_back(other);
   return *this;

@@ -52,7 +52,7 @@ class TACFactory {
   TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
   TACListPtr MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
-                      TACListPtr stmt_false);
+                        TACListPtr stmt_false);
   TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt);
   TACListPtr MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont, SymbolPtr label_brk,
                      TACListPtr stmt);
@@ -86,8 +86,9 @@ class TACBuilder {
     compiler_stack_.Pop(p);
   }
 
-  SymbolPtr CreateConst(int n);
-  SymbolPtr CreateConst(float fn);
+  ExpressionPtr CreateConstExp(int n);
+  ExpressionPtr CreateConstExp(float fn);
+  ExpressionPtr CreateConstExp(SymbolValue v);
   SymbolPtr CreateText(const std::string &text);
 
   SymbolPtr CreateFunctionLabel(const std::string &name);
@@ -103,8 +104,10 @@ class TACBuilder {
   TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false, SymbolPtr *out_label_true,
                           SymbolPtr *out_label_false);
   TACListPtr CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
-  TACListPtr CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt, SymbolPtr*out_label_cont,
-                       SymbolPtr *out_label_brk);
+  TACListPtr CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt,
+                       SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
+
+  ExpressionPtr CreateArithmeticOperation(TACOperationType arith_op, ExpressionPtr exp1, ExpressionPtr exp2 = nullptr);
 
   //查找Variant
   SymbolPtr FindVariant(const std::string &name);
