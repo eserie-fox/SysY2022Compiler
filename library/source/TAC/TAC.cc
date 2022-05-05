@@ -1,6 +1,7 @@
 #include "TAC/TAC.hh"
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
@@ -14,7 +15,7 @@ SymbolPtr TACFactory::NewSymbol(SymbolType type, std::optional<std::string> name
   return sym;
 }
 
-ThreeAddressCodePtr TACFactory::NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b, SymbolPtr c) {
+ThreeAddressCodePtr TACFactory::NewTAC(TACOperationType operation, SymbolPtr a, SymbolPtr b, SymbolPtr c) {
   ThreeAddressCodePtr tac = std::make_shared<ThreeAddressCode>();
   tac->operation_ = operation;
   tac->a_ = a;
@@ -346,11 +347,43 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
       auto tac_list = TACFactory::Instance()->NewTACList();
       (*tac_list) += exp1->tac;
       (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
+      (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret);
+      return TACFactory::Instance()->NewExp(tac_list, tmpSym);
     }
-
+    case TACOperationType::Add:
+    case TACOperationType::Sub:
+    case TACOperationType::Mul:
+    case TACOperationType::Div:
+    case TACOperationType::Mod:
+    case TACOperationType::LessThan:
+    case TACOperationType::LessOrEqual:
+    case TACOperationType::GreaterThan:
+    case TACOperationType::GreaterOrEqual:
+    case TACOperationType::Equal:
+    case TACOperationType::NotEqual:
+    case TACOperationType::LogicAnd:
+    case TACOperationType::LogicOr:{
+      auto tac_list = TACFactory::Instance()->NewTACList();
+      (*tac_list) += exp1->tac;
+      (*tac_list) += exp2->tac;
+      if(exp1->ret->value_.Type() == SymbolValue::ValueType::Float|| exp2->ret->value_.Type() == SymbolValue::ValueType::Float){
+        auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
+        (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
+        (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret,exp2->ret);
+        return TACFactory::Instance()->NewExp(tac_list, tmpSym);
+      }
+      else{
+        auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
+        (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
+        (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret,exp2->ret);
+        return TACFactory::Instance()->NewExp(tac_list, tmpSym);
+      }
+    }
     default:
       break;
   }
+  throw std::runtime_error("Not TAC operation type is" + std::to_string((int)arith_op));
+  
 }
 
 }  // namespace ThreeAddressCode

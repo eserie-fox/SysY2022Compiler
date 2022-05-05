@@ -38,7 +38,8 @@ class TACFactory {
   SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, int offset = 0,
                       SymbolValue value = {});
   //新TAC
-  ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a, SymbolPtr b = nullptr, SymbolPtr c = nullptr);
+  ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b = nullptr,
+                             SymbolPtr c = nullptr);
   //新表达式
   ExpressionPtr NewExp(TACListPtr tac, SymbolPtr ret);
   //新实参列表，用于Call函数
