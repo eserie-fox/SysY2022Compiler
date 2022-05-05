@@ -213,6 +213,66 @@ SymbolPtr TACBuilder::FindSymbolWithName(const std::string &name) {
   return nullptr;
 }
 
+TACListPtr TACBuilder::CreateCall(const std::string &func_name, ArgListPtr args) {
+  auto func_label = FindFunctionLabel(func_name);
+  if (func_label == nullptr) {
+    Error("Function with name '" + func_name + "' is not found!");
+    return nullptr;
+  }
+  return TACFactory::Instance()->MakeCall(func_label, args);
+}
+TACListPtr TACBuilder::CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym) {
+  auto func_label = FindFunctionLabel(func_name);
+  if (func_label == nullptr) {
+    Error("Function with name '" + func_name + "' is not found!");
+    return nullptr;
+  }
+  return TACFactory::Instance()->MakeCallWithRet(func_label, args, ret_sym);
+}
+TACListPtr TACBuilder::CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label){
+  auto label = CreateTempLabel();
+  if (out_label) {
+    *out_label = label;
+  }
+  return TACFactory::Instance()->MakeIf(cond, label, stmt);
+}
+TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false,
+                                    SymbolPtr *out_label_true, SymbolPtr *out_label_false) {
+  auto label_true = CreateTempLabel();
+  auto label_false = CreateTempLabel();
+  if (out_label_true) {
+    *out_label_true = label_true;
+  }
+  if (out_label_false) {
+    *out_label_false = label_false;
+  }
+  return TACFactory::Instance()->MakeIfElse(cond, label_true, stmt_true, label_false, stmt_false);
+}
+TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label_cont,
+                                   SymbolPtr *out_label_brk) {
+  auto label_cont = CreateTempLabel();
+  auto label_brk = CreateTempLabel();
+  if (out_label_cont) {
+    *out_label_cont = label_cont;
+  }
+  if (out_label_brk) {
+    *out_label_brk = label_brk;
+  }
+  return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, stmt);
+}
+TACListPtr TACBuilder::CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt,
+                                 SymbolPtr *out_label_cont, SymbolPtr *out_label_brk) {
+  auto label_cont = CreateTempLabel();
+  auto label_brk = CreateTempLabel();
+  if (out_label_cont) {
+    *out_label_cont = label_cont;
+  }
+  if (out_label_brk) {
+    *out_label_brk = label_brk;
+  }
+  return TACFactory::Instance()->MakeFor(init, cond, modify, label_cont, label_brk, stmt);
+}
+
 SymbolPtr TACBuilder::FindVariant(const std::string &name) {
   std::string var_name = AppendScopePrefix(TACFactory::Instance()->ToVariableName(name));
   return FindSymbolWithName(var_name);
