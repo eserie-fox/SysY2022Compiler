@@ -29,27 +29,46 @@ struct SymbolValue {
     Str,
     Parameters,
   };
+  SymbolValue(const SymbolValue &other);
   SymbolValue();
   SymbolValue(float v);
   SymbolValue(int v);
   SymbolValue(const char *v);
   SymbolValue(std::shared_ptr<ParameterList> v);
-  float GetFloat();
-  int GetInt();
-  const char *GetStr();
-  std::shared_ptr<ParameterList> GetParameters();
+  float GetFloat() const;
+  int GetInt() const;
+  const char *GetStr() const;
+  std::shared_ptr<ParameterList> GetParameters() const;
 
   void SetType(ValueType type) { this->type = type; }
   ValueType Type() const { return type; }
+  //是否是数值类型
+  bool IsNumericType() const;
+
+  SymbolValue &operator=(const SymbolValue &other);
+
+  SymbolValue operator+(const SymbolValue &other) const;
+  SymbolValue operator-(const SymbolValue &other) const;
+  SymbolValue operator*(const SymbolValue &other) const;
+  SymbolValue operator/(const SymbolValue &other) const;
+  SymbolValue operator%(const SymbolValue &other) const;
+  SymbolValue operator!() const;
+  SymbolValue operator+() const;
+  SymbolValue operator-() const;
+  SymbolValue operator<(const SymbolValue &other) const;
+  SymbolValue operator>(const SymbolValue &other) const;
+  SymbolValue operator<=(const SymbolValue &other) const;
+  SymbolValue operator>=(const SymbolValue &other) const;
+  SymbolValue operator==(const SymbolValue &other) const;
+  SymbolValue operator!=(const SymbolValue &other) const;
+  SymbolValue operator&&(const SymbolValue &other) const;
+  SymbolValue operator||(const SymbolValue &other) const;
+
+  operator bool() const;
 
  private:
-  std::variant<float, int, const char *, std::shared_ptr<ParameterList>> value;
-  union {
-    float floatValue;
-    int intValue;
-    const char *strValue;
-  };
   ValueType type;
+  std::variant<float, int, const char *, std::shared_ptr<ParameterList>> value;
 };
 
 struct Symbol {
