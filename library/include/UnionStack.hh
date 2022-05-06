@@ -52,10 +52,14 @@ class UnionStack : protected std::stack<UnionStackItem> {
    void Push(T v) {
      push(UnionStackItem(v));
    }
+   
    template <typename T>
-   void Pop(T *p) {
+   void Top(T *p){
      auto tp = top();
      tp.Get(p);
+   }
+
+   void Pop() {
      pop();
    }
 };

@@ -25,9 +25,11 @@ add_library(HaveFunParser STATIC ${srcs})
 target_include_directories(HaveFunParser
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR})
+    ${CMAKE_CURRENT_BINARY_DIR}
+    "../include")
 
 find_library(LEX_LIB lexlib)
 target_link_libraries(HaveFunParser
     PUBLIC
-    ${lexlib})
+    ${lexlib}
+    HaveFunLib)

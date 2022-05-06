@@ -83,8 +83,12 @@ class TACBuilder {
     compiler_stack_.Push(v);
   }
   template <typename T>
-  void Pop(T *p) {
-    compiler_stack_.Pop(p);
+  void Top(T *p) {
+    compiler_stack_.Top(p);
+  }
+  
+  void Pop() {
+    compiler_stack_.Pop();
   }
 
   ExpressionPtr CreateConstExp(int n);
@@ -117,6 +121,10 @@ class TACBuilder {
 
   void Error(const std::string &message);
 
+  void SetTACList(TACListPtr tac_list);
+
+  TACListPtr GetTACList();
+
  private:
   std::string AppendScopePrefix(const std::string &name);
   SymbolPtr FindSymbolWithName(const std::string &name);
@@ -131,6 +139,8 @@ class TACBuilder {
   //储存text的表
   std::unordered_map<std::string, std::shared_ptr<Symbol>> text_tab_;
   std::vector<std::string> stored_text_;
+
+  TACListPtr tac_list_;
 };
 
 }  // namespace ThreeAddressCode

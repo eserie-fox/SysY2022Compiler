@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <istream>
 #include <string>
+#include <memory>
 
+#include "TAC/TAC.hh"
 #include "HFParser.hh"
 #include "HFScanner.hh"
 
@@ -18,32 +20,20 @@ class Driver {
 
   void parse(std::istream &iss);
 
-  void add_upper();
-
-  void add_lower();
-
-  void add_word(const std::string &word);
-
-  void add_newline();
-
-  void add_char();
-
   std::ostream &print(std::ostream &stream);
+
+  std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACBuilder> get_tacbuilder() const { return tacbuilder; }
 
  private:
   void parse_helper(std::istream &stream);
 
-  std::size_t chars = 0;
-  std::size_t words = 0;
-  std::size_t lines = 0;
-  std::size_t uppercase = 0;
-  std::size_t lowercase = 0;
   HaveFunCompiler::Parser::Parser *parser = nullptr;
   HaveFunCompiler::Parser::Scanner *scanner = nullptr;
+  std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACBuilder> tacbuilder = nullptr;
 
-  const std::string red = "\033[1;31m";
-  const std::string blue = "\033[1;36m";
-  const std::string norm = "\033[0m";
+  // const std::string red = "\033[1;31m";
+  // const std::string blue = "\033[1;36m";
+  // const std::string norm = "\033[0m";
 };
 }  // namespace Parser
 }  // namespace HaveFunCompiler

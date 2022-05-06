@@ -8,12 +8,14 @@ TEST(TACBuilder, CompilerStack) {
     TACBuilder builder;
     builder.Push(5);
     int v;
-    builder.Pop(&v);
+    builder.Top(&v);
+    builder.Pop();
     void *p = (void *)0x12345678;
     EXPECT_EQ(5, v);
     builder.Push(p);
     p = nullptr;
-    builder.Pop(&p);
+    builder.Top(&p);
+    builder.Pop();
     EXPECT_EQ(p, (void *)0x12345678);
 }
 

@@ -14,6 +14,11 @@
     }
   }
 
+#include "TAC/TAC.hh"
+using TACListPtr = HaveFunCompiler::ThreeAddressCode::TACListPtr;
+using ExpressionPtr = HaveFunCompiler::ThreeAddressCode::ExpressionPtr;
+using TACFactory = HaveFunCompiler::ThreeAddressCode::TACFactory;
+using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 
 // The following definitions is missing when %locations isn't used
 # ifndef YY_NULLPTR
@@ -38,9 +43,12 @@
   #include <fstream>
   
   #include "Driver.hh"
+  
 
 #undef yylex
 #define yylex scanner.yylex
+#define tacbuilder driver.get_tacbuilder()
+#define tacfactory TACFactory::Instance()
 }
 
 %define api.value.type variant
@@ -63,6 +71,10 @@
 %left '+' '-'
 %left '*' '/'
 
+%type <TACListPtr> CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef ConstInitVal ConstExp_list ConstInitVal_list VarDef_list VarDef InitVal InitVal_list Block FuncFParams FuncFParam BlockItem_list BlockItem Stmt LVal PrimaryExp UnaryOp FuncRParams
+%type <ExpressionPtr> ConstExp Exp Exp_list Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp 
+/* %type <HaveFunCompiler::parser::SymbolPtr> */
+
 %locations
 
 %%
@@ -70,8 +82,15 @@
 
 CompUnit
   : CompUnit Decls
+  {
+     $$ = TACFactory::Instance()->NewTACList((*$1) + (*$2));
+     tacbuilder->SetTACList($$);
+  }
   | Decls
-  ;
+  {
+    $$ = $1;
+    tacbuilder->SetTACList($$);
+  };
 
 Decls
   : Decl
@@ -83,20 +102,46 @@ Decl
   | VarDecl
   ;
 
-ConstDecl: CONST BType ConstDef_list ';' ;
+ConstDecl: CONST BType ConstDef_list ';' 
+{
+  $$ = $3;
+  tacbuilder->Pop();
+};
 
 ConstDef_list
   : ConstDef
   | ConstDef_list ',' ConstDef
+  {
+     $$ = TACFactory::Instance()->NewTACList((*$1) + (*$2));
+  }
   ;
 
 BType
   : INT
+  {
+    tacbuilder->Push((int)ValueType::Int);
+  }
   | FLOAT
+  {
+    tacbuilder->Push((int)ValueType::Float);
+  }
   ;
 
 ConstDef
   : IDENTIFIER '=' ConstInitVal
+  {
+    int type;
+    tacbuilder->Top(&type);
+    switch(type){
+      case (int)ValueType::Int:
+        auto sym = $3->ret;
+        
+      case (int)ValueType::Float:
+
+      default:
+        break;
+    }
+  }
   | IDENTIFIER ConstExp_list '=' ConstInitVal
   ;
 

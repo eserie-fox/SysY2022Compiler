@@ -383,8 +383,11 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
       break;
   }
   throw std::runtime_error("Not TAC operation type is" + std::to_string((int)arith_op));
-  
 }
+
+void TACBuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }
+
+TACListPtr TACBuilder::GetTACList() { return tac_list_; }
 
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler
