@@ -45,6 +45,8 @@ struct ThreeAddressCode {
   std::shared_ptr<Symbol> a_;
   std::shared_ptr<Symbol> b_;
   std::shared_ptr<Symbol> c_;
+
+  std::string ToString() const;
 };
 
 class ThreeAddressCodeList {
@@ -72,6 +74,8 @@ class ThreeAddressCodeList {
   ThreeAddressCodeList &operator+=(std::shared_ptr<ThreeAddressCode> other);
 
   std::shared_ptr<ThreeAddressCodeList> MakeCopy() const;
+
+  std::string ToString() const;
 
   // iterators
   iterator begin() { return list_.begin(); }
