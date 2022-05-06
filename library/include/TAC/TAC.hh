@@ -61,7 +61,7 @@ class TACFactory {
   std::string ToFuncLabelName(const std::string name);
   std::string ToCustomerLabelName(const std::string name);
   std::string ToTempLabelName(uint64_t id);
-  std::string ToVariableName(const std::string name);
+  std::string ToVariableOrConstantName(const std::string name);
   std::string ToTempVariableName(uint64_t id);
 
  private:
@@ -90,6 +90,7 @@ class TACBuilder {
   ExpressionPtr CreateConstExp(int n);
   ExpressionPtr CreateConstExp(float fn);
   ExpressionPtr CreateConstExp(SymbolValue v);
+  bool BindConstName(const std::string &name, SymbolPtr constant);
   SymbolPtr CreateText(const std::string &text);
 
   SymbolPtr CreateFunctionLabel(const std::string &name);
@@ -111,7 +112,7 @@ class TACBuilder {
   ExpressionPtr CreateArithmeticOperation(TACOperationType arith_op, ExpressionPtr exp1, ExpressionPtr exp2 = nullptr);
 
   //查找Variant
-  SymbolPtr FindVariant(const std::string &name);
+  SymbolPtr FindVariableOrConstant(const std::string &name);
   SymbolPtr FindFunctionLabel(const std::string &name);
   SymbolPtr FindCustomerLabel(const std::string &name);
 
