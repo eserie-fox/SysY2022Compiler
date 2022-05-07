@@ -20,6 +20,8 @@ enum class SymbolType {
 };
 class ParameterList;
 
+class ArrayDescriptor;
+
 struct SymbolValue {
  public:
   enum class ValueType {
@@ -28,6 +30,7 @@ struct SymbolValue {
     Int,
     Str,
     Parameters,
+    Array,
   };
   SymbolValue(const SymbolValue &other);
   SymbolValue();
@@ -35,10 +38,12 @@ struct SymbolValue {
   SymbolValue(int v);
   SymbolValue(const char *v);
   SymbolValue(std::shared_ptr<ParameterList> v);
+  SymbolValue(std::shared_ptr<ArrayDescriptor> v);
   float GetFloat() const;
   int GetInt() const;
   const char *GetStr() const;
   std::shared_ptr<ParameterList> GetParameters() const;
+  std::shared_ptr<ArrayDescriptor> GetArrayDescriptor() const;
 
   void SetType(ValueType type) { this->type = type; }
   ValueType Type() const { return type; }
@@ -68,8 +73,10 @@ struct SymbolValue {
 
  private:
   ValueType type;
-  std::variant<float, int, const char *, std::shared_ptr<ParameterList>> value;
+  std::variant<float, int, const char *, std::shared_ptr<ParameterList>, std::shared_ptr<ArrayDescriptor>> value;
 };
+
+extern const std::unordered_map<SymbolValue::ValueType, size_t> ValueTypeSize;
 
 struct Symbol {
   SymbolType type_;
@@ -77,6 +84,15 @@ struct Symbol {
   std::optional<std::string> name_;
   int offset_;
   SymbolValue value_;
+};
+
+class ArrayDescriptor {
+ public:
+  std::weak_ptr<Symbol> base_addr;
+  size_t base_offset;
+  SymbolValue value_type;
+  std::vector<int> dimensions;
+  std::shared_ptr<std::vector<std::shared_ptr<SymbolValue>>> subarray;
 };
 
 class ParameterList : protected std::vector<std::shared_ptr<Symbol>> {

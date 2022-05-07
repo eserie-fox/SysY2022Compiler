@@ -21,9 +21,11 @@ using TACListPtr = std::shared_ptr<ThreeAddressCodeList>;
 using ExpressionPtr = std::shared_ptr<Expression>;
 using ArgListPtr = std::shared_ptr<ArgumentList>;
 using ParamListPtr = std::shared_ptr<ParameterList>;
+using ArrayDescriptorPtr = std::shared_ptr<ArrayDescriptor>;
 
 class TACFactory {
   NONCOPYABLE(TACFactory)
+  friend class TACBuilder;
  public:
   static TACFactory *Instance() {
     static TACFactory factory;
@@ -46,9 +48,15 @@ class TACFactory {
   ArgListPtr NewArgList();
   //新形参列表，用于定义函数
   ParamListPtr NewParamList();
+  ArrayDescriptorPtr NewArrayDescriptor();
 
+  private:
   TACListPtr MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
+
+  SymbolPtr AccessArray(SymbolPtr array, std::vector<int> pos);
+  ExpressionPtr MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array);
+
   TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
   TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
@@ -86,12 +94,44 @@ class TACBuilder {
   void Pop(T *p) {
     compiler_stack_.Pop(p);
   }
+  //新TAC列表
+  template <typename... _Args>
+  inline std::shared_ptr<ThreeAddressCodeList> NewTACList(_Args &&...__args) {
+    return TACFactory::Instance()->NewTACList(std::forward<_Args>(__args)...);
+  }
+  //新Symbol
+  inline SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, int offset = 0,
+                      SymbolValue value = {}) {
+    return TACFactory::Instance()->NewSymbol(type, name, offset, value);
+  }
+  //新TAC
+  inline ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b = nullptr,
+                                    SymbolPtr c = nullptr) {
+    return TACFactory::Instance()->NewTAC(operation, a, b, c);
+  }
+  //新表达式
+  inline ExpressionPtr NewExp(TACListPtr tac, SymbolPtr ret) { return TACFactory::Instance()->NewExp(tac, ret); }
+  //新实参列表，用于Call函数
+  inline ArgListPtr NewArgList(){
+    return TACFactory::Instance()->NewArgList();
+  }
+  //新形参列表，用于定义函数
+  inline ParamListPtr NewParamList(){
+    return TACFactory::Instance()->NewParamList();
+  }
+  inline ArrayDescriptorPtr NewArrayDescriptor(){
+    return TACFactory::Instance()->NewArrayDescriptor();
+  }
 
   ExpressionPtr CreateConstExp(int n);
   ExpressionPtr CreateConstExp(float fn);
   ExpressionPtr CreateConstExp(SymbolValue v);
   bool BindConstName(const std::string &name, SymbolPtr constant);
   SymbolPtr CreateText(const std::string &text);
+
+  //如果是常量，返回来的直接可以用
+  ExpressionPtr CastFloatToInt(ExpressionPtr expF);
+  ExpressionPtr CastIntToFloat(ExpressionPtr expI);
 
   SymbolPtr CreateFunctionLabel(const std::string &name);
   SymbolPtr CreateCustomerLabel(const std::string &name);

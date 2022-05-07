@@ -1,12 +1,15 @@
 #include "TAC/Symbol.hh"
 #include <cassert>
-#include <stdexcept>
-#include <exception>
-#include <string>
 #include <cmath>
+#include <exception>
+#include <stdexcept>
+#include <string>
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
+
+const std::unordered_map<SymbolValue::ValueType, size_t> ValueTypeSize = {{SymbolValue::ValueType::Float, 4},
+                                                                          {SymbolValue::ValueType::Int, 4}};
 
 SymbolValue::SymbolValue() { type = ValueType::Void; }
 
@@ -52,6 +55,12 @@ std::shared_ptr<ParameterList> SymbolValue::GetParameters() const {
   }
   return std::get<std::shared_ptr<ParameterList>>(value);
 }
+std::shared_ptr<ArrayDescriptor> SymbolValue::GetArrayDescriptor() const {
+  if (type != ValueType::Array) {
+    throw std::runtime_error("Type mismatch in SymbolValue::GetArrayDescriptor");
+  }
+  return std::get<std::shared_ptr<ArrayDescriptor>>(value);
+}
 
 SymbolValue &SymbolValue::operator=(const SymbolValue &other) {
   type = other.type;
@@ -86,7 +95,7 @@ SymbolValue SymbolValue::operator+(const SymbolValue &other) const {
   }
   return SymbolValue(GetInt() + other.GetInt());
 }
-SymbolValue SymbolValue::operator-(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator-(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
@@ -107,7 +116,7 @@ SymbolValue SymbolValue::operator-(const SymbolValue &other) const {
   }
   return SymbolValue(GetInt() - other.GetInt());
 }
-SymbolValue SymbolValue::operator*(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator*(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
@@ -128,7 +137,7 @@ SymbolValue SymbolValue::operator*(const SymbolValue &other) const {
   }
   return SymbolValue(GetInt() * other.GetInt());
 }
-SymbolValue SymbolValue::operator/(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator/(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
@@ -149,7 +158,7 @@ SymbolValue SymbolValue::operator/(const SymbolValue &other) const {
   }
   return SymbolValue(GetInt() / other.GetInt());
 }
-SymbolValue SymbolValue::operator%(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator%(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
@@ -164,7 +173,7 @@ SymbolValue SymbolValue::operator%(const SymbolValue &other) const {
     if (other.type == ValueType::Float) {
       res = std::fmod(res, other.GetFloat());
     } else {
-      res = std::fmod(res,  static_cast<double>(other.GetInt()));
+      res = std::fmod(res, static_cast<double>(other.GetInt()));
     }
     return SymbolValue(res);
   }
@@ -175,168 +184,155 @@ SymbolValue SymbolValue::operator+() const {
   if (!IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type));
   }
-  return *this; 
+  return *this;
 }
-SymbolValue SymbolValue::operator-() const { 
+SymbolValue SymbolValue::operator-() const {
   if (!IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type));
   }
-  if (type == ValueType::Float){
+  if (type == ValueType::Float) {
     float res;
     res = GetFloat();
     return SymbolValue(-res);
-  }
-  else{
+  } else {
     int res = GetInt();
     return SymbolValue(-res);
   }
 }
-SymbolValue SymbolValue::operator<(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator<(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
   }
-  if(type == ValueType::Float){
+  if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal < OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal < OtherVal));
     }
-  }
-  else{
+  } else {
     int ThisVal = GetInt();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal < OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal < OtherVal));
     }
   }
 }
-SymbolValue SymbolValue::operator>(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator>(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
   }
-  return other < *this; 
+  return other < *this;
 }
-SymbolValue SymbolValue::operator<=(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator<=(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
   }
-  return !(other < *this); 
+  return !(other < *this);
 }
-SymbolValue SymbolValue::operator>=(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator>=(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
   }
-  return !(*this < other); 
+  return !(*this < other);
 }
-SymbolValue SymbolValue::operator==(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator==(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
   }
-  if(type == ValueType::Float){
+  if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal == OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal == OtherVal));
     }
-  }
-  else{
+  } else {
     int ThisVal = GetInt();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal == OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal == OtherVal));
     }
   }
 }
 SymbolValue SymbolValue::operator!=(const SymbolValue &other) const { return !(*this == other); }
-SymbolValue SymbolValue::operator&&(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator&&(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
   }
-  if(type == ValueType::Float){
+  if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal && OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal && OtherVal));
     }
-  }
-  else{
+  } else {
     int ThisVal = GetInt();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal && OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal && OtherVal));
     }
   }
 }
-SymbolValue SymbolValue::operator||(const SymbolValue &other) const { 
+SymbolValue SymbolValue::operator||(const SymbolValue &other) const {
   if (!IsNumericType() || !other.IsNumericType()) {
     throw std::runtime_error("Not numeric type : " + std::to_string((int)type) + ", " +
                              std::to_string((int)other.type));
   }
-  if(type == ValueType::Float){
+  if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal || OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal || OtherVal));
     }
-  }
-  else{
+  } else {
     int ThisVal = GetInt();
-    if(type == ValueType::Float){
+    if (type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal || OtherVal));
-    }
-    else{
+    } else {
       int OtherVal = other.GetInt();
       return SymbolValue((int)(ThisVal || OtherVal));
     }
   }
-  }
+}
 
 SymbolValue::operator bool() const {
   if (type == ValueType::Void) {

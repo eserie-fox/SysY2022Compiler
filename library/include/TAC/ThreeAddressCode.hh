@@ -38,6 +38,8 @@ enum class TACOperationType {
   Argument,
   Call,
   Return,
+  FloatToInt,
+  IntToFloat,
 };
 
 struct ThreeAddressCode {
@@ -58,6 +60,7 @@ class ThreeAddressCodeList {
   ThreeAddressCodeList() = default;
   //复制构造
   ThreeAddressCodeList(const ThreeAddressCodeList &other);
+  ThreeAddressCodeList(std::shared_ptr< ThreeAddressCodeList>other_ptr);
   //移动
   ThreeAddressCodeList(ThreeAddressCodeList &&move_obj);
   //单语句
