@@ -123,6 +123,10 @@ class TACBuilder {
     return TACFactory::Instance()->NewArrayDescriptor();
   }
 
+  inline ExpressionPtr CreateAssign(SymbolPtr var, ExpressionPtr exp){
+    return TACFactory::Instance()->MakeAssign(var, exp);
+  }
+
   ExpressionPtr CreateConstExp(int n);
   ExpressionPtr CreateConstExp(float fn);
   ExpressionPtr CreateConstExp(SymbolValue v);
