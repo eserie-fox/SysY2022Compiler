@@ -71,9 +71,11 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 %left '+' '-'
 %left '*' '/'
 
-%type <TACListPtr> CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef ConstInitVal ConstExp_list ConstInitVal_list VarDef_list VarDef InitVal InitVal_list Block FuncFParams FuncFParam BlockItem_list BlockItem Stmt LVal PrimaryExp UnaryOp FuncRParams
-%type <ExpressionPtr> ConstExp Exp Exp_list Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp 
+%type <TACListPtr> CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef ConstExp_list ConstInitVal_list VarDef_list InitVal_list Block BlockItem_list BlockItem Stmt LVal PrimaryExp UnaryOp FuncRParams
+%type <ExpressionPtr> ConstExp Exp Exp_list Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal
 /* %type <HaveFunCompiler::parser::SymbolPtr> */
+%type <ParamListPtr> FuncFParams 
+%type <SymbolPtr> FuncFParam
 
 %locations
 
@@ -134,11 +136,19 @@ ConstDef
     tacbuilder->Top(&type);
     switch(type){
       case (int)ValueType::Int:
-        auto sym = $3->ret;
-        
+        Symbol sym = $3->ret;
+        sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
+        sym->value_ = (int)$3->ret->value_;
+        sym->value_.type = HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType::Int;
+        tacbuilder->BindConstName($1,sym);
       case (int)ValueType::Float:
-
+        Symbol sym = $3->ret;
+        sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
+        sym->value_ = $3->ret->value_;
+        sym->value_.type = HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType::Float;
+        tacbuilder->BindConstName($1,sym);
       default:
+        throw std::runtime_error("Not const type : " + std::to_string((int)type));
         break;
     }
   }
@@ -152,13 +162,16 @@ ConstExp_list
 
 ConstInitVal
   : ConstExp
+  {
+    $$ = $1;
+  }
   | '{' '}'
   | '{' ConstInitVal_list '}'
   ;
 
 ConstInitVal_list
   : ConstInitVal
-  | ConstDef_list ',' ConstInitVal
+  | ConstInitVal_list ',' ConstInitVal
   ;
 
 VarDecl: BType VarDef_list ';' ;
@@ -169,12 +182,31 @@ VarDef_list
   ;
 
 VarDef
-  : IDENTIFIER ConstExp_list
+  : IDENTIFIER
+  {
+    int type;
+    SymbolPtr var;
+    tacbuilder->Top(&type);
+    var = TACBuilder::CreateVariable($1, type);
+    $$ = TACFactory::NewExp(nullptr, var);
+  }
+  | IDENTIFIER '=' InitVal
+  {
+    int type;
+    SymbolPtr var;
+    tacbuilder->Top(&type);
+    var = TACBuilder::CreateVariable($1, type);
+    $$ = TACFactory::MakeAssign(var, $3);
+  }
+  | IDENTIFIER ConstExp_list
   | IDENTIFIER ConstExp_list '=' InitVal
   ;
 
 InitVal
   : Exp
+  {
+    $$ = $1;
+  }
   | '{' '}'
   | '{' InitVal_list '}'
   ;
@@ -186,16 +218,37 @@ InitVal_list
 
 FuncDef 
   : VOID IDENTIFIER '(' FuncFParams ')' Block 
+  {
+    $$ = TACBuilder::CreateFunction($2, $4, $6);
+  }
   | BType IDENTIFIER '(' FuncFParams ')' Block 
+  {
+    $$ = TACBuilder::CreateFunction($2, $4, $6);
+  }
   ;
 
 FuncFParams
   : FuncFParam
+  {
+    ParamListPtr ls = TACFactory::NewParamList();
+    $$ = ls.push_back_parameter($1);
+  }
   | FuncFParams ',' FuncFParam
+  {
+    $$ = $1.push_back_parameter($3);
+  }
   ;
 
 FuncFParam
   : BType IDENTIFIER
+  {
+    int type;
+    SymbolPtr var;
+    tacbuilder->Top(&type);
+    var = TACBuilder::CreateVariable($1, type);
+    tacbuilder->Pop();
+    $$ = var;
+  }
   | BType IDENTIFIER '[' ']' Exp_list
   ;
 
@@ -213,6 +266,9 @@ Block
 BlockItem_list
   : BlockItem
   | BlockItem_list BlockItem
+  {
+    $$ = TACFactory::Instance()->NewTACList((*$1) + (*$2));
+  }
   ;
 
 BlockItem
@@ -222,11 +278,31 @@ BlockItem
 
 Stmt
   : LVal '=' Exp ';'
+  {
+    SymbolPtr var = TACBuilder::FindVariableOrConstant($1);
+    $$ = TACFactory::MakeAssign(var, $3)->tac;
+  }
   | Exp_list ';'
+  {
+    $$ = $1;
+  }
   | Block
   | IF '(' Cond ')' Stmt 
+  {
+    SymbolPtr label = TACFactory::Instance()->NewSymbol(SymbolType::Label);
+    $$ = TACFactory::MakeIf($3, label, $5);
+  }
   | IF '(' Cond ')' Stmt ELSE Stmt
+  {
+    SymbolPtr label_true;
+    tacbuilder->CreateIfElse($3,$5,$7,&label_true);
+
+    $$ = TACFactory::MakeIfElse($3, label_true, $5, label_false, $7);
+  }
   | WHILE '(' Cond ')' Stmt
+  {
+
+  }
   | BREAK ';'
   | CONTINUE ';'
   | RETURN ';'

@@ -21,7 +21,29 @@ TEST(TACBuilder, CompilerStack) {
 
 TEST(Symbol, SymbolValue) {
   using namespace HaveFunCompiler::ThreeAddressCode;
-  SymbolValue v((int)5);
-  EXPECT_ANY_THROW(v.GetFloat());
-  EXPECT_NO_THROW(v.GetInt());
+  SymbolValue a((int)5);
+  EXPECT_ANY_THROW(a.GetFloat());
+  EXPECT_NO_THROW(a.GetInt());
+  SymbolValue b((int)6);
+  auto c = a + b;
+  EXPECT_EQ(c.GetInt(), 11);
+  c = c - a;
+  EXPECT_EQ(c.GetInt(), 6);
+  c = c / a;
+  EXPECT_EQ(c.GetInt(), 1);
+  c = SymbolValue(5.0f);
+  c = a * c;
+  EXPECT_FLOAT_EQ(c.GetFloat(), 25.0f);
+}
+
+TEST(TACList, PrintValue) {
+  using namespace std;
+  using namespace HaveFunCompiler::ThreeAddressCode;
+  TACListPtr tac_list = TACFactory::Instance()->NewTACList();
+  auto int_a = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "a", 0, SymbolValue(0));
+  auto int_b = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "b", 0, SymbolValue(0));
+  auto int_c = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "c", 0, SymbolValue(0));
+  (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, int_a);
+  (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Assign, int_b, int_a);
+  cout << tac_list->ToString() << endl;
 }
