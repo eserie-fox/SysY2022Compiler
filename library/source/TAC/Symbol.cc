@@ -4,6 +4,7 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include "MagicEnum.hh"
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
@@ -15,49 +16,43 @@ SymbolValue::SymbolValue() { type = ValueType::Void; }
 
 SymbolValue::SymbolValue(const SymbolValue &other) : type(other.type), value(other.value) {}
 
-SymbolValue::SymbolValue(float v) {
-  value = v;
-  type = ValueType::Float;
-}
-SymbolValue::SymbolValue(int v) {
-  value = v;
-  type = ValueType::Int;
-}
-SymbolValue::SymbolValue(const char *v) {
-  value = v;
-  type = ValueType::Str;
-}
-SymbolValue::SymbolValue(std::shared_ptr<ParameterList> v) {
-  value = v;
-  type = ValueType::Parameters;
-}
+SymbolValue::SymbolValue(float v) : type(ValueType::Float), value(v) {}
+SymbolValue::SymbolValue(int v) : type(ValueType::Int), value(v) {}
+SymbolValue::SymbolValue(const char *v) : type(ValueType::Str), value(v) {}
+SymbolValue::SymbolValue(std::shared_ptr<ParameterList> v) : type(ValueType::Parameters), value(v) {}
+SymbolValue::SymbolValue(std::shared_ptr<ArrayDescriptor> v) : type(ValueType::Array), value(v) {}
 float SymbolValue::GetFloat() const {
   if (type != ValueType::Float) {
-    throw std::runtime_error("SymbolValue::GetFloat");
+    throw std::runtime_error("SymbolValue::GetFloat (Actually " + std::string(magic_enum::enum_name<ValueType>(type)) +
+                             ")");
   }
   return std::get<float>(value);
 }
 int SymbolValue::GetInt() const {
   if (type != ValueType::Int) {
-    throw std::runtime_error("Type mismatch in SymbolValue::GetInt");
+    throw std::runtime_error("Type mismatch in SymbolValue::GetInt (Actually " +
+                             std::string(magic_enum::enum_name<ValueType>(type)) + ")");
   }
   return std::get<int>(value);
 }
 const char *SymbolValue::GetStr() const {
   if (type != ValueType::Str) {
-    throw std::runtime_error("Type mismatch in SymbolValue::GetStr");
+    throw std::runtime_error("Type mismatch in SymbolValue::GetStr (Actually " +
+                             std::string(magic_enum::enum_name<ValueType>(type)) + ")");
   }
   return std::get<const char *>(value);
 }
 std::shared_ptr<ParameterList> SymbolValue::GetParameters() const {
   if (type != ValueType::Parameters) {
-    throw std::runtime_error("Type mismatch in SymbolValue::GetParameters");
+    throw std::runtime_error("Type mismatch in SymbolValue::GetParameters (Actually " +
+                             std::string(magic_enum::enum_name<ValueType>(type)) + ")");
   }
   return std::get<std::shared_ptr<ParameterList>>(value);
 }
 std::shared_ptr<ArrayDescriptor> SymbolValue::GetArrayDescriptor() const {
   if (type != ValueType::Array) {
-    throw std::runtime_error("Type mismatch in SymbolValue::GetArrayDescriptor");
+    throw std::runtime_error("Type mismatch in SymbolValue::GetArrayDescriptor (Actually " +
+                             std::string(magic_enum::enum_name<ValueType>(type)) + ")");
   }
   return std::get<std::shared_ptr<ArrayDescriptor>>(value);
 }

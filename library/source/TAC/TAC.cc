@@ -1,4 +1,5 @@
 #include "TAC/TAC.hh"
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -34,7 +35,11 @@ ExpressionPtr TACFactory::NewExp(TACListPtr tac, SymbolPtr ret) {
 
 ArgListPtr TACFactory::NewArgList() { return std::make_shared<ArgumentList>(); }
 ParamListPtr TACFactory::NewParamList() { return std::make_shared<ParameterList>(); }
-ArrayDescriptorPtr TACFactory::NewArrayDescriptor() { return std::make_shared<ArrayDescriptor>(); }
+ArrayDescriptorPtr TACFactory::NewArrayDescriptor() {
+  auto ret = std::make_shared<ArrayDescriptor>();
+  ret->subarray = std::make_shared<std::unordered_map<size_t, std::shared_ptr<Symbol>>>();
+  return ret;
+}
 
 TACListPtr TACFactory::MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body) {
   func_label->value_ = SymbolValue(params);
@@ -55,43 +60,132 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
   return NewExp(tac_list, var);
 }
 
-SymbolPtr TACFactory::AccessArray(SymbolPtr array, std::vector<int> pos) {
-  // TODO: implementation
+SymbolPtr TACFactory::AccessArray(SymbolPtr array, std::vector<size_t> pos) {
   auto arrayDescriptor = array->value_.GetArrayDescriptor();
   assert(pos.size() <= arrayDescriptor->dimensions.size());
+  if (pos.empty()) {
+    return array;
+  }
+  size_t idx = pos.front();
+  pos.erase(pos.cbegin());
+  if (arrayDescriptor->subarray->count(idx)) {
+    auto val = arrayDescriptor->subarray->at(idx);
+    return AccessArray(val, pos);
+  }
+
   auto nArrayDescriptor = NewArrayDescriptor();
-  nArrayDescriptor->base_addr = arrayDescriptor->base_addr;
-  nArrayDescriptor->value_type = arrayDescriptor->value_type;
-  nArrayDescriptor->base_offset = arrayDescriptor->base_offset;
+
   size_t size_sublen = 1;
-  for (size_t i = pos.size(); i < arrayDescriptor->dimensions.size(); i++) {
+  for (size_t i = 1; i < arrayDescriptor->dimensions.size(); i++) {
     size_sublen *= arrayDescriptor->dimensions[i];
     nArrayDescriptor->dimensions.push_back(arrayDescriptor->dimensions[i]);
   }
-  for (ssize_t i = (ssize_t)pos.size() - 1; i >= 0; i--) {
-    nArrayDescriptor->base_offset += pos[i] * size_sublen;
-    size_sublen *= arrayDescriptor->dimensions[i];
+
+  nArrayDescriptor->base_addr = arrayDescriptor->base_addr;
+  nArrayDescriptor->value_type = arrayDescriptor->value_type;
+  nArrayDescriptor->base_offset = arrayDescriptor->base_offset;
+  nArrayDescriptor->base_offset += idx * size_sublen;
+  arrayDescriptor->subarray->emplace(idx, NewSymbol(array->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor)));
+  return AccessArray(NewSymbol(array->type_, std::nullopt, 0, nArrayDescriptor), pos);
+}
+using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Symbol>>>;
+
+static void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {
+  out_result->emplace_back(1, nullptr);
+  std::vector<std::pair<size_t, SymbolPtr>> subarray;
+  for (const auto &[idx, valPtr] : *array->subarray) {
+    subarray.emplace_back(idx, valPtr);
   }
-  // auto subArrayPtr = arrayDescriptor->subarray;
-  // TODO:
-  return array;
+  std::sort(subarray.begin(), subarray.end());
+  for (const auto &[idx, valPtr] : subarray) {
+    if (valPtr->value_.Type() != SymbolValue::ValueType::Array) {
+      out_result->emplace_back(0, valPtr);
+    } else {
+      FlattenInitArrayImpl(out_result, valPtr->value_.GetArrayDescriptor());
+    }
+  }
+  out_result->emplace_back(2, nullptr);
 }
 
-ExpressionPtr TACFactory::MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array) {
-  if (array->type_ != SymbolType::Variable || array->type_ != SymbolType::Constant) {
+static FlattenedArray FlattenInitArray(ArrayDescriptorPtr array) {
+  FlattenedArray ret;
+  FlattenInitArrayImpl(&ret, array);
+  // std::cout << "!!!" << ret.size() << std::endl;
+  // for (size_t i = 0; i < ret.size(); i++) {
+  //   if (ret[i].second) {
+  //     std::cout << "?" << ret[i].second->value_.GetInt() << std::endl;
+  //   }
+  // }
+  return ret;
+}
+
+static int ArrayInitImpl(SymbolPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end) {
+  enum { OK, IGNORE };
+  if (it == end) {
+    return IGNORE;
+  }
+  auto arrayDescriptor = array->value_.GetArrayDescriptor();
+  if (arrayDescriptor->dimensions.empty()) {
+    if (it->first == 1) {
+      throw std::runtime_error("Extra left brace in array init");
+    }
+    if (it->first == 2) {
+      return IGNORE;
+    }
+    arrayDescriptor->subarray->emplace(0, it->second);
+    ++it;
+    return OK;
+  }
+  for (size_t i = 0; i < arrayDescriptor->dimensions[0]; i++) {
+    if (it->first == 1) {
+      ++it;
+      ArrayInitImpl(TACFactory::Instance()->AccessArray(array, {i}), it, end);
+      if (it->first != 2) {
+        throw std::runtime_error("Too many elements in sub array");
+      }
+      ++it;
+      continue;
+    }
+    if (it->first == 2) {
+      return IGNORE;
+    }
+    if (IGNORE == ArrayInitImpl(TACFactory::Instance()->AccessArray(array, {i}), it, end)) {
+      return IGNORE;
+    }
+  }
+  return OK;
+}
+
+ExpressionPtr TACFactory::MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array, bool const_only) {
+  if (array->type_ != SymbolType::Variable && array->type_ != SymbolType::Constant) {
     throw std::runtime_error("Error symbol type(" + std::string(magic_enum::enum_name<SymbolType>(array->type_)) +
                              ") , should be variable or constant");
   }
-  if (exp_array->ret->type_ != SymbolType::Variable || exp_array->ret->type_ != SymbolType::Constant) {
+  if (exp_array->ret->type_ != SymbolType::Variable && exp_array->ret->type_ != SymbolType::Constant) {
     throw std::runtime_error("Error symbol type(" +
                              std::string(magic_enum::enum_name<SymbolType>(exp_array->ret->type_)) +
                              ") , should be variable or constant");
   }
-  if (array->value_.Type() != SymbolValue::ValueType::Array ||
+  if (array->value_.Type() != SymbolValue::ValueType::Array &&
       exp_array->ret->value_.Type() != SymbolValue::ValueType::Array) {
     throw std::runtime_error("Should be array");
   }
-  return exp_array;
+
+  auto init_array = FlattenInitArray(exp_array->ret->value_.GetArrayDescriptor());
+  for (auto &pr : init_array) {
+    if (pr.second) {
+      if (const_only && pr.second->type_ != SymbolType::Constant) {
+        throw std::runtime_error("Only constant allowed in const array");
+      }
+      if (pr.second->type_ != SymbolType::Constant && pr.second->type_ != SymbolType::Variable) {
+        throw std::runtime_error("Only variable or constant allowed in array init");
+      }
+    }
+  }
+  auto init_array_it = init_array.begin();
+  ++init_array_it;
+  ArrayInitImpl(array, init_array_it, init_array.end());
+  return NewExp(exp_array->tac, array);
 }
 
 TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {

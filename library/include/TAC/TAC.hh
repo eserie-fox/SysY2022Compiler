@@ -26,6 +26,7 @@ using ArrayDescriptorPtr = std::shared_ptr<ArrayDescriptor>;
 class TACFactory {
   NONCOPYABLE(TACFactory)
   friend class TACBuilder;
+
  public:
   static TACFactory *Instance() {
     static TACFactory factory;
@@ -50,12 +51,12 @@ class TACFactory {
   ParamListPtr NewParamList();
   ArrayDescriptorPtr NewArrayDescriptor();
 
-  private:
+  SymbolPtr AccessArray(SymbolPtr array, std::vector<size_t> pos);
+  ExpressionPtr MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array, bool const_only = true);
+
+ private:
   TACListPtr MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
-
-  SymbolPtr AccessArray(SymbolPtr array, std::vector<int> pos);
-  ExpressionPtr MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array);
 
   TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
   TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
@@ -101,7 +102,7 @@ class TACBuilder {
   }
   //新Symbol
   inline SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, int offset = 0,
-                      SymbolValue value = {}) {
+                             SymbolValue value = {}) {
     return TACFactory::Instance()->NewSymbol(type, name, offset, value);
   }
   //新TAC
@@ -112,18 +113,12 @@ class TACBuilder {
   //新表达式
   inline ExpressionPtr NewExp(TACListPtr tac, SymbolPtr ret) { return TACFactory::Instance()->NewExp(tac, ret); }
   //新实参列表，用于Call函数
-  inline ArgListPtr NewArgList(){
-    return TACFactory::Instance()->NewArgList();
-  }
+  inline ArgListPtr NewArgList() { return TACFactory::Instance()->NewArgList(); }
   //新形参列表，用于定义函数
-  inline ParamListPtr NewParamList(){
-    return TACFactory::Instance()->NewParamList();
-  }
-  inline ArrayDescriptorPtr NewArrayDescriptor(){
-    return TACFactory::Instance()->NewArrayDescriptor();
-  }
+  inline ParamListPtr NewParamList() { return TACFactory::Instance()->NewParamList(); }
+  inline ArrayDescriptorPtr NewArrayDescriptor() { return TACFactory::Instance()->NewArrayDescriptor(); }
 
-  inline ExpressionPtr CreateAssign(SymbolPtr var, ExpressionPtr exp){
+  inline ExpressionPtr CreateAssign(SymbolPtr var, ExpressionPtr exp) {
     return TACFactory::Instance()->MakeAssign(var, exp);
   }
 

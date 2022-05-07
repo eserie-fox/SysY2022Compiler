@@ -90,9 +90,9 @@ class ArrayDescriptor {
  public:
   std::weak_ptr<Symbol> base_addr;
   size_t base_offset;
-  SymbolValue value_type;
-  std::vector<int> dimensions;
-  std::shared_ptr<std::vector<std::shared_ptr<SymbolValue>>> subarray;
+  SymbolValue::ValueType value_type;
+  std::vector<size_t> dimensions;
+  std::shared_ptr<std::unordered_map<size_t, std::shared_ptr<Symbol>>> subarray;
 };
 
 class ParameterList : protected std::vector<std::shared_ptr<Symbol>> {
