@@ -8,14 +8,24 @@ namespace ThreeAddressCode {
 
 std::string ThreeAddressCode::ToString() const {
   std::unordered_map<TACOperationType, std::string> OpStr = {
-      {TACOperationType::Add, "+"},         {TACOperationType::Div, "-"},
-      {TACOperationType::Equal, "=="},      {TACOperationType::GreaterOrEqual, ">="},
-      {TACOperationType::GreaterThan, ">"}, {TACOperationType::LessOrEqual, "<="},
-      {TACOperationType::LessThan, "<"},    {TACOperationType::LogicAnd, "&&"},
-      {TACOperationType::LogicOr, "||"},    {TACOperationType::Mod, "%"},
-      {TACOperationType::Mul, "*"},         {TACOperationType::NotEqual, "!="},
-      {TACOperationType::Sub, "-"},         {TACOperationType::UnaryMinus, "-"},
-      {TACOperationType::UnaryNot, "!"},    {TACOperationType::UnaryPositive, "+"},
+      {TACOperationType::Add, "+"},
+      {TACOperationType::Div, "-"},
+      {TACOperationType::Equal, "=="},
+      {TACOperationType::GreaterOrEqual, ">="},
+      {TACOperationType::GreaterThan, ">"},
+      {TACOperationType::LessOrEqual, "<="},
+      {TACOperationType::LessThan, "<"},
+      {TACOperationType::LogicAnd, "&&"},
+      {TACOperationType::LogicOr, "||"},
+      {TACOperationType::Mod, "%"},
+      {TACOperationType::Mul, "*"},
+      {TACOperationType::NotEqual, "!="},
+      {TACOperationType::Sub, "-"},
+      {TACOperationType::UnaryMinus, "-"},
+      {TACOperationType::UnaryNot, "!"},
+      {TACOperationType::UnaryPositive, "+"},
+      {TACOperationType::FloatToInt, "(int)"},
+      {TACOperationType::IntToFloat, "(float)"},
   };
   switch (operation_) {
     case TACOperationType::Add:
@@ -35,6 +45,8 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::UnaryMinus:
     case TACOperationType::UnaryNot:
     case TACOperationType::UnaryPositive:
+    case TACOperationType::FloatToInt:
+    case TACOperationType::IntToFloat:
       return a_->name_.value() + " = " + OpStr[operation_] + b_->name_.value();
     case TACOperationType::Argument:
       return "Argument(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
@@ -69,6 +81,11 @@ ThreeAddressCodeList::ThreeAddressCodeList(ThreeAddressCodeList &&move_obj) { li
 
 ThreeAddressCodeList::ThreeAddressCodeList(const ThreeAddressCodeList &other) : list_(other.list_) {}
 
+ThreeAddressCodeList::ThreeAddressCodeList(std::shared_ptr<ThreeAddressCodeList> other_ptr) {
+  if (other_ptr != nullptr) {
+    list_ = other_ptr->list_;
+  }
+}
 ThreeAddressCodeList::ThreeAddressCodeList(std::shared_ptr<ThreeAddressCode> tac) { list_.push_back(tac); }
 
 ThreeAddressCodeList &ThreeAddressCodeList::operator=(const ThreeAddressCodeList &other) {

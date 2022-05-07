@@ -2,6 +2,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include "MagicEnum.hh"
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
@@ -33,6 +34,7 @@ ExpressionPtr TACFactory::NewExp(TACListPtr tac, SymbolPtr ret) {
 
 ArgListPtr TACFactory::NewArgList() { return std::make_shared<ArgumentList>(); }
 ParamListPtr TACFactory::NewParamList() { return std::make_shared<ParameterList>(); }
+ArrayDescriptorPtr TACFactory::NewArrayDescriptor() { return std::make_shared<ArrayDescriptor>(); }
 
 TACListPtr TACFactory::MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body) {
   func_label->value_ = SymbolValue(params);
@@ -51,6 +53,45 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
   auto tac_list = exp->tac->MakeCopy();
   (*tac_list) += NewTAC(TACOperationType::Assign, var, exp->ret);
   return NewExp(tac_list, var);
+}
+
+SymbolPtr TACFactory::AccessArray(SymbolPtr array, std::vector<int> pos) {
+  // TODO: implementation
+  auto arrayDescriptor = array->value_.GetArrayDescriptor();
+  assert(pos.size() <= arrayDescriptor->dimensions.size());
+  auto nArrayDescriptor = NewArrayDescriptor();
+  nArrayDescriptor->base_addr = arrayDescriptor->base_addr;
+  nArrayDescriptor->value_type = arrayDescriptor->value_type;
+  nArrayDescriptor->base_offset = arrayDescriptor->base_offset;
+  size_t size_sublen = 1;
+  for (size_t i = pos.size(); i < arrayDescriptor->dimensions.size(); i++) {
+    size_sublen *= arrayDescriptor->dimensions[i];
+    nArrayDescriptor->dimensions.push_back(arrayDescriptor->dimensions[i]);
+  }
+  for (ssize_t i = (ssize_t)pos.size() - 1; i >= 0; i--) {
+    nArrayDescriptor->base_offset += pos[i] * size_sublen;
+    size_sublen *= arrayDescriptor->dimensions[i];
+  }
+  // auto subArrayPtr = arrayDescriptor->subarray;
+  // TODO:
+  return array;
+}
+
+ExpressionPtr TACFactory::MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array) {
+  if (array->type_ != SymbolType::Variable || array->type_ != SymbolType::Constant) {
+    throw std::runtime_error("Error symbol type(" + std::string(magic_enum::enum_name<SymbolType>(array->type_)) +
+                             ") , should be variable or constant");
+  }
+  if (exp_array->ret->type_ != SymbolType::Variable || exp_array->ret->type_ != SymbolType::Constant) {
+    throw std::runtime_error("Error symbol type(" +
+                             std::string(magic_enum::enum_name<SymbolType>(exp_array->ret->type_)) +
+                             ") , should be variable or constant");
+  }
+  if (array->value_.Type() != SymbolValue::ValueType::Array ||
+      exp_array->ret->value_.Type() != SymbolValue::ValueType::Array) {
+    throw std::runtime_error("Should be array");
+  }
+  return exp_array;
 }
 
 TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
@@ -297,6 +338,35 @@ SymbolPtr TACBuilder::FindCustomerLabel(const std::string &name) {
   return FindSymbolWithName(label_name);
 }
 
+ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
+  if (expF->ret->type_ == SymbolType::Constant) {
+    return CreateConstExp(static_cast<int>(expF->ret->value_.GetFloat()));
+  }
+  if (expF->ret->type_ == SymbolType::Variable) {
+    auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
+    auto tac_list = TACFactory::Instance()->NewTACList(expF->tac);
+    (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
+    (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::FloatToInt, tmpSym, expF->ret);
+    return TACFactory::Instance()->NewExp(tac_list, tmpSym);
+  }
+  throw std::runtime_error("Expression has error type(" +
+                           std::string(magic_enum::enum_name<SymbolType>(expF->ret->type_)) + ") to casting to int");
+}
+ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
+  if (expI->ret->type_ == SymbolType::Constant) {
+    return CreateConstExp(static_cast<float>(expI->ret->value_.GetInt()));
+  }
+  if (expI->ret->type_ == SymbolType::Variable) {
+    auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
+    auto tac_list = TACFactory::Instance()->NewTACList(expI->tac);
+    (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
+    (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::IntToFloat, tmpSym, expI->ret);
+    return TACFactory::Instance()->NewExp(tac_list, tmpSym);
+  }
+  throw std::runtime_error("Expression has error type(" +
+                           std::string(magic_enum::enum_name<SymbolType>(expI->ret->type_)) + ") to casting to float");
+}
+
 ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, ExpressionPtr exp1, ExpressionPtr exp2) {
   if (exp1->ret->type_ == SymbolType::Constant) {
     auto val1 = exp1->ret->value_;
@@ -380,7 +450,15 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
           exp2->ret->value_.Type() == SymbolValue::ValueType::Float) {
         auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
         (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
-        (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret, exp2->ret);
+        auto fexp1 = exp1;
+        auto fexp2 = exp2;
+        if (fexp1->ret->value_.Type() != SymbolValue::ValueType::Float) {
+          fexp1 = CastIntToFloat(fexp1);
+        }
+        if (fexp2->ret->value_.Type() != SymbolValue::ValueType::Float) {
+          fexp2 = CastIntToFloat(fexp2);
+        }
+        (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, fexp1->ret, fexp2->ret);
         return TACFactory::Instance()->NewExp(tac_list, tmpSym);
       } else {
         auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
@@ -392,7 +470,8 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
     default:
       break;
   }
-  throw std::runtime_error("Not TAC operation type is" + std::to_string((int)arith_op));
+  throw std::runtime_error("Not TAC operation type is" +
+                           std::string(magic_enum::enum_name<TACOperationType>(arith_op)));
 }
 
 void TACBuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }
