@@ -4,6 +4,7 @@
 
 #include "Driver.hh"
 
+
 HaveFunCompiler::Parser::Driver::~Driver() {
   delete scanner;
   scanner = nullptr;
@@ -44,6 +45,14 @@ void HaveFunCompiler::Parser::Driver::parse_helper(std::istream &stream) {
     std::cerr << "Failed to allocate parser: (" << ba.what() << "), exiting!\n";
     exit(EXIT_FAILURE);
   }
+
+  try {
+    tacbuilder = std::make_shared<HaveFunCompiler::ThreeAddressCode::TACBuilder>();
+  } catch (std::bad_alloc &ba) {
+    std::cerr << "Failed to allocate tacbuilder: (" << ba.what() << "), exiting!\n";
+    exit(EXIT_FAILURE);
+  }
+
   const int accept(0);
   if (parser->parse() != accept) {
     std::cerr << "Parse failed!\n";
@@ -51,44 +60,8 @@ void HaveFunCompiler::Parser::Driver::parse_helper(std::istream &stream) {
   return;
 }
 
-void HaveFunCompiler::Parser::Driver::add_upper() {
-  uppercase++;
-  chars++;
-  words++;
-}
-
-void HaveFunCompiler::Parser::Driver::add_lower() {
-  lowercase++;
-  chars++;
-  words++;
-}
-
-void HaveFunCompiler::Parser::Driver::add_word(const std::string &word) {
-  std::cout << "WORD" << std::endl;
-  words++;
-  chars += word.length();
-  for (const char &c : word) {
-    if (islower(c)) {
-      lowercase++;
-    } else if (isupper(c)) {
-      uppercase++;
-    }
-  }
-}
-
-void HaveFunCompiler::Parser::Driver::add_newline() {
-  lines++;
-  chars++;
-}
-
-void HaveFunCompiler::Parser::Driver::add_char() { chars++; }
 
 std::ostream &HaveFunCompiler::Parser::Driver::print(std::ostream &stream) {
-  stream << red << "Results: " << norm << "\n";
-  stream << blue << "Uppercase: " << norm << uppercase << "\n";
-  stream << blue << "Lowercase: " << norm << lowercase << "\n";
-  stream << blue << "Lines: " << norm << lines << "\n";
-  stream << blue << "Words: " << norm << words << "\n";
-  stream << blue << "Characters: " << norm << chars << "\n";
+  stream << tacbuilder->GetTACList()->ToString();
   return (stream);
 }

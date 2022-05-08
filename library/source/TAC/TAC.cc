@@ -568,5 +568,9 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
                            std::string(magic_enum::enum_name<TACOperationType>(arith_op)));
 }
 
+void TACBuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }
+
+TACListPtr TACBuilder::GetTACList() { return tac_list_; }
+
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler

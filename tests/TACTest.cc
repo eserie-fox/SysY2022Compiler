@@ -4,17 +4,19 @@
 #include "TAC/TAC.hh"
 
 TEST(TACBuilder, CompilerStack) {
-  using namespace HaveFunCompiler::ThreeAddressCode;
-  TACBuilder builder;
-  builder.Push(5);
-  int v;
-  builder.Pop(&v);
-  void *p = (void *)0x12345678;
-  EXPECT_EQ(5, v);
-  builder.Push(p);
-  p = nullptr;
-  builder.Pop(&p);
-  EXPECT_EQ(p, (void *)0x12345678);
+    using namespace HaveFunCompiler::ThreeAddressCode;
+    TACBuilder builder;
+    builder.Push(5);
+    int v;
+    builder.Top(&v);
+    builder.Pop();
+    void *p = (void *)0x12345678;
+    EXPECT_EQ(5, v);
+    builder.Push(p);
+    p = nullptr;
+    builder.Top(&p);
+    builder.Pop();
+    EXPECT_EQ(p, (void *)0x12345678);
 }
 
 TEST(Symbol, SymbolValue) {
