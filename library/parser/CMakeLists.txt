@@ -10,7 +10,7 @@ LIST(GET lsrcs 0 lsrc)
 
 BISON_TARGET(parser ${ysrc} ${CMAKE_CURRENT_BINARY_DIR}/HFParser.cc
             DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/HFParser.hh
-            COMPILE_FLAGS --debug)
+            COMPILE_FLAGS "--debug" )
 
 FLEX_TARGET(lexer ${lsrc} ${CMAKE_CURRENT_BINARY_DIR}/HFScanner.cc)
 

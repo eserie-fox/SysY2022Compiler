@@ -55,7 +55,7 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 
 %define api.value.type variant
 %define parse.assert
-%define parse.trace
+/* %define parse.trace */
 
 %token              END 0 "end of file"
 %token              UPPER
@@ -73,9 +73,13 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 %left EQ NE LT LE GT GE
 %left '+' '-'
 %left '*' '/'
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 
-%type <TACListPtr> CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef ConstExp_list ConstInitVal_list VarDef_list InitVal_list Block BlockItem_list BlockItem Stmt 
-%type <ExpressionPtr> ConstExp Exp Exp_list Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal PrimaryExp
+/* ConstExp_list ConstInitVal_list Exp_list InitVal_list */
+
+%type <TACListPtr> CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef VarDef_list Block BlockItem_list BlockItem Stmt 
+%type <ExpressionPtr> ConstExp Exp Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal PrimaryExp
 /* %type <HaveFunCompiler::parser::SymbolPtr> */
 %type <ParamListPtr> FuncFParams 
 %type <ArgListPtr> FuncRParams
@@ -162,27 +166,33 @@ ConstDef
         break;
     }
   }
-  | IDENTIFIER ConstExp_list '=' ConstInitVal
+  /* | IDENTIFIER ConstExp_list '=' ConstInitVal */
   ;
 
-ConstExp_list
+/* ConstExp_list
   : '[' ConstExp ']'
   | ConstExp_list '[' ConstExp ']'
-  ;
+  ; */
 
 ConstInitVal
   : ConstExp
   {
     $$ = $1;
   }
-  | '{' '}'
-  | '{' ConstInitVal_list '}'
+  /* | '{' '}'
+  | '{' ConstInitVal_list '}' */
   ;
 
-ConstInitVal_list
+/* ConstInitVal_list
   : ConstInitVal
+  {
+    $$ = $1->tac;
+  }
   | ConstInitVal_list ',' ConstInitVal
-  ;
+  {
+    $$ = $1
+  }
+  ; */
 
 VarDecl: BType VarDef_list ';' 
 {
@@ -192,6 +202,9 @@ VarDecl: BType VarDef_list ';'
 
 VarDef_list
   : VarDef
+  {
+    $$ = $1->tac;
+  }
   | VarDef_list VarDef
   {
     $$ = tacbuilder->NewTACList((*$1) + (*$2->tac));
@@ -215,8 +228,8 @@ VarDef
     var = tacbuilder->CreateVariable($1, (ValueType)type);
     $$ = tacbuilder->CreateAssign(var, $3);
   }
-  | IDENTIFIER ConstExp_list
-  | IDENTIFIER ConstExp_list '=' InitVal
+  /* | IDENTIFIER ConstExp_list
+  | IDENTIFIER ConstExp_list '=' InitVal */
   ;
 
 InitVal
@@ -224,14 +237,20 @@ InitVal
   {
     $$ = $1;
   }
-  | '{' '}'
-  | '{' InitVal_list '}'
+  /* | '{' '}'
+  | '{' InitVal_list '}' */
   ;
 
-InitVal_list
+/* InitVal_list
   : InitVal
+  {
+    $$ = $1->tac;
+  }
   | InitVal_list ',' InitVal
-  ;
+  {
+
+  }
+  ; */
 
 FuncDef 
   : VOID IDENTIFIER '(' FuncFParams ')' Block 
@@ -275,18 +294,24 @@ FuncFParam
     tacbuilder->Pop();
     $$ = var;
   }
-  | BType IDENTIFIER '[' ']' Exp_list
+  /* | BType IDENTIFIER '[' ']' Exp_list
+  | BType IDENTIFIER '[' ']' */
   ;
 
-Exp_list
-  : 
-  | '[' Exp ']'
+/* Exp_list
+  : '[' Exp ']'
   | Exp_list '[' Exp ']'
-  ;
+  ; */
 
 Block
   : '{' '}'
+  {
+    $$ = nullptr;
+  }
   | '{' BlockItem_list '}'
+  {
+    $$ = $2;
+  }
   ;
 
 BlockItem_list
@@ -308,12 +333,16 @@ Stmt
     // SymbolPtr var = tacbuilder->FindVariableOrConstant($1);
     // $$ = tacbuilder->CreateAssign(var, $3)->tac;
   }
-  | Exp_list ';'
+  | ';'
+  {
+    $$ = nullptr;
+  }
+  | Exp ';'
   {
     $$ = $1->tac;
   }
   | Block
-  | IF '(' Cond ')' Stmt 
+  | IF '(' Cond ')' Stmt %prec LOWER_THAN_ELSE
   {
     $$ = tacbuilder->CreateIf($3, $5, nullptr);
   }
@@ -349,7 +378,11 @@ Exp : AddExp ;
 
 Cond : LOrExp ;
 
-LVal : IDENTIFIER Exp_list 
+/* LVal : IDENTIFIER Exp_list 
+{
+  $$ = tacbuilder->FindVariableOrConstant($1);
+} */
+LVal : IDENTIFIER
 {
   $$ = tacbuilder->FindVariableOrConstant($1);
 }
