@@ -138,3 +138,271 @@ TEST(TACFactory, ArrayInit1) {
                    ->subarray->at(0)
                    ->value_.GetInt());
 }
+
+TEST(TACFactory, ArrayInit2) {
+  using namespace std;
+  using namespace HaveFunCompiler::ThreeAddressCode;
+  auto array1 = TACFactory::Instance()->NewArrayDescriptor();
+  array1->dimensions = {2, 2};
+  array1->base_offset = 0;
+  array1->value_type = SymbolValue::ValueType::Int;
+  auto arraySym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "hahaha", 0, SymbolValue(array1));
+  array1->base_addr = arraySym;
+
+  auto array2 = TACFactory::Instance()->NewArrayDescriptor();
+  {
+    array2->subarray->emplace(0,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(0)));
+  }
+  {
+    array2->subarray->emplace(1,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(1)));
+  }
+  {
+    array2->subarray->emplace(2,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(2)));
+  }
+  TACFactory::Instance()->MakeArrayInit(
+      arraySym,
+      TACFactory::Instance()->NewExp(
+          nullptr, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array2))));
+  ASSERT_EQ(2, array1->subarray->size());
+  ASSERT_EQ(2, array1->subarray->at(0)->value_.GetArrayDescriptor()->subarray->size());
+  ASSERT_EQ(1, array1->subarray->at(1)->value_.GetArrayDescriptor()->subarray->size());
+
+  EXPECT_EQ(0, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(1, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(2, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(0, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->count(1));
+}
+
+TEST(TACFactory, ArrayInit3) {
+  using namespace std;
+  using namespace HaveFunCompiler::ThreeAddressCode;
+  auto array1 = TACFactory::Instance()->NewArrayDescriptor();
+  array1->dimensions = {2, 2};
+  array1->base_offset = 0;
+  array1->value_type = SymbolValue::ValueType::Int;
+  auto arraySym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "hahaha", 0, SymbolValue(array1));
+  array1->base_addr = arraySym;
+
+  auto array2 = TACFactory::Instance()->NewArrayDescriptor();
+  {
+    auto array3 = TACFactory::Instance()->NewArrayDescriptor();
+    array3->subarray->emplace(0,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(0)));
+    array3->subarray->emplace(1,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(1)));
+    array2->subarray->emplace(
+        0, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array3)));
+  }
+  {
+    array2->subarray->emplace(2,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(2)));
+  }
+  {
+    array2->subarray->emplace(3,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(3)));
+  }
+  TACFactory::Instance()->MakeArrayInit(
+      arraySym,
+      TACFactory::Instance()->NewExp(
+          nullptr, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array2))));
+  ASSERT_EQ(2, array1->subarray->size());
+  ASSERT_EQ(2, array1->subarray->at(0)->value_.GetArrayDescriptor()->subarray->size());
+  ASSERT_EQ(2, array1->subarray->at(1)->value_.GetArrayDescriptor()->subarray->size());
+
+  EXPECT_EQ(0, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(1, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(2, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(3, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+}
+
+TEST(TACFactory, ArrayInit4) {
+  using namespace std;
+  using namespace HaveFunCompiler::ThreeAddressCode;
+  auto array1 = TACFactory::Instance()->NewArrayDescriptor();
+  array1->dimensions = {2, 2};
+  array1->base_offset = 0;
+  array1->value_type = SymbolValue::ValueType::Int;
+  auto arraySym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "hahaha", 0, SymbolValue(array1));
+  array1->base_addr = arraySym;
+
+  auto array2 = TACFactory::Instance()->NewArrayDescriptor();
+  {
+    auto array3 = TACFactory::Instance()->NewArrayDescriptor();
+    array3->subarray->emplace(0,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(0)));
+    array2->subarray->emplace(
+        0, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array3)));
+  }
+  {
+    array2->subarray->emplace(1,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(2)));
+  }
+  {
+    array2->subarray->emplace(2,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(3)));
+  }
+  TACFactory::Instance()->MakeArrayInit(
+      arraySym,
+      TACFactory::Instance()->NewExp(
+          nullptr, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array2))));
+  ASSERT_EQ(2, array1->subarray->size());
+  ASSERT_EQ(1, array1->subarray->at(0)->value_.GetArrayDescriptor()->subarray->size());
+  ASSERT_EQ(2, array1->subarray->at(1)->value_.GetArrayDescriptor()->subarray->size());
+
+  EXPECT_EQ(0, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(0, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->count(1));
+  EXPECT_EQ(2, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(3, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+}
+
+TEST(TACFactory, ArrayInit5) {
+  using namespace std;
+  using namespace HaveFunCompiler::ThreeAddressCode;
+  auto array1 = TACFactory::Instance()->NewArrayDescriptor();
+  array1->dimensions = {2, 2};
+  array1->base_offset = 0;
+  array1->value_type = SymbolValue::ValueType::Int;
+  auto arraySym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "hahaha", 0, SymbolValue(array1));
+  array1->base_addr = arraySym;
+
+  auto array2 = TACFactory::Instance()->NewArrayDescriptor();
+  {
+    auto array3 = TACFactory::Instance()->NewArrayDescriptor();
+    array3->subarray->emplace(0,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(0)));
+    array2->subarray->emplace(
+        0, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array3)));
+  }
+  {
+    auto array3 = TACFactory::Instance()->NewArrayDescriptor();
+    array3->subarray->emplace(0,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(2)));
+    array2->subarray->emplace(1,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(2)));
+  }
+  TACFactory::Instance()->MakeArrayInit(
+      arraySym,
+      TACFactory::Instance()->NewExp(
+          nullptr, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array2))));
+  ASSERT_EQ(2, array1->subarray->size());
+  ASSERT_EQ(1, array1->subarray->at(0)->value_.GetArrayDescriptor()->subarray->size());
+  ASSERT_EQ(1, array1->subarray->at(1)->value_.GetArrayDescriptor()->subarray->size());
+
+  EXPECT_EQ(0, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(0, array1->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->count(1));
+  EXPECT_EQ(2, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(0, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->count(1));
+}
+
+TEST(TACFactory, ArrayInit6) {
+  using namespace std;
+  using namespace HaveFunCompiler::ThreeAddressCode;
+  auto array1 = TACFactory::Instance()->NewArrayDescriptor();
+  array1->dimensions = {2, 2};
+  array1->base_offset = 0;
+  array1->value_type = SymbolValue::ValueType::Int;
+  auto arraySym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, "hahaha", 0, SymbolValue(array1));
+  array1->base_addr = arraySym;
+
+  auto array2 = TACFactory::Instance()->NewArrayDescriptor();
+  {
+    auto array3 = TACFactory::Instance()->NewArrayDescriptor();
+    array2->subarray->emplace(
+        0, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array3)));
+  }
+  {
+    auto array3 = TACFactory::Instance()->NewArrayDescriptor();
+    array3->subarray->emplace(0,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(2)));
+    array2->subarray->emplace(1,
+                              TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(2)));
+  }
+  TACFactory::Instance()->MakeArrayInit(
+      arraySym,
+      TACFactory::Instance()->NewExp(
+          nullptr, TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, SymbolValue(array2))));
+  ASSERT_EQ(2, array1->subarray->size());
+  ASSERT_EQ(0, array1->subarray->at(0)->value_.GetArrayDescriptor()->subarray->size());
+  ASSERT_EQ(1, array1->subarray->at(1)->value_.GetArrayDescriptor()->subarray->size());
+
+  EXPECT_EQ(0, array1->subarray->at(0)->value_.GetArrayDescriptor()->subarray->count(0));
+  EXPECT_EQ(0, array1->subarray->at(0)->value_.GetArrayDescriptor()->subarray->count(1));
+  EXPECT_EQ(2, array1->subarray->at(1)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetArrayDescriptor()
+                   ->subarray->at(0)
+                   ->value_.GetInt());
+  EXPECT_EQ(0, array1->subarray->at(1)->value_.GetArrayDescriptor()->subarray->count(1));
+}
