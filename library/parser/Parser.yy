@@ -15,10 +15,12 @@
   }
 
 #include "TAC/TAC.hh"
-using TACListPtr = HaveFunCompiler::ThreeAddressCode::TACListPtr;
-using ExpressionPtr = HaveFunCompiler::ThreeAddressCode::ExpressionPtr;
-using TACFactory = HaveFunCompiler::ThreeAddressCode::TACFactory;
+using namespace HaveFunCompiler::ThreeAddressCode;
+// using TACListPtr = HaveFunCompiler::ThreeAddressCode::TACListPtr;
+// using ExpressionPtr = HaveFunCompiler::ThreeAddressCode::ExpressionPtr;
+// using TACFactory = HaveFunCompiler::ThreeAddressCode::TACFactory;
 using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
+// using TACOperationType = HaveFunCompiler::ThreeAddressCode::TACOperationType;
 
 // The following definitions is missing when %locations isn't used
 # ifndef YY_NULLPTR
@@ -53,6 +55,7 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 
 %define api.value.type variant
 %define parse.assert
+%define parse.trace
 
 %token              END 0 "end of file"
 %token              UPPER
@@ -71,11 +74,14 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 %left '+' '-'
 %left '*' '/'
 
-%type <TACListPtr> CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef ConstExp_list ConstInitVal_list VarDef_list InitVal_list Block BlockItem_list BlockItem Stmt LVal PrimaryExp UnaryOp FuncRParams
-%type <ExpressionPtr> ConstExp Exp Exp_list Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal
+%type <TACListPtr> CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef ConstExp_list ConstInitVal_list VarDef_list InitVal_list Block BlockItem_list BlockItem Stmt 
+%type <ExpressionPtr> ConstExp Exp Exp_list Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal PrimaryExp
 /* %type <HaveFunCompiler::parser::SymbolPtr> */
 %type <ParamListPtr> FuncFParams 
-%type <SymbolPtr> FuncFParam
+%type <ArgListPtr> FuncRParams
+%type <SymbolPtr> FuncFParam LVal
+%type <TACOperationType> UnaryOp
+
 
 %locations
 
@@ -85,7 +91,7 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 CompUnit
   : CompUnit Decls
   {
-     $$ = TACFactory::Instance()->NewTACList((*$1) + (*$2));
+     $$ = tacbuilder->NewTACList((*$1) + (*$2));
      tacbuilder->SetTACList($$);
   }
   | Decls
@@ -114,7 +120,7 @@ ConstDef_list
   : ConstDef
   | ConstDef_list ',' ConstDef
   {
-     $$ = TACFactory::Instance()->NewTACList((*$1) + (*$2));
+     $$ = tacbuilder->NewTACList((*$1) + (*$3));
   }
   ;
 
@@ -136,17 +142,21 @@ ConstDef
     tacbuilder->Top(&type);
     switch(type){
       case (int)ValueType::Int:
-        Symbol sym = $3->ret;
+      {
+        SymbolPtr sym = $3->ret;
         sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
-        sym->value_ = (int)$3->ret->value_;
-        sym->value_.type = HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType::Int;
+        sym->value_ = SymbolValue((int)$3->ret->value_);
         tacbuilder->BindConstName($1,sym);
+        break;
+      }
       case (int)ValueType::Float:
-        Symbol sym = $3->ret;
+      {
+        SymbolPtr sym = $3->ret;
         sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
-        sym->value_ = $3->ret->value_;
-        sym->value_.type = HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType::Float;
+        sym->value_ = SymbolValue((float)$3->ret->value_);
         tacbuilder->BindConstName($1,sym);
+        break;
+      }
       default:
         throw std::runtime_error("Not const type : " + std::to_string((int)type));
         break;
@@ -174,11 +184,18 @@ ConstInitVal_list
   | ConstInitVal_list ',' ConstInitVal
   ;
 
-VarDecl: BType VarDef_list ';' ;
+VarDecl: BType VarDef_list ';' 
+{
+  $$ = tacbuilder->NewTACList((*$2));
+}
+;
 
 VarDef_list
   : VarDef
   | VarDef_list VarDef
+  {
+    $$ = tacbuilder->NewTACList((*$1) + (*$2->tac));
+  }
   ;
 
 VarDef
@@ -187,16 +204,16 @@ VarDef
     int type;
     SymbolPtr var;
     tacbuilder->Top(&type);
-    var = TACBuilder::CreateVariable($1, type);
-    $$ = TACFactory::NewExp(nullptr, var);
+    var = tacbuilder->CreateVariable($1, (ValueType)type);
+    $$ = tacbuilder->NewExp(nullptr, var);
   }
   | IDENTIFIER '=' InitVal
   {
     int type;
     SymbolPtr var;
     tacbuilder->Top(&type);
-    var = TACBuilder::CreateVariable($1, type);
-    $$ = TACFactory::MakeAssign(var, $3);
+    var = tacbuilder->CreateVariable($1, (ValueType)type);
+    $$ = tacbuilder->CreateAssign(var, $3);
   }
   | IDENTIFIER ConstExp_list
   | IDENTIFIER ConstExp_list '=' InitVal
@@ -219,23 +236,32 @@ InitVal_list
 FuncDef 
   : VOID IDENTIFIER '(' FuncFParams ')' Block 
   {
-    $$ = TACBuilder::CreateFunction($2, $4, $6);
+    SymbolPtr sym = tacbuilder->CreateTempVariable(ValueType::Void); 
+    $4->push_back_parameter(sym);
+    $$ = tacbuilder->CreateFunction($2, $4, $6);
   }
   | BType IDENTIFIER '(' FuncFParams ')' Block 
   {
-    $$ = TACBuilder::CreateFunction($2, $4, $6);
+    int type;
+    tacbuilder->Top(&type);
+    SymbolPtr sym = tacbuilder->CreateTempVariable((ValueType)type); 
+    tacbuilder->Pop();
+    $4->push_back_parameter(sym);
+    $$ = tacbuilder->CreateFunction($2, $4, $6);
   }
   ;
 
 FuncFParams
   : FuncFParam
   {
-    ParamListPtr ls = TACFactory::NewParamList();
-    $$ = ls.push_back_parameter($1);
+    ParamListPtr ls = tacbuilder->NewParamList();
+    ls->push_back_parameter($1);
+    $$ = ls;
   }
   | FuncFParams ',' FuncFParam
   {
-    $$ = $1.push_back_parameter($3);
+    $1->push_back_parameter($3);
+    $$ = $1;
   }
   ;
 
@@ -245,7 +271,7 @@ FuncFParam
     int type;
     SymbolPtr var;
     tacbuilder->Top(&type);
-    var = TACBuilder::CreateVariable($1, type);
+    var = tacbuilder->CreateVariable($2, (ValueType)type);
     tacbuilder->Pop();
     $$ = var;
   }
@@ -267,7 +293,7 @@ BlockItem_list
   : BlockItem
   | BlockItem_list BlockItem
   {
-    $$ = TACFactory::Instance()->NewTACList((*$1) + (*$2));
+    $$ = tacbuilder->NewTACList((*$1) + (*$2));
   }
   ;
 
@@ -279,106 +305,210 @@ BlockItem
 Stmt
   : LVal '=' Exp ';'
   {
-    SymbolPtr var = TACBuilder::FindVariableOrConstant($1);
-    $$ = TACFactory::MakeAssign(var, $3)->tac;
+    // SymbolPtr var = tacbuilder->FindVariableOrConstant($1);
+    // $$ = tacbuilder->CreateAssign(var, $3)->tac;
   }
   | Exp_list ';'
   {
-    $$ = $1;
+    $$ = $1->tac;
   }
   | Block
   | IF '(' Cond ')' Stmt 
   {
-    SymbolPtr label = TACFactory::Instance()->NewSymbol(SymbolType::Label);
-    $$ = TACFactory::MakeIf($3, label, $5);
+    $$ = tacbuilder->CreateIf($3, $5, nullptr);
   }
   | IF '(' Cond ')' Stmt ELSE Stmt
   {
-    SymbolPtr label_true;
-    tacbuilder->CreateIfElse($3,$5,$7,&label_true);
-
-    $$ = TACFactory::MakeIfElse($3, label_true, $5, label_false, $7);
+    $$ = tacbuilder->CreateIfElse($3,$5,$7,nullptr, nullptr);
   }
   | WHILE '(' Cond ')' Stmt
   {
-
+    SymbolPtr label_con;
+    SymbolPtr label_brk;
+    $$ = tacbuilder->CreateWhile($3, $5, &label_con, &label_brk);
   }
   | BREAK ';'
+  {
+
+  }
   | CONTINUE ';'
+  {
+
+  }
   | RETURN ';'
+  {
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return));
+  }
   | RETURN Exp ';'
+  {
+    $$ = tacbuilder->NewTACList(*$2->tac + tacbuilder->NewTAC(TACOperationType::Return, $2->ret));
+  }
   ;
 
 Exp : AddExp ;
 
 Cond : LOrExp ;
 
-LVal : IDENTIFIER Exp_list ;
+LVal : IDENTIFIER Exp_list 
+{
+  $$ = tacbuilder->FindVariableOrConstant($1);
+}
+;
 
 PrimaryExp
   : '(' Exp ')'
+  {
+    $$ = $2;
+  }
   | LVal
+  {
+    $$ = tacbuilder->NewExp(nullptr, $1);
+  }
   | Number
   ;
 
 Number
   : IntConst
+  {
+    $$ = tacbuilder->CreateConstExp($1);
+  }
   | floatConst
+  {
+    $$ = tacbuilder->CreateConstExp($1);
+  }
   ;
 
 UnaryExp
   : PrimaryExp
   | IDENTIFIER '(' ')'
+  {
+    ParamListPtr params = tacbuilder->FindFunctionLabel($1)->value_.GetParameters();
+    auto sym = (params->end());
+    sym--;
+    auto it = *sym;
+    SymbolPtr ret_sym = tacbuilder->CreateTempVariable(it->value_.Type());
+    TACListPtr tac = tacbuilder->CreateCallWithRet($1, nullptr, ret_sym);
+    $$ = tacbuilder->NewExp(tac, ret_sym);
+  }
   | IDENTIFIER '(' FuncRParams ')'
+  {
+    ParamListPtr params = tacbuilder->FindFunctionLabel($1)->value_.GetParameters();
+    auto sym = (params->end());
+    sym--;
+    auto it = *sym;
+    SymbolPtr ret_sym = tacbuilder->CreateTempVariable(it->value_.Type());
+    TACListPtr tac = tacbuilder->CreateCallWithRet($1, $3, ret_sym);
+    $$ = tacbuilder->NewExp(tac, ret_sym);
+  }
   | UnaryOp UnaryExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation($1, $2);
+  }
   ;
 
 UnaryOp
   : '+'
+  {
+    $$ = TACOperationType:: UnaryPositive;
+  }
   | '-'
+  {
+    $$ = TACOperationType:: UnaryMinus;
+  }
   | '!'
+  {
+    $$ = TACOperationType:: UnaryNot;
+  }
   ;
 
 FuncRParams
   : Exp
+  {
+    ArgListPtr args = tacbuilder->NewArgList();
+    args->push_back_argument($1);
+    $$ = args;
+  }
   | FuncRParams ',' Exp
+  {
+    $1->push_back_argument($3);
+    $$ = $1;
+  }
   ;
 
 MulExp
   : UnaryExp
   | MulExp '*' UnaryExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Mul, $1, $3);
+  }
   | MulExp '/' UnaryExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Div, $1, $3);
+  }
   | MulExp '%' UnaryExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Mod, $1, $3);
+  }
   ;
 
 AddExp
   : MulExp
   | AddExp '+' MulExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Add, $1, $3);
+  }
   | AddExp '-' MulExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Sub, $1, $3);
+  }
   ;
 
 RelExp
   : AddExp
   | RelExp LT AddExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LessThan, $1, $3);
+  }
   | RelExp GT AddExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::GreaterThan, $1, $3);
+  }
   | RelExp LE AddExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LessOrEqual, $1, $3);
+  }
   | RelExp GE AddExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::GreaterOrEqual, $1, $3);
+  }
   ;
 
 EqExp
   : RelExp
   | EqExp EQ RelExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Equal, $1, $3);
+  }
   | EqExp NE RelExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::NotEqual, $1, $3);
+  }
   ;
 
 LAndExp
   :EqExp
   |LAndExp LA EqExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LogicAnd, $1, $3);
+  }
   ;
 
 LOrExp
   : LAndExp
   | LOrExp LO LAndExp
+  {
+    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LogicOr, $1, $3);
+  }
   ;
 
 ConstExp : AddExp ;
