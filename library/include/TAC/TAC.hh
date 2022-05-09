@@ -160,12 +160,12 @@ class TACBuilder {
                             TACListPtr body);
   // TACListPtr CreateCall(const std::string &func_name, ArgListPtr args);
   TACListPtr CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym);
-  TACListPtr CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label);
-  TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false, SymbolPtr *out_label_true,
-                          SymbolPtr *out_label_false);
-  TACListPtr CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
+  TACListPtr CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label = nullptr);
+  TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false, SymbolPtr *out_label_true = nullptr,
+                          SymbolPtr *out_label_false = nullptr);
+  TACListPtr CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);
   TACListPtr CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt,
-                       SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
+                       SymbolPtr label_cont, SymbolPtr label_brk);
 
   ExpressionPtr CreateArithmeticOperation(TACOperationType arith_op, ExpressionPtr exp1, ExpressionPtr exp2 = nullptr);
 
