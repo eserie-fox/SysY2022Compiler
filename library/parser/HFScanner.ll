@@ -105,14 +105,40 @@ using token = HaveFunCompiler::Parser::Parser::token;
 
 ">"  {  return token::GT;  }
 
-.    { return *yytext; }
+"+"  {  return token::ADD; }
 
-[ \t\r]|#.*
+"-"  {  return token::SUB; }
+
+"*"  {  return token::MUL; }
+
+"/"  {  return token::DIV; }
+
+";"  {  return token::SEMI; }
+
+"%"  {  return token::MOD; }
+
+"="  {  return token::LEQ; }
+
+","  {  return token::COM; }
+
+"("  {  return token::LS; }
+
+")"  {  return token::RS; }
+
+"{"  {  return token::LB; }
+
+"}"  {  return token::RB; }
+
+([ \t\r])+ {
+  loc->step();
+}
 
 
 \n {
-  loc->lines();
-  return(token::NEWLINE);
+  loc->lines(yyleng);
+  loc->step();
 }
+
+<<EOF>> return token::END;
 
 %%
