@@ -187,17 +187,17 @@ TACListPtr TACFactory::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
   return NewTACList(NewTAC(TACOperationType::Variable, array));
 }
 
-TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
-  auto tac_list = NewTACList();
-  for (auto exp : *args) {
-    (*tac_list) += exp->tac;
-  }
-  for (auto exp : *args) {
-    (*tac_list) += NewTAC(TACOperationType::Argument, exp->ret);
-  }
-  (*tac_list) += NewTAC(TACOperationType::Call, nullptr, func_label);
-  return tac_list;
-}
+// TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
+//   auto tac_list = NewTACList();
+//   for (auto exp : *args) {
+//     (*tac_list) += exp->tac;
+//   }
+//   for (auto exp : *args) {
+//     (*tac_list) += NewTAC(TACOperationType::Argument, exp->ret);
+//   }
+//   (*tac_list) += NewTAC(TACOperationType::Call, nullptr, func_label);
+//   return tac_list;
+// }
 
 TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym) {
   auto tac_list = NewTACList();
@@ -359,8 +359,10 @@ SymbolPtr TACBuilder::CreateTempVariable(SymbolValue::ValueType type) {
   return sym;
 }
 
-TACListPtr TACBuilder::CreateFunction(const std::string &name, ParamListPtr params, TACListPtr body) {
+TACListPtr TACBuilder::CreateFunction(SymbolValue::ValueType ret_type, const std::string &name, ParamListPtr params,
+                                      TACListPtr body) {
   auto func_label = CreateFunctionLabel(name);
+  params->set_return_type(ret_type);
   return TACFactory::Instance()->MakeFunction(func_label, params, body);
 }
 
@@ -373,14 +375,14 @@ SymbolPtr TACBuilder::FindSymbolWithName(const std::string &name) {
   return nullptr;
 }
 
-TACListPtr TACBuilder::CreateCall(const std::string &func_name, ArgListPtr args) {
-  auto func_label = FindFunctionLabel(func_name);
-  if (func_label == nullptr) {
-    Error("Function with name '" + func_name + "' is not found!");
-    return nullptr;
-  }
-  return TACFactory::Instance()->MakeCall(func_label, args);
-}
+// TACListPtr TACBuilder::CreateCall(const std::string &func_name, ArgListPtr args) {
+//   auto func_label = FindFunctionLabel(func_name);
+//   if (func_label == nullptr) {
+//     Error("Function with name '" + func_name + "' is not found!");
+//     return nullptr;
+//   }
+//   return TACFactory::Instance()->MakeCall(func_label, args);
+// }
 TACListPtr TACBuilder::CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym) {
   auto func_label = FindFunctionLabel(func_name);
   if (func_label == nullptr) {

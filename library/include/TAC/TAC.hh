@@ -62,7 +62,7 @@ class TACFactory {
   TACListPtr MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
 
-  TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
+  // TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
   TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
   TACListPtr MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
@@ -141,8 +141,9 @@ class TACBuilder {
   SymbolPtr CreateVariable(const std::string &name, SymbolValue::ValueType type);
   SymbolPtr CreateTempVariable(SymbolValue::ValueType type);
 
-  TACListPtr CreateFunction(const std::string &func_name, ParamListPtr params, TACListPtr body);
-  TACListPtr CreateCall(const std::string &func_name, ArgListPtr args);
+  TACListPtr CreateFunction(SymbolValue::ValueType ret_type, const std::string &func_name, ParamListPtr params,
+                            TACListPtr body);
+  // TACListPtr CreateCall(const std::string &func_name, ArgListPtr args);
   TACListPtr CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label);
   TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false, SymbolPtr *out_label_true,
