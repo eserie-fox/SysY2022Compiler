@@ -101,6 +101,23 @@ class TACBuilder {
   }
 
   void Pop() { compiler_stack_.Pop(); }
+
+  void PushLoop(SymbolPtr label_cont, SymbolPtr label_brk);
+
+  //如果Loop栈不为空则取出cont和brk的label，并返回true，否则取不出且返回false。
+  //如果只对一者感兴趣，可以将不感兴趣的设为nullptr
+  //例如想取出最近循环中的brk label，而不需要cont，可以这样：
+  // SymbolPtr label_brk;
+  // if(!TopLoop(nullptr,&label_brk)){
+  //  throw std::runtime_error("'break' not in any loop!");
+  // }
+  // ...
+  // 如果对两者都感兴趣可以都传，例如TopLoop(&label_cont,&label_brk)
+  bool TopLoop(SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
+
+  //将一个Loop Pop掉
+  void PopLoop();
+
   //新TAC列表
   template <typename... _Args>
   inline std::shared_ptr<ThreeAddressCodeList> NewTACList(_Args &&...__args) {
@@ -175,6 +192,7 @@ class TACBuilder {
   uint64_t cur_temp_label_;
   uint64_t cur_symtab_id_;
   std::vector<SymbolTable> symbol_stack_;
+  std::vector<std::pair<SymbolPtr, SymbolPtr>> loop_cont_brk_stack_;
 
   //储存text的表
   std::unordered_map<std::string, std::shared_ptr<Symbol>> text_tab_;
