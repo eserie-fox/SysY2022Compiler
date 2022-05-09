@@ -108,12 +108,10 @@ class TACBuilder {
   //如果只对一者感兴趣，可以将不感兴趣的设为nullptr
   //例如想取出最近循环中的brk label，而不需要cont，可以这样：
   // SymbolPtr label_brk;
-  // if(!TopLoop(nullptr,&label_brk)){
-  //  throw std::runtime_error("'break' not in any loop!");
-  // }
+  // TopLoop(nullptr,&label_brk)
   // ...
   // 如果对两者都感兴趣可以都传，例如TopLoop(&label_cont,&label_brk)
-  bool TopLoop(SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
+  void TopLoop(SymbolPtr *out_label_cont, SymbolPtr *out_label_brk);
 
   //将一个Loop Pop掉
   void PopLoop();
@@ -145,7 +143,7 @@ class TACBuilder {
   ExpressionPtr CreateConstExp(int n);
   ExpressionPtr CreateConstExp(float fn);
   ExpressionPtr CreateConstExp(SymbolValue v);
-  bool BindConstName(const std::string &name, SymbolPtr constant);
+  void BindConstName(const std::string &name, SymbolPtr constant);
   SymbolPtr CreateText(const std::string &text);
 
   //如果是常量，返回来的直接可以用
@@ -176,14 +174,12 @@ class TACBuilder {
   SymbolPtr FindFunctionLabel(const std::string &name);
   SymbolPtr FindCustomerLabel(const std::string &name);
 
-  void Error(const std::string &message);
-
   void SetTACList(TACListPtr tac_list);
 
   TACListPtr GetTACList();
 
  private:
-  std::string AppendScopePrefix(const std::string &name);
+  std::string AppendScopePrefix(const std::string &name, uint64_t scope_id = (uint64_t)-1);
   SymbolPtr FindSymbolWithName(const std::string &name);
   UnionStack compiler_stack_;
   //目前临时变量标号
