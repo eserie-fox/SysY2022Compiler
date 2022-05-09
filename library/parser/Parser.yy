@@ -16,6 +16,7 @@
 
 #include "TAC/TAC.hh"
 using namespace HaveFunCompiler::ThreeAddressCode;
+using namespace HaveFunCompiler;
 // using TACListPtr = HaveFunCompiler::ThreeAddressCode::TACListPtr;
 // using ExpressionPtr = HaveFunCompiler::ThreeAddressCode::ExpressionPtr;
 // using TACFactory = HaveFunCompiler::ThreeAddressCode::TACFactory;
@@ -43,6 +44,8 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
   #include <iostream>
   #include <cstdlib>
   #include <fstream>
+  #include "Exceptions.hh"
+  #include "MagicEnum.hh"
   
   #include "Driver.hh"
   
@@ -78,7 +81,7 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 
 /* ConstExp_list ConstInitVal_list Exp_list InitVal_list */
 
-%type <TACListPtr> Start CompUnit Decls Decl FuncDef ConstDecl VarDecl ConstDef_list ConstDef VarDef_list Block BlockItem_list BlockItem Stmt 
+%type <TACListPtr> Start CompUnit Decls Decl FuncDef WHILEUP ConstDecl VarDecl ConstDef_list ConstDef VarDef_list Block BlockItem_list BlockItem Stmt LBUP RBUP
 %type <ExpressionPtr> ConstExp Exp Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal PrimaryExp
 /* %type <HaveFunCompiler::parser::SymbolPtr>  */
 %type <ParamListPtr> FuncFParams 
@@ -164,20 +167,34 @@ ConstDef
       {
         SymbolPtr sym = $3->ret;
         sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
-        sym->value_ = SymbolValue((int)$3->ret->value_);
-        assert(tacbuilder->BindConstName($1,sym));
+        int value;
+        if($3->ret->value_.Type()==ValueType::Int)
+        {
+          value = $3->ret->value_.GetInt();
+        }else{
+          value = static_cast<int>($3->ret->value_.GetFloat());
+        }
+        sym->value_ = SymbolValue(value);
+        tacbuilder->BindConstName($1,sym);
         break;
       }
       case (int)ValueType::Float:
       {
         SymbolPtr sym = $3->ret;
         sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
-        sym->value_ = SymbolValue((float)$3->ret->value_);
-        assert(tacbuilder->BindConstName($1,sym));
+        float value;
+        if($3->ret->value_.Type()==ValueType::Int)
+        {
+          value = static_cast<float>($3->ret->value_.GetInt());
+        }else{
+          value = $3->ret->value_.GetFloat();
+        }
+        sym->value_ = SymbolValue(value);
+        tacbuilder->BindConstName($1,sym);
         break;
       }
       default:
-        throw std::runtime_error("Not const type : " + std::to_string((int)type));
+        throw TypeMismatchException(std::string(magic_enum::enum_name((ValueType)type)),"Const");
         break;
     }
     
@@ -321,15 +338,29 @@ FuncFParam
   ; */
 
 Block
-  : LB RB
+  : LBUP RBUP
   {
     $$ = tacbuilder->NewTACList();
   }
-  | LB BlockItem_list RB
+  | LBUP BlockItem_list RBUP
   {
     $$ = $2;
   }
   ;
+
+LBUP: LB
+{
+  tacbuilder->EnterSubscope();
+  $$ = tacbuilder->NewTACList();
+}
+;
+
+RBUP:RB
+{
+  tacbuilder->ExitSubscope();
+  $$ = tacbuilder->NewTACList();
+}
+;
 
 BlockItem_list
   : BlockItem
@@ -349,7 +380,7 @@ Stmt
   {
     if($1->type_ == SymbolType::Constant)
     {
-      throw std::runtime_error("Cant assign to constant");
+      throw RuntimeException("Cant assign to constant");
     }
     $$ = tacbuilder->CreateAssign($1, $3)->tac;
   }
@@ -370,19 +401,27 @@ Stmt
   {
     $$ = tacbuilder->CreateIfElse($3,$5,$7,nullptr, nullptr);
   }
-  | WHILE LS Cond RS Stmt
+  | WHILEUP LS Cond RS Stmt
   {
     SymbolPtr label_con;
     SymbolPtr label_brk;
-    $$ = tacbuilder->CreateWhile($3, $5, &label_con, &label_brk);
+    tacbuilder->TopLoop(&label_con, &label_brk);
+    $$ = tacbuilder->CreateWhile($3, $5, label_con, label_brk);
+    tacbuilder->PopLoop();
+    
   }
   | BREAK SEMI
   {
-
+    SymbolPtr label_brk;
+    tacbuilder->TopLoop(nullptr, &label_brk);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Goto,label_brk));
+    // tacbuilderTopLoop
   }
   | CONTINUE SEMI
   {
-
+    SymbolPtr label_con;
+    tacbuilder->TopLoop(&label_con, nullptr);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Goto,label_con));
   }
   | RETURN SEMI
   {
@@ -393,6 +432,15 @@ Stmt
     $$ = tacbuilder->NewTACList(*$2->tac + tacbuilder->NewTAC(TACOperationType::Return, $2->ret));
   }
   ;
+
+WHILEUP : WHILE
+{
+  SymbolPtr label_con = tacbuilder->CreateTempLabel();
+  SymbolPtr label_brk = tacbuilder->CreateTempLabel();
+  tacbuilder->PushLoop(label_con, label_brk);
+  $$ = tacbuilder->NewTACList();
+}
+;
 
 Exp : AddExp ;
 

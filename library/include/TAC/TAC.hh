@@ -92,12 +92,16 @@ class TACBuilder {
   void ExitSubscope();
 
   template <typename T>
-  void Push(T v) {
-    compiler_stack_.Push(v);
+  void Push(T value) {
+    compiler_stack_.Push(value);
   }
   template <typename T>
-  void Top(T *p) {
-    compiler_stack_.Top(p);
+  bool Top(T *out_value) {
+    if(compiler_stack_.IsEmpty()){
+      return false;
+    }
+    compiler_stack_.Top(out_value);
+    return true;
   }
 
   void Pop() { compiler_stack_.Pop(); }
