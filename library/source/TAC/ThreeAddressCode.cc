@@ -41,37 +41,37 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::LessOrEqual:
     case TACOperationType::LogicAnd:
     case TACOperationType::LogicOr:
-      return a_->name_.value() + " = " + b_->name_.value() + " " + OpStr[operation_] + " " + c_->name_.value();
+      return a_->get_name() + " = " + b_->get_name() + " " + OpStr[operation_] + " " + c_->get_name();
     case TACOperationType::UnaryMinus:
     case TACOperationType::UnaryNot:
     case TACOperationType::UnaryPositive:
     case TACOperationType::FloatToInt:
     case TACOperationType::IntToFloat:
-      return a_->name_.value() + " = " + OpStr[operation_] + b_->name_.value();
+      return a_->get_name() + " = " + OpStr[operation_] + b_->get_name();
     case TACOperationType::Argument:
       return "Argument(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
-             "): " + a_->name_.value();
+             "): " + a_->get_name();
     case TACOperationType::Assign:
-      return a_->name_.value() + " = " + b_->name_.value();
+      return a_->get_name() + " = " + b_->get_name();
     case TACOperationType::Call:
-      return (a_ == nullptr ? "" : (a_->name_.value() + " = ")) + "Call " + b_->name_.value();
+      return (a_ == nullptr ? "" : (a_->get_name() + " = ")) + "Call " + b_->get_name();
     case TACOperationType::FunctionBegin:
       return "FuncBegin";
     case TACOperationType::FunctionEnd:
       return "FuncEnd";
     case TACOperationType::Goto:
-      return "Goto " + a_->name_.value();
+      return "Goto " + a_->get_name();
     case TACOperationType::IfZero:
-      return "IfZero " + b_->name_.value() + " Goto " + a_->name_.value();
+      return "IfZero " + b_->get_name() + " Goto " + a_->get_name();
     case TACOperationType::Label:
-      return a_->name_.value() + ":";
+      return a_->get_name() + ":";
     case TACOperationType::Parameter:
       return "Parameter(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
-             "): " + a_->name_.value();
+             "): " + a_->get_name();
     case TACOperationType::Return:
-      return "Return" + (a_ == nullptr ? "" : (std::string(" ") + a_->name_.value()));
+      return "Return" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_name()));
     case TACOperationType::Variable:
-      return std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) + ": " + a_->name_.value();
+      return std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) + ": " + a_->get_name();
     default:
       return "Undefined";
   }
