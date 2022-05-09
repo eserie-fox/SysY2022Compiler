@@ -445,7 +445,7 @@ SymbolPtr TACBuilder::FindSymbolWithName(const std::string &name) {
 }
 
 SymbolPtr TACBuilder::FindVariableOrConstant(const std::string &name) {
-  std::string var_name = AppendScopePrefix(TACFactory::Instance()->ToVariableOrConstantName(name));
+  std::string var_name = TACFactory::Instance()->ToVariableOrConstantName(name);
   auto ret = FindSymbolWithName(var_name);
   if (ret == nullptr) {
     throw RuntimeException("Variable or Constant named '" + name + "' is not found");
@@ -453,7 +453,7 @@ SymbolPtr TACBuilder::FindVariableOrConstant(const std::string &name) {
   return ret;
 }
 SymbolPtr TACBuilder::FindFunctionLabel(const std::string &name) {
-  std::string func_name = AppendScopePrefix(TACFactory::Instance()->ToFuncLabelName(name));
+  std::string func_name = TACFactory::Instance()->ToFuncLabelName(name);
   auto ret = FindSymbolWithName(func_name);
   if (ret == nullptr) {
     throw RuntimeException("Function named '" + name + "' is not found");
@@ -461,7 +461,7 @@ SymbolPtr TACBuilder::FindFunctionLabel(const std::string &name) {
   return ret;
 }
 SymbolPtr TACBuilder::FindCustomerLabel(const std::string &name) {
-  std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToCustomerLabelName(name));
+  std::string label_name = TACFactory::Instance()->ToCustomerLabelName(name);
   auto ret = FindSymbolWithName(label_name);
   if (ret == nullptr) {
     throw RuntimeException("Label named '" + name + "' is not found");
