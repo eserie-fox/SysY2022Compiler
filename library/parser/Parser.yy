@@ -144,7 +144,7 @@ ConstInitVal
   }
   ; */
 
-VarDecl: BType VarDef_list
+VarDecl: BType VarDef_list SEMI
 ;
 
 VarDef_list
