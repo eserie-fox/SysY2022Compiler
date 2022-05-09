@@ -457,6 +457,24 @@ SymbolPtr TACBuilder::FindCustomerLabel(const std::string &name) {
   std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToCustomerLabelName(name));
   return FindSymbolWithName(label_name);
 }
+void TACBuilder::PushLoop(SymbolPtr label_cont, SymbolPtr label_brk) {
+  loop_cont_brk_stack_.emplace_back(label_cont, label_brk);
+}
+
+bool TACBuilder::TopLoop(SymbolPtr *out_label_cont, SymbolPtr *out_label_brk) {
+  if (loop_cont_brk_stack_.empty()) {
+    return false;
+  }
+  if (out_label_cont) {
+    *out_label_cont = loop_cont_brk_stack_.back().first;
+  }
+  if (out_label_brk) {
+    *out_label_brk = loop_cont_brk_stack_.back().second;
+  }
+  return true;
+}
+
+void TACBuilder::PopLoop() { loop_cont_brk_stack_.pop_back(); }
 
 ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
   if (expF->ret->type_ == SymbolType::Constant) {
