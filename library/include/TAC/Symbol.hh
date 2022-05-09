@@ -115,12 +115,12 @@ class ParameterList : protected std::vector<std::shared_ptr<Symbol>> {
 
 class SymbolTable : public std::unordered_map<std::string, std::shared_ptr<Symbol>> {
  public:
-  SymbolTable(uint64_t table_id) : table_id_(table_id) {}
+  SymbolTable(uint64_t scope_id) : scope_id_(scope_id) {}
 
-  inline uint64_t get_tabel_id() const { return table_id_; }
+  inline uint64_t get_scope_id() const { return scope_id_; }
 
  private:
-  const uint64_t table_id_;
+  const uint64_t scope_id_;
 };
 
 }  // namespace ThreeAddressCode

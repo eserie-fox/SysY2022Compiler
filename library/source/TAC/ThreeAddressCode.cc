@@ -9,7 +9,7 @@ namespace ThreeAddressCode {
 std::string ThreeAddressCode::ToString() const {
   std::unordered_map<TACOperationType, std::string> OpStr = {
       {TACOperationType::Add, "+"},
-      {TACOperationType::Div, "-"},
+      {TACOperationType::Div, "/"},
       {TACOperationType::Equal, "=="},
       {TACOperationType::GreaterOrEqual, ">="},
       {TACOperationType::GreaterThan, ">"},
