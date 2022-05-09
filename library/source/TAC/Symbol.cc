@@ -57,6 +57,22 @@ std::shared_ptr<ArrayDescriptor> SymbolValue::GetArrayDescriptor() const {
   return std::get<std::shared_ptr<ArrayDescriptor>>(value);
 }
 
+std::string SymbolValue::ToString() const {
+  switch (type) {
+    case ValueType::Int:
+      return std::to_string(GetInt());
+    case ValueType::Float:
+      return std::to_string(GetFloat());
+    case ValueType::Str:
+      return std::string(GetStr());
+    case ValueType::Void:
+      return "ERROR";
+    default:
+      break;
+  }
+  return "notset";
+}
+
 SymbolValue &SymbolValue::operator=(const SymbolValue &other) {
   type = other.type;
   value = other.value;
@@ -346,6 +362,13 @@ SymbolValue::operator bool() const {
     return GetStr() != nullptr;
   }
   return false;
+}
+
+std::string Symbol::get_name() const {
+  if (name_.has_value()) {
+    return name_.value();
+  }
+  return value_.ToString();
 }
 
 }  // namespace ThreeAddressCode

@@ -288,7 +288,7 @@ ExpressionPtr TACBuilder::CreateConstExp(int n) { return CreateConstExp(SymbolVa
 ExpressionPtr TACBuilder::CreateConstExp(float fn) { return CreateConstExp(SymbolValue(fn)); }
 
 ExpressionPtr TACBuilder::CreateConstExp(SymbolValue v) {
-  return TACFactory::Instance()->NewExp(nullptr,
+  return TACFactory::Instance()->NewExp(TACFactory::Instance()->NewTACList(),
                                         TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, v));
 }
 

@@ -44,6 +44,7 @@ struct SymbolValue {
   const char *GetStr() const;
   std::shared_ptr<ParameterList> GetParameters() const;
   std::shared_ptr<ArrayDescriptor> GetArrayDescriptor() const;
+  std::string ToString() const;
 
   void SetType(ValueType type) { this->type = type; }
   ValueType Type() const { return type; }
@@ -84,6 +85,7 @@ struct Symbol {
   std::optional<std::string> name_;
   int offset_;
   SymbolValue value_;
+  std::string get_name() const;
 };
 
 class ArrayDescriptor {
