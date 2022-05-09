@@ -419,28 +419,11 @@ TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TA
   }
   return TACFactory::Instance()->MakeIfElse(cond, label_true, stmt_true, label_false, stmt_false);
 }
-TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label_cont,
-                                   SymbolPtr *out_label_brk) {
-  auto label_cont = CreateTempLabel();
-  auto label_brk = CreateTempLabel();
-  if (out_label_cont) {
-    *out_label_cont = label_cont;
-  }
-  if (out_label_brk) {
-    *out_label_brk = label_brk;
-  }
+TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
   return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, stmt);
 }
 TACListPtr TACBuilder::CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt,
-                                 SymbolPtr *out_label_cont, SymbolPtr *out_label_brk) {
-  auto label_cont = CreateTempLabel();
-  auto label_brk = CreateTempLabel();
-  if (out_label_cont) {
-    *out_label_cont = label_cont;
-  }
-  if (out_label_brk) {
-    *out_label_brk = label_brk;
-  }
+                                 SymbolPtr label_cont, SymbolPtr label_brk) {
   return TACFactory::Instance()->MakeFor(init, cond, modify, label_cont, label_brk, stmt);
 }
 
@@ -463,15 +446,27 @@ SymbolPtr TACBuilder::FindSymbolWithName(const std::string &name) {
 
 SymbolPtr TACBuilder::FindVariableOrConstant(const std::string &name) {
   std::string var_name = AppendScopePrefix(TACFactory::Instance()->ToVariableOrConstantName(name));
-  return FindSymbolWithName(var_name);
+  auto ret = FindSymbolWithName(var_name);
+  if (ret == nullptr) {
+    throw RuntimeException("Variable or Constant named '" + name + "' is not found");
+  }
+  return ret;
 }
 SymbolPtr TACBuilder::FindFunctionLabel(const std::string &name) {
   std::string func_name = AppendScopePrefix(TACFactory::Instance()->ToFuncLabelName(name));
-  return FindSymbolWithName(func_name);
+  auto ret = FindSymbolWithName(func_name);
+  if (ret == nullptr) {
+    throw RuntimeException("Function named '" + name + "' is not found");
+  }
+  return ret;
 }
 SymbolPtr TACBuilder::FindCustomerLabel(const std::string &name) {
   std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToCustomerLabelName(name));
-  return FindSymbolWithName(label_name);
+  auto ret = FindSymbolWithName(label_name);
+  if (ret == nullptr) {
+    throw RuntimeException("Label named '" + name + "' is not found");
+  }
+  return ret;
 }
 void TACBuilder::PushLoop(SymbolPtr label_cont, SymbolPtr label_brk) {
   loop_cont_brk_stack_.emplace_back(label_cont, label_brk);
