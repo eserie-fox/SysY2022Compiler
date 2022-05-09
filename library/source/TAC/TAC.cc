@@ -88,9 +88,8 @@ SymbolPtr TACFactory::AccessArray(SymbolPtr array, std::vector<size_t> pos) {
   arrayDescriptor->subarray->emplace(idx, NewSymbol(array->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor)));
   return AccessArray(NewSymbol(array->type_, std::nullopt, 0, nArrayDescriptor), pos);
 }
-using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Symbol>>>;
 
-static void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {
+void TACFactory::FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {
   out_result->emplace_back(1, nullptr);
   std::vector<std::pair<size_t, SymbolPtr>> subarray;
   for (const auto &[idx, valPtr] : *array->subarray) {
@@ -107,19 +106,13 @@ static void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr 
   out_result->emplace_back(2, nullptr);
 }
 
-static FlattenedArray FlattenInitArray(ArrayDescriptorPtr array) {
+TACFactory::FlattenedArray TACFactory::FlattenInitArray(ArrayDescriptorPtr array) {
   FlattenedArray ret;
   FlattenInitArrayImpl(&ret, array);
-  // std::cout << "!!!" << ret.size() << std::endl;
-  // for (size_t i = 0; i < ret.size(); i++) {
-  //   if (ret[i].second) {
-  //     std::cout << "?" << ret[i].second->value_.GetInt() << std::endl;
-  //   }
-  // }
   return ret;
 }
 
-static int ArrayInitImpl(SymbolPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end) {
+int TACFactory::ArrayInitImpl(SymbolPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end) {
   enum { OK, IGNORE };
   if (it == end) {
     return IGNORE;
@@ -156,25 +149,24 @@ static int ArrayInitImpl(SymbolPtr array, FlattenedArray::iterator &it, const Fl
   return OK;
 }
 
-ExpressionPtr TACFactory::MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array, bool const_only) {
+TACListPtr TACFactory::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
   if (array->type_ != SymbolType::Variable && array->type_ != SymbolType::Constant) {
     throw std::runtime_error("Error symbol type(" + std::string(magic_enum::enum_name<SymbolType>(array->type_)) +
                              ") , should be variable or constant");
   }
-  if (exp_array->ret->type_ != SymbolType::Variable && exp_array->ret->type_ != SymbolType::Constant) {
-    throw std::runtime_error("Error symbol type(" +
-                             std::string(magic_enum::enum_name<SymbolType>(exp_array->ret->type_)) +
+  if (init_array->type_ != SymbolType::Variable && init_array->type_ != SymbolType::Constant) {
+    throw std::runtime_error("Error symbol type(" + std::string(magic_enum::enum_name<SymbolType>(init_array->type_)) +
                              ") , should be variable or constant");
   }
   if (array->value_.Type() != SymbolValue::ValueType::Array &&
-      exp_array->ret->value_.Type() != SymbolValue::ValueType::Array) {
+      init_array->value_.Type() != SymbolValue::ValueType::Array) {
     throw std::runtime_error("Should be array");
   }
 
-  auto init_array = FlattenInitArray(exp_array->ret->value_.GetArrayDescriptor());
-  for (auto &pr : init_array) {
+  auto finit_array = FlattenInitArray(init_array->value_.GetArrayDescriptor());
+  for (auto &pr : finit_array) {
     if (pr.second) {
-      if (const_only && pr.second->type_ != SymbolType::Constant) {
+      if (array->type_ == SymbolType::Constant && pr.second->type_ != SymbolType::Constant) {
         throw std::runtime_error("Only constant allowed in const array");
       }
       if (pr.second->type_ != SymbolType::Constant && pr.second->type_ != SymbolType::Variable) {
@@ -182,23 +174,30 @@ ExpressionPtr TACFactory::MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array
       }
     }
   }
-  auto init_array_it = init_array.begin();
+  if (array->value_.GetArrayDescriptor()->value_type == SymbolValue::ValueType::Int) {
+    for (auto &pr : finit_array) {
+      if (pr.second != nullptr && pr.second->value_.Type() == SymbolValue::ValueType::Float) {
+        throw std::runtime_error("Only int can be used to initialize int array");
+      }
+    }
+  }
+  auto init_array_it = finit_array.begin();
   ++init_array_it;
-  ArrayInitImpl(array, init_array_it, init_array.end());
-  return NewExp(exp_array->tac, array);
+  ArrayInitImpl(array, init_array_it, finit_array.end());
+  return NewTACList(NewTAC(TACOperationType::Variable, array));
 }
 
-TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
-  auto tac_list = NewTACList();
-  for (auto exp : *args) {
-    (*tac_list) += exp->tac;
-  }
-  for (auto exp : *args) {
-    (*tac_list) += NewTAC(TACOperationType::Argument, exp->ret);
-  }
-  (*tac_list) += NewTAC(TACOperationType::Call, nullptr, func_label);
-  return tac_list;
-}
+// TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
+//   auto tac_list = NewTACList();
+//   for (auto exp : *args) {
+//     (*tac_list) += exp->tac;
+//   }
+//   for (auto exp : *args) {
+//     (*tac_list) += NewTAC(TACOperationType::Argument, exp->ret);
+//   }
+//   (*tac_list) += NewTAC(TACOperationType::Call, nullptr, func_label);
+//   return tac_list;
+// }
 
 TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym) {
   auto tac_list = NewTACList();
@@ -255,6 +254,31 @@ std::string TACFactory::ToVariableOrConstantName(const std::string name) { retur
 std::string TACFactory::ToTempVariableName(uint64_t id) { return "SV_" + std::to_string(id); }
 
 TACBuilder::TACBuilder() : cur_temp_var_(0), cur_temp_label_(0), cur_symtab_id_(0) { EnterSubscope(); }
+
+SymbolPtr TACBuilder::NewSymbol(SymbolType type, std::optional<std::string> name, int offset, SymbolValue value) {
+  return TACFactory::Instance()->NewSymbol(type, name, offset, value);
+}
+ThreeAddressCodePtr TACBuilder::NewTAC(TACOperationType operation, SymbolPtr a, SymbolPtr b, SymbolPtr c) {
+  return TACFactory::Instance()->NewTAC(operation, a, b, c);
+}
+ExpressionPtr TACBuilder::NewExp(TACListPtr tac, SymbolPtr ret) { return TACFactory::Instance()->NewExp(tac, ret); }
+
+ArgListPtr TACBuilder::NewArgList() { return TACFactory::Instance()->NewArgList(); }
+
+ParamListPtr TACBuilder::NewParamList() { return TACFactory::Instance()->NewParamList(); }
+
+ArrayDescriptorPtr TACBuilder::NewArrayDescriptor() { return TACFactory::Instance()->NewArrayDescriptor(); }
+
+ExpressionPtr TACBuilder::CreateAssign(SymbolPtr var, ExpressionPtr exp) {
+  return TACFactory::Instance()->MakeAssign(var, exp);
+}
+
+SymbolPtr TACBuilder::AccessArray(SymbolPtr array, std::vector<size_t> pos) {
+  return TACFactory::Instance()->AccessArray(array, pos);
+}
+TACListPtr TACBuilder::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
+  return TACFactory::Instance()->MakeArrayInit(array, init_array);
+}
 
 void TACBuilder::EnterSubscope() { symbol_stack_.emplace_back(cur_symtab_id_++); }
 
@@ -335,8 +359,10 @@ SymbolPtr TACBuilder::CreateTempVariable(SymbolValue::ValueType type) {
   return sym;
 }
 
-TACListPtr TACBuilder::CreateFunction(const std::string &name, ParamListPtr params, TACListPtr body) {
+TACListPtr TACBuilder::CreateFunction(SymbolValue::ValueType ret_type, const std::string &name, ParamListPtr params,
+                                      TACListPtr body) {
   auto func_label = CreateFunctionLabel(name);
+  params->set_return_type(ret_type);
   return TACFactory::Instance()->MakeFunction(func_label, params, body);
 }
 
@@ -349,14 +375,14 @@ SymbolPtr TACBuilder::FindSymbolWithName(const std::string &name) {
   return nullptr;
 }
 
-TACListPtr TACBuilder::CreateCall(const std::string &func_name, ArgListPtr args) {
-  auto func_label = FindFunctionLabel(func_name);
-  if (func_label == nullptr) {
-    Error("Function with name '" + func_name + "' is not found!");
-    return nullptr;
-  }
-  return TACFactory::Instance()->MakeCall(func_label, args);
-}
+// TACListPtr TACBuilder::CreateCall(const std::string &func_name, ArgListPtr args) {
+//   auto func_label = FindFunctionLabel(func_name);
+//   if (func_label == nullptr) {
+//     Error("Function with name '" + func_name + "' is not found!");
+//     return nullptr;
+//   }
+//   return TACFactory::Instance()->MakeCall(func_label, args);
+// }
 TACListPtr TACBuilder::CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym) {
   auto func_label = FindFunctionLabel(func_name);
   if (func_label == nullptr) {

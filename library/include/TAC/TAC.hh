@@ -27,7 +27,12 @@ class TACFactory {
   NONCOPYABLE(TACFactory)
   friend class TACBuilder;
 
- public:
+ private:
+  using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Symbol>>>;
+  void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);
+  int ArrayInitImpl(SymbolPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end);
+  FlattenedArray FlattenInitArray(ArrayDescriptorPtr array);
+
   static TACFactory *Instance() {
     static TACFactory factory;
     return &factory;
@@ -52,13 +57,12 @@ class TACFactory {
   ArrayDescriptorPtr NewArrayDescriptor();
 
   SymbolPtr AccessArray(SymbolPtr array, std::vector<size_t> pos);
-  ExpressionPtr MakeArrayInit(SymbolPtr array, ExpressionPtr exp_array, bool const_only = true);
+  TACListPtr MakeArrayInit(SymbolPtr array, SymbolPtr init_array);
 
- private:
   TACListPtr MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
 
-  TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
+  // TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
   TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
   TACListPtr MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
@@ -95,36 +99,31 @@ class TACBuilder {
   void Top(T *p) {
     compiler_stack_.Top(p);
   }
-  
-  void Pop() {
-    compiler_stack_.Pop();
-  }
+
+  void Pop() { compiler_stack_.Pop(); }
   //新TAC列表
   template <typename... _Args>
   inline std::shared_ptr<ThreeAddressCodeList> NewTACList(_Args &&...__args) {
     return TACFactory::Instance()->NewTACList(std::forward<_Args>(__args)...);
   }
   //新Symbol
-  inline SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, int offset = 0,
-                             SymbolValue value = {}) {
-    return TACFactory::Instance()->NewSymbol(type, name, offset, value);
-  }
+  SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, int offset = 0,
+                      SymbolValue value = {});
   //新TAC
-  inline ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b = nullptr,
-                                    SymbolPtr c = nullptr) {
-    return TACFactory::Instance()->NewTAC(operation, a, b, c);
-  }
+  ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b = nullptr,
+                             SymbolPtr c = nullptr);
   //新表达式
-  inline ExpressionPtr NewExp(TACListPtr tac, SymbolPtr ret) { return TACFactory::Instance()->NewExp(tac, ret); }
+  ExpressionPtr NewExp(TACListPtr tac, SymbolPtr ret);
   //新实参列表，用于Call函数
-  inline ArgListPtr NewArgList() { return TACFactory::Instance()->NewArgList(); }
+  ArgListPtr NewArgList();
   //新形参列表，用于定义函数
-  inline ParamListPtr NewParamList() { return TACFactory::Instance()->NewParamList(); }
-  inline ArrayDescriptorPtr NewArrayDescriptor() { return TACFactory::Instance()->NewArrayDescriptor(); }
+  ParamListPtr NewParamList();
+  ArrayDescriptorPtr NewArrayDescriptor();
 
-  inline ExpressionPtr CreateAssign(SymbolPtr var, ExpressionPtr exp) {
-    return TACFactory::Instance()->MakeAssign(var, exp);
-  }
+  ExpressionPtr CreateAssign(SymbolPtr var, ExpressionPtr exp);
+
+  SymbolPtr AccessArray(SymbolPtr array, std::vector<size_t> pos);
+  TACListPtr MakeArrayInit(SymbolPtr array, SymbolPtr init_array);
 
   ExpressionPtr CreateConstExp(int n);
   ExpressionPtr CreateConstExp(float fn);
@@ -142,8 +141,9 @@ class TACBuilder {
   SymbolPtr CreateVariable(const std::string &name, SymbolValue::ValueType type);
   SymbolPtr CreateTempVariable(SymbolValue::ValueType type);
 
-  TACListPtr CreateFunction(const std::string &func_name, ParamListPtr params, TACListPtr body);
-  TACListPtr CreateCall(const std::string &func_name, ArgListPtr args);
+  TACListPtr CreateFunction(SymbolValue::ValueType ret_type, const std::string &func_name, ParamListPtr params,
+                            TACListPtr body);
+  // TACListPtr CreateCall(const std::string &func_name, ArgListPtr args);
   TACListPtr CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym);
   TACListPtr CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label);
   TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false, SymbolPtr *out_label_true,

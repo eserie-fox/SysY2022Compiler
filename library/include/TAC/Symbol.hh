@@ -100,10 +100,15 @@ class ParameterList : protected std::vector<std::shared_ptr<Symbol>> {
 
  public:
   inline void push_back_parameter(std::shared_ptr<Symbol> sym) { push_back(sym); }
+  inline void set_return_type(SymbolValue::ValueType type) { ret_type_ = type; }
+  inline SymbolValue::ValueType get_return_type() { return ret_type_; }
   using Base::begin;
   using Base::cbegin;
   using Base::cend;
   using Base::end;
+
+ protected:
+  SymbolValue::ValueType ret_type_;
 };
 
 class SymbolTable : public std::unordered_map<std::string, std::shared_ptr<Symbol>> {
