@@ -428,8 +428,7 @@ TACListPtr TACBuilder::CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *
   if (out_label) {
     *out_label = label;
   }
-  auto cond_zero = CreateArithmeticOperation(TACOperationType::UnaryNot, cond);
-  return TACFactory::Instance()->MakeIf(cond_zero, label, stmt);
+  return TACFactory::Instance()->MakeIf(cond, label, stmt);
 }
 TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false,
                                     SymbolPtr *out_label_true, SymbolPtr *out_label_false) {
@@ -441,8 +440,7 @@ TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TA
   if (out_label_false) {
     *out_label_false = label_false;
   }
-  auto cond_zero = CreateArithmeticOperation(TACOperationType::UnaryNot, cond);
-  return TACFactory::Instance()->MakeIfElse(cond_zero, label_true, stmt_true, label_false, stmt_false);
+  return TACFactory::Instance()->MakeIfElse(cond, label_true, stmt_true, label_false, stmt_false);
 }
 TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
   return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, stmt);

@@ -66,12 +66,12 @@ class TACFactory {
   TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
   // if(cond_zero==zero)
   //  stmt
-  TACListPtr MakeIf(ExpressionPtr cond_zero, SymbolPtr label, TACListPtr stmt);
+  TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
   // if(cond_zero==zero)
   //  stmt_true
   // else
   //  stmt_false
-  TACListPtr MakeIfElse(ExpressionPtr cond_zero, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
+  TACListPtr MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
                         TACListPtr stmt_false);
   TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt);
   TACListPtr MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont, SymbolPtr label_brk,

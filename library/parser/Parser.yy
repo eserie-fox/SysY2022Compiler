@@ -594,7 +594,25 @@ LAndExp
   :EqExp
   |LAndExp LA EqExp
   {
-    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LogicAnd, $1, $3);
+    if($1->ret->type_==SymbolType::Constant){
+      if(!(bool)$1->ret->value_){
+        $$=tacbuilder->CreateConstExp(0);
+      }
+    }
+    else
+    {
+      ExpressionPtr exp = tacbuilder->CreateArithmeticOperation(TACOperationType::UnaryNot, $1);
+      SymbolPtr ret = tacbuilder->CreateTempVariable(ValueType::Int);
+      TACListPtr tac1 = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable, ret));
+      TACListPtr tac2 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(0))->tac;
+
+      ExpressionPtr exp1 = tacbuilder->CreateArithmeticOperation(TACOperationType::UnaryNot, $3);
+      TACListPtr tac3 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(1))->tac;
+      TACListPtr tac4 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(0))->tac;
+      TACListPtr tac5 = tacbuilder->CreateIfElse(exp1,tac4,tac3);
+      ExpressionPtr exp2 = tacbuilder->NewExp(tacbuilder->CreateIfElse(exp,tac2,tac5), ret);
+      $$ = exp2;
+    }
   }
   ;
 
@@ -602,8 +620,24 @@ LOrExp
   : LAndExp
   | LOrExp LO LAndExp
   {
-    $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LogicOr, $1, $3);
-  }
+    if($1->ret->type_==SymbolType::Constant){
+      if((bool)$1->ret->value_){
+        $$=tacbuilder->CreateConstExp(1);
+      }
+    }
+    else
+    {
+      SymbolPtr ret = tacbuilder->CreateTempVariable(ValueType::Int);
+      TACListPtr tac1 = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable, ret));
+      TACListPtr tac2 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(1))->tac;
+
+      TACListPtr tac3 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(0))->tac;
+      TACListPtr tac4 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(1))->tac;
+      TACListPtr tac5 = tacbuilder->CreateIfElse($3,tac4,tac3);
+      ExpressionPtr exp2 = tacbuilder->NewExp(tacbuilder->CreateIfElse($1,tac2,tac5), ret);
+      $$ = exp2;
+    }
+  }  
   ;
 
 ConstExp : AddExp ;
