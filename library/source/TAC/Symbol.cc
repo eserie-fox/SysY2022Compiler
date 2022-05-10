@@ -345,6 +345,80 @@ SymbolValue SymbolValue::operator||(const SymbolValue &other) const {
   }
 }
 
+bool SymbolValue::IsAssignableTo(const SymbolValue &other) const {
+  bool isArrayMe = Type() == ValueType::Array;
+  bool isArrayOther = other.Type() == ValueType::Array;
+  if (isArrayMe || isArrayOther) {
+    if (isArrayMe && isArrayOther) {
+      auto myAD = GetArrayDescriptor();
+      auto otherAD = other.GetArrayDescriptor();
+      if (myAD->value_type != otherAD->value_type) {
+        return false;
+      }
+      if (myAD->dimensions.size() != otherAD->dimensions.size()) {
+        return false;
+      }
+      for (size_t i = 1; i < myAD->dimensions.size(); i++) {
+        if (myAD->dimensions[i] != otherAD->dimensions[i]) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (isArrayMe) {
+      auto myAD = GetArrayDescriptor();
+      if (!myAD->dimensions.empty()) {
+        return false;
+      }
+      if (myAD->value_type != other.Type()) {
+        return false;
+      }
+      return true;
+    } else {
+      auto otherAD = other.GetArrayDescriptor();
+      if (!otherAD->dimensions.empty()) {
+        return false;
+      }
+      if (otherAD->value_type != Type()) {
+        return false;
+      }
+      return true;
+    }
+  }
+  if (!IsNumericType() || !other.IsNumericType()) {
+    return false;
+  }
+
+  return (other.Type() == Type());
+}
+
+std::string SymbolValue::TypeToString() const {
+  std::string ret = std::string(magic_enum::enum_name<ValueType>(Type()));
+
+  switch (Type()) {
+    case ValueType::Array: {
+      for (auto d : GetArrayDescriptor()->dimensions) {
+        ret += "[" + std::to_string(d) + "]";
+      }
+      break;
+    }
+    case ValueType::Parameters:{
+      ret += ": ";
+      auto param = GetParameters();
+      ret += std::string(magic_enum::enum_name<ValueType>(param->get_return_type()));
+      ret += "(";
+      for (auto type : *param) {
+        ret += type->value_.TypeToString() + ",";
+      }
+      ret.back() = ')';
+    }
+    default: {
+      break;
+    }
+  }
+
+  return ret;
+}
 SymbolValue::operator bool() const {
   if (type == ValueType::Void) {
     throw std::runtime_error("Void type can't be converted to bool!");

@@ -61,6 +61,10 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
   if (exp->tac == nullptr) {
     throw NullReferenceException(__FILE__, __LINE__, "'tac' is null");
   }
+  if (!exp->ret->value_.IsAssignableTo(var->value_)) {
+    throw TypeMismatchException(var->value_.TypeToString(), exp->ret->value_.TypeToString(),
+                                " Can't assign this actual type to expected type");
+  }
   auto tac_list = exp->tac->MakeCopy();
   (*tac_list) += NewTAC(TACOperationType::Assign, var, exp->ret);
   return NewExp(tac_list, var);
@@ -173,8 +177,7 @@ TACListPtr TACFactory::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
       init_array->value_.Type() != SymbolValue::ValueType::Array) {
     throw LogicException("[" + std::string(__func__) +
                          "] array and init_array both are expected to be 'Array' type, but actually " +
-                         std::string(magic_enum::enum_name<SymbolValue::ValueType>(array->value_.Type())) + " and " +
-                         std::string(magic_enum::enum_name<SymbolValue::ValueType>(init_array->value_.Type())));
+                         array->value_.TypeToString() + " and " + init_array->value_.TypeToString());
   }
 
   auto finit_array = FlattenInitArray(init_array->value_.GetArrayDescriptor());
@@ -195,7 +198,7 @@ TACListPtr TACFactory::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
     for (auto &pr : finit_array) {
       if (pr.second != nullptr && pr.second->value_.Type() != SymbolValue::ValueType::Int) {
         throw TypeMismatchException(
-            std::string(magic_enum::enum_name<SymbolValue::ValueType>(pr.second->value_.Type())), "Int",
+            pr.second->value_.TypeToString(), "Int",
             pr.second->get_name() + "'s value type mismatched, can't initialize int array with non-Int type");
       }
     }
@@ -219,11 +222,31 @@ TACListPtr TACFactory::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
 // }
 
 TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym) {
-  auto tac_list = NewTACList();
-  (*tac_list) += NewTAC(TACOperationType::Variable, ret_sym);
   if (args == nullptr) {
     throw NullReferenceException(__FILE__, __LINE__, "'args' is null");
   }
+  {
+    size_t nfuncparam = func_label->value_.GetParameters()->size();
+    size_t narg = args->size();
+    if (nfuncparam != narg) {
+      throw RuntimeException("Function '" + func_label->get_name() + "' requires " + std::to_string(nfuncparam) +
+                             " parameters, but " + std::to_string(narg) + " args provided");
+    }
+    auto paramit = func_label->value_.GetParameters()->begin();
+    auto paramend = func_label->value_.GetParameters()->end();
+    auto argit = args->begin();
+    size_t ith = 0;
+    for (; paramit != paramend; ++paramit, ++argit) {
+      ++ith;
+      if (!(*argit)->ret->value_.IsAssignableTo((*paramit)->value_)) {
+        throw TypeMismatchException(
+            (*argit)->ret->value_.TypeToString(), (*paramit)->value_.TypeToString(),
+            "Function '" + func_label->get_name() + "'s " + std::to_string(ith) + "th parameter type mismatch");
+      }
+    }
+  }
+  auto tac_list = NewTACList();
+  (*tac_list) += NewTAC(TACOperationType::Variable, ret_sym);
   for (auto exp : *args) {
     (*tac_list) += exp->tac;
   }
@@ -492,7 +515,7 @@ ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
   }
   if (expF->ret->type_ == SymbolType::Variable) {
     if (expF->ret->value_.Type() != SymbolValue::ValueType::Float) {
-      throw TypeMismatchException(std::string(magic_enum::enum_name<SymbolValue::ValueType>(expF->ret->value_.Type())),
+      throw TypeMismatchException(expF->ret->value_.TypeToString(),
                                   "Float", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
@@ -510,7 +533,7 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
   }
   if (expI->ret->type_ == SymbolType::Variable) {
     if (expI->ret->value_.Type() != SymbolValue::ValueType::Int) {
-      throw TypeMismatchException(std::string(magic_enum::enum_name<SymbolValue::ValueType>(expI->ret->value_.Type())),
+      throw TypeMismatchException(expI->ret->value_.TypeToString(),
                                   "Int", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);

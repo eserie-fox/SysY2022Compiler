@@ -70,6 +70,8 @@ struct SymbolValue {
   SymbolValue operator&&(const SymbolValue &other) const;
   SymbolValue operator||(const SymbolValue &other) const;
 
+  bool IsAssignableTo(const SymbolValue &other) const;
+  std::string TypeToString() const;
   operator bool() const;
 
  private:
@@ -108,6 +110,7 @@ class ParameterList : protected std::vector<std::shared_ptr<Symbol>> {
   using Base::cbegin;
   using Base::cend;
   using Base::end;
+  using Base::size;
 
  protected:
   SymbolValue::ValueType ret_type_;
