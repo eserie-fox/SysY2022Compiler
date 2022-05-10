@@ -1,56 +1,62 @@
 #include <stack>
+#include <variant>
+#include <memory>
+#include "TAC/Symbol.hh"
 
 namespace HaveFunCompiler{
-union UnionStackItem {
-  uint64_t u64;
-  uint32_t u32;
-  int64_t i64;
-  int32_t i32;
-  void *ptr;
+struct VariantStackItem {
+  std::variant<uint64_t,uint32_t,int64_t,int32_t,void*,std::shared_ptr<ThreeAddressCode::Symbol>> value;
+
   template <typename T>
-  UnionStackItem(T *v) {
-    ptr = (void *)v;
+  VariantStackItem(T *v) {
+    value = (void *)v;
   }
-  UnionStackItem(uint64_t v) { u64 = v; }
-  UnionStackItem(uint32_t v) { u32 = v; }
-  UnionStackItem(int64_t v) { i64 = v; }
-  UnionStackItem(int32_t v) { i32 = v; }
+  VariantStackItem(std::shared_ptr<ThreeAddressCode::Symbol> sym) { value = sym; }
+  VariantStackItem(uint64_t v) { value = v; }
+  VariantStackItem(uint32_t v) { value = v; }
+  VariantStackItem(int64_t v) { value = v; }
+  VariantStackItem(int32_t v) { value = v; }
+  void Get(std::shared_ptr<ThreeAddressCode::Symbol> *p) {
+    if (p) {
+      *p = std::get<std::shared_ptr<ThreeAddressCode::Symbol>>(value);
+    }
+  }
   void Get(uint64_t *p) {
     if (p) {
-      *p = u64;
+      *p = std::get<uint64_t>(value);
     }
   }
   void Get(uint32_t *p) {
     if (p) {
-      *p = u32;
+      *p = std::get<uint32_t>(value);
     }
   }
   void Get(int64_t *p) {
     if (p) {
-      *p = i64;
+      *p = std::get<int64_t>(value);
     }
   }
   void Get(int32_t *p) {
     if (p) {
-      *p = u64;
+      *p = std::get<int32_t>(value);
     }
   }
   template <typename T>
   void Get(T **p) {
     if (p) {
-      *p = (T *)ptr;
+      *p = (T *)std::get<void *>(value);
     }
   }
-  
+
 };  // namespace CompilerStackItem
 
-class UnionStack : protected std::stack<UnionStackItem> {
+class VariantStack : protected std::stack<VariantStackItem> {
   public:
    size_t Size() const { return size(); }
    bool IsEmpty() const { return empty(); }
    template <typename T>
    void Push(T v) {
-     push(UnionStackItem(v));
+     push(VariantStackItem(v));
    }
    
    template <typename T>

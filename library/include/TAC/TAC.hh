@@ -212,8 +212,8 @@ class TACBuilder {
  private:
   std::string AppendScopePrefix(const std::string &name, uint64_t scope_id = (uint64_t)-1);
   SymbolPtr FindSymbolWithName(const std::string &name);
-  UnionStack compiler_stack_;
-  UnionStack function_stack_;
+  VariantStack compiler_stack_;
+  VariantStack function_stack_;
   //目前临时变量标号
   uint64_t cur_temp_var_;
   //目前临时标签标号
