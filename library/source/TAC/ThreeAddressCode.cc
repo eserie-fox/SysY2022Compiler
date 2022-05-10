@@ -71,7 +71,7 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::Return:
       return "Return" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_name()));
     case TACOperationType::Variable:
-      return std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) + ": " + a_->get_name();
+      return a_->value_.TypeToString() + ": " + a_->get_name();
     default:
       return "Undefined";
   }

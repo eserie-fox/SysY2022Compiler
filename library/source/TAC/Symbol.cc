@@ -402,7 +402,7 @@ std::string SymbolValue::TypeToString() const {
       }
       break;
     }
-    case ValueType::Parameters:{
+    case ValueType::Parameters: {
       ret += ": ";
       auto param = GetParameters();
       ret += std::string(magic_enum::enum_name<ValueType>(param->get_return_type()));
@@ -440,7 +440,31 @@ SymbolValue::operator bool() const {
 
 std::string Symbol::get_name() const {
   if (name_.has_value()) {
-    return name_.value();
+    std::string name = name_.value();
+    switch (value_.Type()) {
+      case SymbolValue::ValueType::Array: {
+        for (auto d : value_.GetArrayDescriptor()->dimensions) {
+          name += "[" + std::to_string(d) + "]";
+        }
+        break;
+      }
+      case SymbolValue::ValueType::Parameters: {
+        auto param = value_.GetParameters();
+        name += ": ";
+        name += magic_enum::enum_name<SymbolValue::ValueType>(param->get_return_type());
+        name += "(";
+        for (auto sym : *param) {
+          name += sym->value_.TypeToString() + ",";
+        }
+        name.back() = ')';
+        break;
+      }
+
+      default: {
+        break;
+      }
+    }
+    return name;
   }
   return value_.ToString();
 }

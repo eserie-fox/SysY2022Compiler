@@ -428,7 +428,8 @@ TACListPtr TACBuilder::CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *
   if (out_label) {
     *out_label = label;
   }
-  return TACFactory::Instance()->MakeIf(cond, label, stmt);
+  auto cond_zero = CreateArithmeticOperation(TACOperationType::UnaryNot, cond);
+  return TACFactory::Instance()->MakeIf(cond_zero, label, stmt);
 }
 TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false,
                                     SymbolPtr *out_label_true, SymbolPtr *out_label_false) {
@@ -440,7 +441,8 @@ TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TA
   if (out_label_false) {
     *out_label_false = label_false;
   }
-  return TACFactory::Instance()->MakeIfElse(cond, label_true, stmt_true, label_false, stmt_false);
+  auto cond_zero = CreateArithmeticOperation(TACOperationType::UnaryNot, cond);
+  return TACFactory::Instance()->MakeIfElse(cond_zero, label_true, stmt_true, label_false, stmt_false);
 }
 TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
   return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, stmt);
@@ -515,8 +517,7 @@ ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
   }
   if (expF->ret->type_ == SymbolType::Variable) {
     if (expF->ret->value_.Type() != SymbolValue::ValueType::Float) {
-      throw TypeMismatchException(expF->ret->value_.TypeToString(),
-                                  "Float", "Cast fail");
+      throw TypeMismatchException(expF->ret->value_.TypeToString(), "Float", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
     auto tac_list = TACFactory::Instance()->NewTACList(expF->tac);
@@ -533,8 +534,7 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
   }
   if (expI->ret->type_ == SymbolType::Variable) {
     if (expI->ret->value_.Type() != SymbolValue::ValueType::Int) {
-      throw TypeMismatchException(expI->ret->value_.TypeToString(),
-                                  "Int", "Cast fail");
+      throw TypeMismatchException(expI->ret->value_.TypeToString(), "Int", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
     auto tac_list = TACFactory::Instance()->NewTACList(expI->tac);
@@ -600,13 +600,20 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
 
   switch (arith_op) {
     case TACOperationType::UnaryPositive:
-    case TACOperationType::UnaryMinus:
-    case TACOperationType::UnaryNot: {
+    case TACOperationType::UnaryMinus: {
       auto tmpSym = CreateTempVariable(exp1->ret->value_.Type());
       auto tac_list = TACFactory::Instance()->NewTACList();
       (*tac_list) += exp1->tac;
       (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
       (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret);
+      return TACFactory::Instance()->NewExp(tac_list, tmpSym);
+    }
+    case TACOperationType::UnaryNot: {
+      auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
+      auto tac_list = TACFactory::Instance()->NewTACList();
+      (*tac_list) += exp1->tac;
+      (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
+      (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::UnaryNot, tmpSym, exp1->ret);
       return TACFactory::Instance()->NewExp(tac_list, tmpSym);
     }
     case TACOperationType::Add:
@@ -623,8 +630,6 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
     case TACOperationType::LogicAnd:
     case TACOperationType::LogicOr: {
       auto tac_list = TACFactory::Instance()->NewTACList();
-      (*tac_list) += exp1->tac;
-      (*tac_list) += exp2->tac;
       if (exp1->ret->value_.Type() == SymbolValue::ValueType::Float ||
           exp2->ret->value_.Type() == SymbolValue::ValueType::Float) {
         auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
@@ -637,10 +642,14 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
         if (fexp2->ret->value_.Type() != SymbolValue::ValueType::Float) {
           fexp2 = CastIntToFloat(fexp2);
         }
+        (*tac_list) += fexp1->tac;
+        (*tac_list) += fexp2->tac;
         (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, fexp1->ret, fexp2->ret);
         return TACFactory::Instance()->NewExp(tac_list, tmpSym);
       } else {
         auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
+        (*tac_list) += exp1->tac;
+        (*tac_list) += exp2->tac;
         (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
         (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret, exp2->ret);
         return TACFactory::Instance()->NewExp(tac_list, tmpSym);
