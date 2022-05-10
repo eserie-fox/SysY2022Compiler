@@ -22,6 +22,8 @@ class ArgumentList : protected std::vector<std::shared_ptr<Expression>> {
   using Base::cend;
   using Base::end;
   using Base::size;
+  using Base::empty;
+  
 };
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler

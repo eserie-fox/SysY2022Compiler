@@ -54,6 +54,8 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 #define yylex scanner.yylex
 #define tacbuilder driver.get_tacbuilder()
 #define tacfactory TACFactory::Instance()
+#define INFUNCFLAG 2022
+
 }
 
 %define api.value.type variant
@@ -88,6 +90,7 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 %type <ArgListPtr> FuncRParams
 %type <SymbolPtr> FuncFParam LVal
 %type <TACOperationType> UnaryOp  
+%type <std::string> FuncIdenti
 
 
 %locations
@@ -285,19 +288,31 @@ InitVal
 
   }
   ; */
+FuncIdenti
+  :IDENTIFIER
+  {
+    tacbuilder->EnterSubscope();
+    tacbuilder->PushFunc(INFUNCFLAG);
+    $$ = $1;
+  }
+  ;
 
 FuncDef 
-  : VOID IDENTIFIER LS FuncFParams RS Block 
+  : VOID FuncIdenti LS FuncFParams RS Block 
   {
+    tacbuilder->PopFunc();
     $$ = tacbuilder->CreateFunction(ValueType::Void, $2, $4, $6);
+    tacbuilder->ExitSubscope();
   }
-  | BType IDENTIFIER LS FuncFParams RS Block 
+  | BType FuncIdenti LS FuncFParams RS Block 
   {
+    tacbuilder->PopFunc();
     int type;
     tacbuilder->Top(&type);
     SymbolPtr sym = tacbuilder->CreateTempVariable((ValueType)type); 
     tacbuilder->Pop();
     $$ = tacbuilder->CreateFunction((ValueType)type,$2, $4, $6);
+    tacbuilder->ExitSubscope();
   }
   ;
 
@@ -350,14 +365,30 @@ Block
 
 LBUP: LB
 {
-  tacbuilder->EnterSubscope();
+  int type;
+  bool flag = false;
+  if(tacbuilder->TopFunc(&type)){
+    if(type == INFUNCFLAG){
+      flag = true;
+    }
+  }
+  if(!flag)
+    tacbuilder->EnterSubscope();
   $$ = tacbuilder->NewTACList();
 }
 ;
 
 RBUP:RB
 {
-  tacbuilder->ExitSubscope();
+  int type;
+  bool flag = false;
+  if(tacbuilder->TopFunc(&type)){
+    if(type == INFUNCFLAG){
+      flag = true;
+    }
+  }
+  if(!flag)
+    tacbuilder->ExitSubscope();
   $$ = tacbuilder->NewTACList();
 }
 ;

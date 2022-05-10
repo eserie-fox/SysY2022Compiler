@@ -410,7 +410,11 @@ std::string SymbolValue::TypeToString() const {
       for (auto type : *param) {
         ret += type->value_.TypeToString() + ",";
       }
-      ret.back() = ')';
+      if (param->empty()) {
+        ret.push_back(')');
+      } else {
+        ret.back() = ')';
+      }
     }
     default: {
       break;
@@ -456,7 +460,11 @@ std::string Symbol::get_name() const {
         for (auto sym : *param) {
           name += sym->value_.TypeToString() + ",";
         }
-        name.back() = ')';
+        if (param->empty()) {
+          name.push_back(')');
+        } else {
+          name.back() = ')';
+        }
         break;
       }
 

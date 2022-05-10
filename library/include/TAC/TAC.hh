@@ -112,6 +112,21 @@ class TACBuilder {
 
   void Pop() { compiler_stack_.Pop(); }
 
+  template <typename T>
+  void PushFunc(T value) {
+    function_stack_.Push(value);
+  }
+  template <typename T>
+  bool TopFunc(T *out_value) {
+    if (function_stack_.IsEmpty()) {
+      return false;
+    }
+    function_stack_.Top(out_value);
+    return true;
+  }
+
+  void PopFunc() { function_stack_.Pop(); }
+
   void PushLoop(SymbolPtr label_cont, SymbolPtr label_brk);
 
   //如果Loop栈不为空则取出cont和brk的label，并返回true，否则取不出且返回false。
@@ -198,6 +213,7 @@ class TACBuilder {
   std::string AppendScopePrefix(const std::string &name, uint64_t scope_id = (uint64_t)-1);
   SymbolPtr FindSymbolWithName(const std::string &name);
   UnionStack compiler_stack_;
+  UnionStack function_stack_;
   //目前临时变量标号
   uint64_t cur_temp_var_;
   //目前临时标签标号
