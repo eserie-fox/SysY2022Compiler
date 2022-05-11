@@ -106,8 +106,7 @@ class TACBuilder {
     if (compiler_stack_.IsEmpty()) {
       return false;
     }
-    compiler_stack_.Top(out_value);
-    return true;
+    return compiler_stack_.Top(out_value);
   }
 
   void Pop() { compiler_stack_.Pop(); }
@@ -121,8 +120,7 @@ class TACBuilder {
     if (function_stack_.IsEmpty()) {
       return false;
     }
-    function_stack_.Top(out_value);
-    return true;
+    return function_stack_.Top(out_value);
   }
 
   void PopFunc() { function_stack_.Pop(); }

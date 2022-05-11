@@ -54,7 +54,9 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 #define yylex scanner.yylex
 #define tacbuilder driver.get_tacbuilder()
 #define tacfactory TACFactory::Instance()
-#define INFUNCFLAG 2022
+const int FUNC_BLOCK_IN_FLAG = 2022;
+const int FUNC_BLOCK_OUT_FLAG = 2023;
+const int NONFUNC_BLOCK_FLAG = 2024;
 
 }
 
@@ -241,9 +243,9 @@ VarDef_list
   {
     $$ = $1->tac;
   }
-  | VarDef_list VarDef
+  | VarDef_list COM VarDef
   {
-    $$ = tacbuilder->NewTACList((*$1) + (*$2->tac));
+    $$ = tacbuilder->NewTACList((*$1) + (*$3->tac));
   }
   ;
 
@@ -304,6 +306,7 @@ FuncHead
     SymbolPtr func_label;
     tacbuilder->TopFunc(&func_label);
     tacbuilder->CreateFunctionHead(ValueType::Void,func_label,$4);
+    tacbuilder->PushFunc(FUNC_BLOCK_IN_FLAG);
   }
   | BType FuncIdenti LS FuncFParams RS
   {
@@ -313,11 +316,13 @@ FuncHead
     SymbolPtr func_label;
     tacbuilder->TopFunc(&func_label);
     tacbuilder->CreateFunctionHead((ValueType)type,func_label,$4);
+    tacbuilder->PushFunc(FUNC_BLOCK_IN_FLAG);
   };
 
 FuncDef 
   : FuncHead Block 
   {
+    tacbuilder->PopFunc();
     SymbolPtr func_head;
     tacbuilder->TopFunc(&func_head);
     tacbuilder->PopFunc();
@@ -375,24 +380,39 @@ Block
 
 LBUP: LB
 {
-  bool flag = false;
-  if(tacbuilder->TopFunc((SymbolPtr*)nullptr)){
-    flag = true;
+  bool flag = true;
+  int value;
+  if(tacbuilder->TopFunc(&value)){
+    if(value == FUNC_BLOCK_IN_FLAG){
+      flag = false;
+      tacbuilder->PopFunc();
+      tacbuilder->PushFunc(FUNC_BLOCK_OUT_FLAG);
+    }
   }
-  if(!flag)
+  if(flag)
+  {
+    tacbuilder->PushFunc(NONFUNC_BLOCK_FLAG);
     tacbuilder->EnterSubscope();
+  }
   $$ = tacbuilder->NewTACList();
 }
 ;
 
 RBUP:RB
 {
-  bool flag = false;
-  if(tacbuilder->TopFunc((SymbolPtr*)nullptr)){
-    flag = true;
+  bool flag = true;
+  int value;
+  if(tacbuilder->TopFunc(&value)){
+    if(value==FUNC_BLOCK_OUT_FLAG){
+      flag = false;
+    }
   }
-  if(!flag)
+  if(flag)
+  {
+    assert(value == NONFUNC_BLOCK_FLAG);
+    tacbuilder->PopFunc();
     tacbuilder->ExitSubscope();
+  }
   $$ = tacbuilder->NewTACList();
 }
 ;

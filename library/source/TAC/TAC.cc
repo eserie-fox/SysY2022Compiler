@@ -230,7 +230,7 @@ TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, Sy
     size_t narg = args->size();
     if (nfuncparam != narg) {
       throw RuntimeException("Function '" + func_label->get_name() + "' requires " + std::to_string(nfuncparam) +
-                             " parameters, but " + std::to_string(narg) + " args provided");
+                             " parameters, but " + std::to_string(narg) + " arguments provided");
     }
     auto paramit = func_label->value_.GetParameters()->begin();
     auto paramend = func_label->value_.GetParameters()->end();
