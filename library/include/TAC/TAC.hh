@@ -59,7 +59,7 @@ class TACFactory {
   SymbolPtr AccessArray(SymbolPtr array, std::vector<size_t> pos);
   TACListPtr MakeArrayInit(SymbolPtr array, SymbolPtr init_array);
 
-  TACListPtr MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body);
+  TACListPtr MakeFunction(SymbolPtr func_head, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
 
   // TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
@@ -181,8 +181,10 @@ class TACBuilder {
   SymbolPtr CreateVariable(const std::string &name, SymbolValue::ValueType type);
   SymbolPtr CreateTempVariable(SymbolValue::ValueType type);
 
-  TACListPtr CreateFunction(SymbolValue::ValueType ret_type, const std::string &func_name, ParamListPtr params,
-                            TACListPtr body);
+  SymbolPtr CreateFunctionHead(SymbolValue::ValueType ret_type, SymbolPtr func_label, ParamListPtr params);
+
+  TACListPtr CreateFunction(SymbolPtr func_head, TACListPtr body);
+
   // TACListPtr CreateCall(const std::string &func_name, ArgListPtr args);
   TACListPtr CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym);
   // if(cond!=zero)

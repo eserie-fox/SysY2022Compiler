@@ -91,6 +91,7 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 %type <SymbolPtr> FuncFParam LVal
 %type <TACOperationType> UnaryOp  
 %type <std::string> FuncIdenti
+%type FuncHead
 
 
 %locations
@@ -291,27 +292,36 @@ InitVal
 FuncIdenti
   :IDENTIFIER
   {
+    auto func_label =  tacbuilder->CreateFunctionLabel($1);
+    tacbuilder->PushFunc(func_label);
     tacbuilder->EnterSubscope();
-    tacbuilder->PushFunc(INFUNCFLAG);
     $$ = $1;
   }
   ;
-
-FuncDef 
-  : VOID FuncIdenti LS FuncFParams RS Block 
+FuncHead
+  : VOID FuncIdenti LS FuncFParams RS
   {
-    tacbuilder->PopFunc();
-    $$ = tacbuilder->CreateFunction(ValueType::Void, $2, $4, $6);
-    tacbuilder->ExitSubscope();
+    SymbolPtr func_label;
+    tacbuilder->TopFunc(&func_label);
+    tacbuilder->CreateFunctionHead(ValueType::Void,func_label,$4);
   }
-  | BType FuncIdenti LS FuncFParams RS Block 
+  | BType FuncIdenti LS FuncFParams RS
   {
-    tacbuilder->PopFunc();
     int type;
     tacbuilder->Top(&type);
-    SymbolPtr sym = tacbuilder->CreateTempVariable((ValueType)type); 
     tacbuilder->Pop();
-    $$ = tacbuilder->CreateFunction((ValueType)type,$2, $4, $6);
+    SymbolPtr func_label;
+    tacbuilder->TopFunc(&func_label);
+    tacbuilder->CreateFunctionHead((ValueType)type,func_label,$4);
+  };
+
+FuncDef 
+  : FuncHead Block 
+  {
+    SymbolPtr func_head;
+    tacbuilder->TopFunc(&func_head);
+    tacbuilder->PopFunc();
+    $$ = tacbuilder->CreateFunction(func_head, $2);
     tacbuilder->ExitSubscope();
   }
   ;
@@ -365,12 +375,9 @@ Block
 
 LBUP: LB
 {
-  int type;
   bool flag = false;
-  if(tacbuilder->TopFunc(&type)){
-    if(type == INFUNCFLAG){
-      flag = true;
-    }
+  if(tacbuilder->TopFunc((SymbolPtr*)nullptr)){
+    flag = true;
   }
   if(!flag)
     tacbuilder->EnterSubscope();
@@ -380,12 +387,9 @@ LBUP: LB
 
 RBUP:RB
 {
-  int type;
   bool flag = false;
-  if(tacbuilder->TopFunc(&type)){
-    if(type == INFUNCFLAG){
-      flag = true;
-    }
+  if(tacbuilder->TopFunc((SymbolPtr*)nullptr)){
+    flag = true;
   }
   if(!flag)
     tacbuilder->ExitSubscope();

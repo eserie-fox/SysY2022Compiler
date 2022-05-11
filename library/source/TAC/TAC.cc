@@ -41,11 +41,11 @@ ArrayDescriptorPtr TACFactory::NewArrayDescriptor() {
   return ret;
 }
 
-TACListPtr TACFactory::MakeFunction(SymbolPtr func_label, ParamListPtr params, TACListPtr body) {
-  func_label->value_ = SymbolValue(params);
+TACListPtr TACFactory::MakeFunction(SymbolPtr func_head, TACListPtr body) {
   auto tac_list = NewTACList();
-  (*tac_list) += NewTAC(TACOperationType::Label, func_label);
+  (*tac_list) += NewTAC(TACOperationType::Label, func_head);
   (*tac_list) += NewTAC(TACOperationType::FunctionBegin);
+  auto params = func_head->value_.GetParameters();
   if (params == nullptr) {
     throw NullReferenceException(__FILE__, __LINE__, "'params' is null");
   }
@@ -401,11 +401,14 @@ SymbolPtr TACBuilder::CreateTempVariable(SymbolValue::ValueType type) {
   return sym;
 }
 
-TACListPtr TACBuilder::CreateFunction(SymbolValue::ValueType ret_type, const std::string &name, ParamListPtr params,
-                                      TACListPtr body) {
-  auto func_label = CreateFunctionLabel(name);
+SymbolPtr TACBuilder::CreateFunctionHead(SymbolValue::ValueType ret_type, SymbolPtr func_label, ParamListPtr params) {
   params->set_return_type(ret_type);
-  return TACFactory::Instance()->MakeFunction(func_label, params, body);
+  func_label->value_ = SymbolValue(params);
+  return func_label;
+}
+
+TACListPtr TACBuilder::CreateFunction(SymbolPtr func_head, TACListPtr body) {
+  return TACFactory::Instance()->MakeFunction(func_head, body);
 }
 
 // TACListPtr TACBuilder::CreateCall(const std::string &func_name, ArgListPtr args) {
