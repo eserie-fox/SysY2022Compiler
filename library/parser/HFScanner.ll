@@ -89,6 +89,38 @@ using token = HaveFunCompiler::Parser::Parser::token;
     return token::IntConst;
 }
 
+[0-9]*[.][0-9]*([eE]([+-])?[0-9]+)?([flFL])?   {
+  std::string floatNum = std::string(yytext);
+  if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
+    floatNum = floatNum.substr(0, floatNum.size()-1);
+  yylval->build<float>(std::stof(floatNum));
+  return token::floatConst;
+}
+
+[0-9]+[eE]([+-])?[0-9]+([flFL])?  {
+  std::string floatNum = std::string(yytext);
+  if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
+    floatNum = floatNum.substr(0, floatNum.size()-1);
+  yylval->build<float>(std::stof(floatNum));
+  return token::floatConst;
+}
+
+[0][xX](([A-F]|[a-f]|[0-9])+)?[.]([A-F]|[a-f]|[0-9])*[pP]([+-])?[0-9]+([flFL])?  {
+  std::string floatNum = std::string(yytext);
+  if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
+    floatNum = floatNum.substr(0, floatNum.size()-1);
+  yylval->build<float>(std::stof(floatNum));
+  return token::floatConst;
+}
+
+[0][xX][0-9A-Fa-f]+[pP]([+-])?[0-9]+([flFL])?  {
+  std::string floatNum = std::string(yytext);
+  if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
+    floatNum = floatNum.substr(0, floatNum.size()-1);
+  yylval->build<float>(std::stof(floatNum));
+  return token::floatConst;
+}
+
 "&&" {  return token::LA;}
 
 "||" { return token::LO;}
