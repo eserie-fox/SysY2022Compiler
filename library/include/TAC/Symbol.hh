@@ -90,13 +90,16 @@ struct Symbol {
   std::string get_name() const;
 };
 
+class Expression;
+
 class ArrayDescriptor {
  public:
   std::weak_ptr<Symbol> base_addr;
-  size_t base_offset;
+  std::shared_ptr<Symbol> base_offset;
   SymbolValue::ValueType value_type;
   std::vector<size_t> dimensions;
-  std::shared_ptr<std::unordered_map<size_t, std::shared_ptr<Symbol>>> subarray;
+  //初始化用
+  std::shared_ptr<std::unordered_map<size_t, std::shared_ptr<Expression>>> subarray;
 };
 
 class ParameterList : public std::vector<std::shared_ptr<Symbol>> {

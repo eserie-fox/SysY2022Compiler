@@ -4,6 +4,7 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include <iostream>
 #include "MagicEnum.hh"
 
 namespace HaveFunCompiler {
@@ -67,6 +68,17 @@ std::string SymbolValue::ToString() const {
       return std::string(GetStr());
     case ValueType::Void:
       return "ERROR";
+    case ValueType::Array:
+    {
+      auto array = GetArrayDescriptor();
+      std::string name = array->base_addr.lock()->name_.value() + "+";
+      if (array->base_offset->type_ == SymbolType::Constant) {
+        name += std::to_string(array->base_offset->value_.GetInt());
+      } else {
+        name += array->base_offset->name_.value();
+      }
+      return "*(" + name + ")";
+    }
     default:
       break;
   }

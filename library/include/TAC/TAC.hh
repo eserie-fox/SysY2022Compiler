@@ -28,9 +28,8 @@ class TACFactory {
   friend class TACBuilder;
 
  private:
-  using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Symbol>>>;
+  using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
   void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);
-  int ArrayInitImpl(SymbolPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end);
   FlattenedArray FlattenInitArray(ArrayDescriptorPtr array);
 
   static TACFactory *Instance() {
@@ -56,8 +55,6 @@ class TACFactory {
   ParamListPtr NewParamList();
   ArrayDescriptorPtr NewArrayDescriptor();
 
-  SymbolPtr AccessArray(SymbolPtr array, std::vector<size_t> pos);
-  TACListPtr MakeArrayInit(SymbolPtr array, SymbolPtr init_array);
 
   TACListPtr MakeFunction(SymbolPtr func_head, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
@@ -160,8 +157,8 @@ class TACBuilder {
 
   ExpressionPtr CreateAssign(SymbolPtr var, ExpressionPtr exp);
 
-  SymbolPtr AccessArray(SymbolPtr array, std::vector<size_t> pos);
-  TACListPtr MakeArrayInit(SymbolPtr array, SymbolPtr init_array);
+  ExpressionPtr AccessArray(ExpressionPtr array, std::vector<ExpressionPtr> pos);
+  ExpressionPtr MakeArrayInit(ExpressionPtr array, ExpressionPtr init_array);
 
   ExpressionPtr CreateConstExp(int n);
   ExpressionPtr CreateConstExp(float fn);
@@ -210,6 +207,8 @@ class TACBuilder {
   TACListPtr GetTACList();
 
  private:
+  int ArrayInitImpl(ExpressionPtr array, TACFactory::FlattenedArray::iterator &it,
+                    const TACFactory::FlattenedArray::iterator &end, TACListPtr tac_list);
   std::string AppendScopePrefix(const std::string &name, uint64_t scope_id = (uint64_t)-1);
   SymbolPtr FindSymbolWithName(const std::string &name);
   VariantStack compiler_stack_;

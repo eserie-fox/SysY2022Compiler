@@ -37,7 +37,7 @@ ArgListPtr TACFactory::NewArgList() { return std::make_shared<ArgumentList>(); }
 ParamListPtr TACFactory::NewParamList() { return std::make_shared<ParameterList>(); }
 ArrayDescriptorPtr TACFactory::NewArrayDescriptor() {
   auto ret = std::make_shared<ArrayDescriptor>();
-  ret->subarray = std::make_shared<std::unordered_map<size_t, std::shared_ptr<Symbol>>>();
+  ret->subarray = std::make_shared<std::unordered_map<size_t, std::shared_ptr<Expression>>>();
   return ret;
 }
 
@@ -70,50 +70,18 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
   return NewExp(tac_list, var);
 }
 
-SymbolPtr TACFactory::AccessArray(SymbolPtr array, std::vector<size_t> pos) {
-  auto arrayDescriptor = array->value_.GetArrayDescriptor();
-  if (pos.size() > arrayDescriptor->dimensions.size()) {
-    throw RuntimeException("Array only has " + std::to_string(arrayDescriptor->dimensions.size()) +
-                           " dimensions but access " + std::to_string(pos.size()) + "th dimension");
-  }
-  if (pos.empty()) {
-    return array;
-  }
-  size_t idx = pos.front();
-  pos.erase(pos.cbegin());
-  if (arrayDescriptor->subarray->count(idx)) {
-    auto val = arrayDescriptor->subarray->at(idx);
-    return AccessArray(val, pos);
-  }
-
-  auto nArrayDescriptor = NewArrayDescriptor();
-
-  size_t size_sublen = 1;
-  for (size_t i = 1; i < arrayDescriptor->dimensions.size(); i++) {
-    size_sublen *= arrayDescriptor->dimensions[i];
-    nArrayDescriptor->dimensions.push_back(arrayDescriptor->dimensions[i]);
-  }
-
-  nArrayDescriptor->base_addr = arrayDescriptor->base_addr;
-  nArrayDescriptor->value_type = arrayDescriptor->value_type;
-  nArrayDescriptor->base_offset = arrayDescriptor->base_offset;
-  nArrayDescriptor->base_offset += idx * size_sublen;
-  arrayDescriptor->subarray->emplace(idx, NewSymbol(array->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor)));
-  return AccessArray(NewSymbol(array->type_, std::nullopt, 0, nArrayDescriptor), pos);
-}
-
 void TACFactory::FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {
   out_result->emplace_back(1, nullptr);
-  std::vector<std::pair<size_t, SymbolPtr>> subarray;
+  std::vector<std::pair<size_t, ExpressionPtr>> subarray;
   for (const auto &[idx, valPtr] : *array->subarray) {
     subarray.emplace_back(idx, valPtr);
   }
   std::sort(subarray.begin(), subarray.end());
   for (const auto &[idx, valPtr] : subarray) {
-    if (valPtr->value_.Type() != SymbolValue::ValueType::Array) {
+    if (valPtr->ret->value_.Type() != SymbolValue::ValueType::Array) {
       out_result->emplace_back(0, valPtr);
     } else {
-      FlattenInitArrayImpl(out_result, valPtr->value_.GetArrayDescriptor());
+      FlattenInitArrayImpl(out_result, valPtr->ret->value_.GetArrayDescriptor());
     }
   }
   out_result->emplace_back(2, nullptr);
@@ -125,89 +93,8 @@ TACFactory::FlattenedArray TACFactory::FlattenInitArray(ArrayDescriptorPtr array
   return ret;
 }
 
-int TACFactory::ArrayInitImpl(SymbolPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end) {
-  enum { OK, IGNORE };
-  if (it == end) {
-    return IGNORE;
-  }
-  auto arrayDescriptor = array->value_.GetArrayDescriptor();
-  if (arrayDescriptor->dimensions.empty()) {
-    if (it->first == 1) {
-      throw RuntimeException(
-          "The depth of brace nesting in array initialization expression is too deep for the target array/subarray");
-    }
-    if (it->first == 2) {
-      return IGNORE;
-    }
-    arrayDescriptor->subarray->emplace(0, it->second);
-    ++it;
-    return OK;
-  }
-  for (size_t i = 0; i < arrayDescriptor->dimensions[0]; i++) {
-    if (it->first == 1) {
-      ++it;
-      ArrayInitImpl(TACFactory::Instance()->AccessArray(array, {i}), it, end);
-      if (it->first != 2) {
-        throw RuntimeException("Too many elements in array initialization expression for the target array/subarray");
-      }
-      ++it;
-      continue;
-    }
-    if (it->first == 2) {
-      return IGNORE;
-    }
-    if (IGNORE == ArrayInitImpl(TACFactory::Instance()->AccessArray(array, {i}), it, end)) {
-      return IGNORE;
-    }
-  }
-  return OK;
-}
 
-TACListPtr TACFactory::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
-  if (array->type_ != SymbolType::Variable && array->type_ != SymbolType::Constant) {
-    throw LogicException("[" + std::string(__func__) + "] Variabel or Constant are expected for array, but actually " +
-                         std::string(magic_enum::enum_name<SymbolType>(array->type_)));
-  }
-  if (init_array->type_ != SymbolType::Variable && init_array->type_ != SymbolType::Constant) {
-    throw LogicException("[" + std::string(__func__) +
-                         "] Variabel or Constant are expected for init_array, but actually " +
-                         std::string(magic_enum::enum_name<SymbolType>(init_array->type_)));
-  }
-  if (array->value_.Type() != SymbolValue::ValueType::Array &&
-      init_array->value_.Type() != SymbolValue::ValueType::Array) {
-    throw LogicException("[" + std::string(__func__) +
-                         "] array and init_array both are expected to be 'Array' type, but actually " +
-                         array->value_.TypeToString() + " and " + init_array->value_.TypeToString());
-  }
 
-  auto finit_array = FlattenInitArray(init_array->value_.GetArrayDescriptor());
-  for (auto &pr : finit_array) {
-    if (pr.second) {
-      if (array->type_ == SymbolType::Constant && pr.second->type_ != SymbolType::Constant) {
-        throw TypeMismatchException(
-            std::string(magic_enum::enum_name<SymbolType>(pr.second->type_)), "Constant",
-            pr.second->get_name() + "'s type mismatched, can't initialize const array with non-constant");
-      }
-      if (pr.second->type_ != SymbolType::Constant && pr.second->type_ != SymbolType::Variable) {
-        throw TypeMismatchException(std::string(magic_enum::enum_name<SymbolType>(pr.second->type_)),
-                                    "Constant or Variable", pr.second->get_name() + "'s type mismatched");
-      }
-    }
-  }
-  if (array->value_.GetArrayDescriptor()->value_type == SymbolValue::ValueType::Int) {
-    for (auto &pr : finit_array) {
-      if (pr.second != nullptr && pr.second->value_.Type() != SymbolValue::ValueType::Int) {
-        throw TypeMismatchException(
-            pr.second->value_.TypeToString(), "Int",
-            pr.second->get_name() + "'s value type mismatched, can't initialize int array with non-Int type");
-      }
-    }
-  }
-  auto init_array_it = finit_array.begin();
-  ++init_array_it;
-  ArrayInitImpl(array, init_array_it, finit_array.end());
-  return NewTACList(NewTAC(TACOperationType::Variable, array));
-}
 
 // TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
 //   auto tac_list = NewTACList();
@@ -318,13 +205,151 @@ ExpressionPtr TACBuilder::CreateAssign(SymbolPtr var, ExpressionPtr exp) {
   return TACFactory::Instance()->MakeAssign(var, exp);
 }
 
-SymbolPtr TACBuilder::AccessArray(SymbolPtr array, std::vector<size_t> pos) {
-  return TACFactory::Instance()->AccessArray(array, pos);
-}
-TACListPtr TACBuilder::MakeArrayInit(SymbolPtr array, SymbolPtr init_array) {
-  return TACFactory::Instance()->MakeArrayInit(array, init_array);
+ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<ExpressionPtr> pos) {
+  auto arrayDescriptor = array->ret->value_.GetArrayDescriptor();
+  if (pos.size() > arrayDescriptor->dimensions.size()) {
+    throw RuntimeException("Array only has " + std::to_string(arrayDescriptor->dimensions.size()) +
+                           " dimensions but access " + std::to_string(pos.size()) + "th dimension");
+  }
+  if (pos.empty()) {
+    return array;
+  }
+  auto idx_exp = pos.front();
+  pos.erase(pos.cbegin());
+  if (idx_exp->ret->type_ == SymbolType::Constant && arrayDescriptor->base_offset->type_ == SymbolType::Constant) {
+    int idx = idx_exp->ret->value_.GetInt();
+    if (idx < 0) {
+      throw RuntimeException("Array index must be non-negative, but encountered " + std::to_string(idx));
+    }
+    if (arrayDescriptor->subarray->count(idx)) {
+      auto val = arrayDescriptor->subarray->at(idx);
+      return AccessArray(val, pos);
+    }
+    auto nArrayDescriptor = NewArrayDescriptor();
+
+    size_t size_sublen = 1;
+    for (size_t i = 1; i < arrayDescriptor->dimensions.size(); i++) {
+      size_sublen *= arrayDescriptor->dimensions[i];
+      nArrayDescriptor->dimensions.push_back(arrayDescriptor->dimensions[i]);
+    }
+
+    nArrayDescriptor->base_addr = arrayDescriptor->base_addr;
+    nArrayDescriptor->value_type = arrayDescriptor->value_type;
+    ssize_t noffset = arrayDescriptor->base_offset->value_.GetInt() + idx * (ssize_t)size_sublen;
+    if (noffset > (ssize_t)INT32_MAX || noffset < 0) {
+      throw RuntimeException("Invalid array access at " + std::to_string(noffset));
+    }
+    nArrayDescriptor->base_offset = CreateConstExp(static_cast<int>(noffset))->ret;
+    arrayDescriptor->subarray->emplace(
+        idx, NewExp(NewTACList(), NewSymbol(array->ret->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor))));
+    return AccessArray(NewExp(array->tac, NewSymbol(array->ret->type_, std::nullopt, 0, nArrayDescriptor)), pos);
+  } else {
+    auto tac_list = NewTACList(array->tac);
+    auto nArrayDescriptor = NewArrayDescriptor();
+
+    size_t size_sublen = 1;
+    for (size_t i = 1; i < arrayDescriptor->dimensions.size(); i++) {
+      size_sublen *= arrayDescriptor->dimensions[i];
+      nArrayDescriptor->dimensions.push_back(arrayDescriptor->dimensions[i]);
+    }
+    nArrayDescriptor->base_addr = arrayDescriptor->base_addr;
+    nArrayDescriptor->value_type = arrayDescriptor->value_type;
+    auto offset_exp = NewExp(NewTACList(), arrayDescriptor->base_offset);
+    offset_exp = CreateArithmeticOperation(
+        TACOperationType::Add, offset_exp,
+        CreateArithmeticOperation(TACOperationType::Mul, idx_exp, CreateConstExp((int)size_sublen)));
+    (*tac_list) += offset_exp->tac;
+    nArrayDescriptor->base_offset = offset_exp->ret;
+    return AccessArray(NewExp(tac_list, NewSymbol(array->ret->type_, std::nullopt, 0, nArrayDescriptor)), pos);
+  }
 }
 
+int TACBuilder::ArrayInitImpl(ExpressionPtr array, TACFactory::FlattenedArray::iterator &it,
+                              const TACFactory::FlattenedArray::iterator &end, TACListPtr tac_list) {
+  enum { OK, IGNORE };
+  if (it == end) {
+    return IGNORE;
+  }
+  auto arrayDescriptor = array->ret->value_.GetArrayDescriptor();
+  if (arrayDescriptor->dimensions.empty()) {
+    if (it->first == 1) {
+      throw RuntimeException(
+          "The depth of brace nesting in array initialization expression is too deep for the target array/subarray");
+    }
+    if (it->first == 2) {
+      return IGNORE;
+    }
+    (*tac_list) += CreateAssign(array->ret, it->second)->tac;
+    arrayDescriptor->subarray->emplace(0, it->second);
+    ++it;
+    return OK;
+  }
+  for (size_t i = 0; i < arrayDescriptor->dimensions[0]; i++) {
+    if (it->first == 1) {
+      ++it;
+      ArrayInitImpl(AccessArray(array, {CreateConstExp((int)i)}), it, end, tac_list);
+      if (it->first != 2) {
+        throw RuntimeException("Too many elements in array initialization expression for the target array/subarray");
+      }
+      ++it;
+      continue;
+    }
+    if (it->first == 2) {
+      return IGNORE;
+    }
+    if (IGNORE ==
+        ArrayInitImpl(AccessArray(array, {CreateConstExp((int)i)}), it, end, tac_list)) {
+      return IGNORE;
+    }
+  }
+  return OK;
+}
+
+ExpressionPtr TACBuilder::MakeArrayInit(ExpressionPtr array, ExpressionPtr init_array) {
+  // if (array->type_ != SymbolType::Variable && array->type_ != SymbolType::Constant) {
+  //   throw LogicException("[" + std::string(__func__) + "] Variabel or Constant are expected for array, but actually " +
+  //                        std::string(magic_enum::enum_name<SymbolType>(array->type_)));
+  // }
+  // if (init_array->type_ != SymbolType::Variable && init_array->type_ != SymbolType::Constant) {
+  //   throw LogicException("[" + std::string(__func__) +
+  //                        "] Variabel or Constant are expected for init_array, but actually " +
+  //                        std::string(magic_enum::enum_name<SymbolType>(init_array->type_)));
+  // }
+  // if (array->value_.Type() != SymbolValue::ValueType::Array &&
+  //     init_array->value_.Type() != SymbolValue::ValueType::Array) {
+  //   throw LogicException("[" + std::string(__func__) +
+  //                        "] array and init_array both are expected to be 'Array' type, but actually " +
+  //                        array->value_.TypeToString() + " and " + init_array->value_.TypeToString());
+  // }
+
+  auto finit_array = TACFactory::Instance()->FlattenInitArray(init_array->ret->value_.GetArrayDescriptor());
+  for (auto &pr : finit_array) {
+    if (pr.second) {
+      if (array->ret->type_ == SymbolType::Constant && pr.second->ret->type_ != SymbolType::Constant) {
+        throw TypeMismatchException(
+            std::string(magic_enum::enum_name<SymbolType>(pr.second->ret->type_)), "Constant",
+            pr.second->ret->get_name() + "'s type mismatched, can't initialize const array with non-constant");
+      }
+      if (pr.second->ret->type_ != SymbolType::Constant && pr.second->ret->type_ != SymbolType::Variable) {
+        throw TypeMismatchException(std::string(magic_enum::enum_name<SymbolType>(pr.second->ret->type_)),
+                                    "Constant or Variable", pr.second->ret->get_name() + "'s type mismatched");
+      }
+    }
+  }
+  if (array->ret->value_.GetArrayDescriptor()->value_type == SymbolValue::ValueType::Int) {
+    for (auto &pr : finit_array) {
+      if (pr.second != nullptr && pr.second->ret->value_.Type() != SymbolValue::ValueType::Int) {
+        throw TypeMismatchException(
+            pr.second->ret->value_.TypeToString(), "Int",
+            pr.second->ret->get_name() + "'s value type mismatched, can't initialize int array with non-Int type");
+      }
+    }
+  }
+  auto init_array_it = finit_array.begin();
+  ++init_array_it;
+  ArrayInitImpl(array, init_array_it, finit_array.end(), array->tac);
+  return array;
+}
 void TACBuilder::EnterSubscope() { symbol_stack_.emplace_back(cur_symtab_id_++); }
 
 void TACBuilder::ExitSubscope() { symbol_stack_.pop_back(); }
