@@ -93,9 +93,6 @@ TACFactory::FlattenedArray TACFactory::FlattenInitArray(ArrayDescriptorPtr array
   return ret;
 }
 
-
-
-
 // TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
 //   auto tac_list = NewTACList();
 //   for (auto exp : *args) {
@@ -240,9 +237,9 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
       throw RuntimeException("Invalid array access at " + std::to_string(noffset));
     }
     nArrayDescriptor->base_offset = CreateConstExp(static_cast<int>(noffset))->ret;
-    arrayDescriptor->subarray->emplace(
-        idx, NewExp(NewTACList(), NewSymbol(array->ret->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor))));
-    return AccessArray(NewExp(array->tac, NewSymbol(array->ret->type_, std::nullopt, 0, nArrayDescriptor)), pos);
+    auto nArraySym = NewSymbol(array->ret->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor));
+    arrayDescriptor->subarray->emplace(idx, NewExp(NewTACList(), nArraySym));
+    return AccessArray(NewExp(array->tac, nArraySym), pos);
   } else {
     auto tac_list = NewTACList(array->tac);
     auto nArrayDescriptor = NewArrayDescriptor();
@@ -297,8 +294,7 @@ int TACBuilder::ArrayInitImpl(ExpressionPtr array, TACFactory::FlattenedArray::i
     if (it->first == 2) {
       return IGNORE;
     }
-    if (IGNORE ==
-        ArrayInitImpl(AccessArray(array, {CreateConstExp((int)i)}), it, end, tac_list)) {
+    if (IGNORE == ArrayInitImpl(AccessArray(array, {CreateConstExp((int)i)}), it, end, tac_list)) {
       return IGNORE;
     }
   }
@@ -307,7 +303,8 @@ int TACBuilder::ArrayInitImpl(ExpressionPtr array, TACFactory::FlattenedArray::i
 
 ExpressionPtr TACBuilder::CreateArrayInit(ExpressionPtr array, ExpressionPtr init_array) {
   // if (array->type_ != SymbolType::Variable && array->type_ != SymbolType::Constant) {
-  //   throw LogicException("[" + std::string(__func__) + "] Variabel or Constant are expected for array, but actually " +
+  //   throw LogicException("[" + std::string(__func__) + "] Variabel or Constant are expected for array, but actually "
+  //   +
   //                        std::string(magic_enum::enum_name<SymbolType>(array->type_)));
   // }
   // if (init_array->type_ != SymbolType::Variable && init_array->type_ != SymbolType::Constant) {

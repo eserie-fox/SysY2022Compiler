@@ -63,11 +63,15 @@ TEST(TACBuilder, ConstAccessArray) {
 
   auto ret = builder->AccessArray(arrayExp, {builder->CreateConstExp(1), builder->CreateConstExp(1)})->ret;
   auto array2 = ret->value_.GetArrayDescriptor();
-  cout << array2->base_addr.lock()->name_.value() << " " << array2->dimensions[0] << " " << array2->base_offset->get_name() << endl;
+  cout << array2->base_addr.lock()->name_.value() << " " << array2->dimensions[0] << " "
+       << array2->base_offset->get_name() << endl;
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 2; j++) {
       for (int k = 0; k < 3; k++) {
-        auto array = builder->AccessArray(arrayExp, {builder->CreateConstExp(i), builder->CreateConstExp(j), builder->CreateConstExp(k)})->ret;
+        auto array = builder
+                         ->AccessArray(arrayExp, {builder->CreateConstExp(i), builder->CreateConstExp(j),
+                                                  builder->CreateConstExp(k)})
+                         ->ret;
         ASSERT_EQ(i * 6 + j * 3 + k, array->value_.GetArrayDescriptor()->base_offset->value_.GetInt());
         ASSERT_EQ(0, array->value_.GetArrayDescriptor()->dimensions.size());
       }
@@ -105,27 +109,6 @@ TEST(TACBuilder, VarAccessArray) {
   auto nexp = builder->CreateAssign(ret->ret, builder->CreateConstExp(5));
   nexp->tac = builder->NewTACList(*ret->tac + *nexp->tac);
   cout << nexp->tac->ToString() << endl;
-  // cout << ret->tac->ToString()<< "\n"<< ret->ret->value_.GetArrayDescriptor()->base_offset->get_name() << endl;
-  // for (int i = 0; i < 2; i++) {
-  //   for (int j = 0; j < 2; j++) {
-  //     for (int k = 0; k < 3; k++) {
-  //       auto array = builder
-  //                        ->AccessArray(arrayExp, {builder->CreateConstExp(i), builder->CreateConstExp(j),
-  //                                                 builder->CreateConstExp(k)})
-  //                        ->ret;
-  //       ASSERT_EQ(i * 6 + j * 3 + k, array->value_.GetArrayDescriptor()->base_offset->value_.GetInt());
-  //       ASSERT_EQ(0, array->value_.GetArrayDescriptor()->dimensions.size());
-  //     }
-  //   }
-  // }
-  // for (int i = 0; i < 2; i++) {
-  //   for (int j = 0; j < 2; j++) {
-  //     auto array = builder->AccessArray(arrayExp, {builder->CreateConstExp(i), builder->CreateConstExp(j)})->ret;
-  //     ASSERT_EQ(i * 6 + j * 3, array->value_.GetArrayDescriptor()->base_offset->value_.GetInt());
-  //     ASSERT_EQ(1, array->value_.GetArrayDescriptor()->dimensions.size());
-  //     ASSERT_EQ(3, array->value_.GetArrayDescriptor()->dimensions[0]);
-  //   }
-  // }
 }
 
 TEST(TACBuilder, ConstArrayInit1) {
@@ -216,9 +199,7 @@ TEST(TACBuilder, ConstArrayInit2) {
                    ->ret->value_.GetArrayDescriptor()
                    ->subarray->at(0)
                    ->ret->value_.GetInt());
-  EXPECT_EQ(0, array1->subarray->at(1)
-                   ->ret->value_.GetArrayDescriptor()
-                   ->subarray->count(1));
+  EXPECT_EQ(0, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->count(1));
   std::cout << arrayExp->tac->ToString() << std::endl;
 }
 
