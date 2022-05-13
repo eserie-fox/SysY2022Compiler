@@ -230,7 +230,7 @@ SymbolValue SymbolValue::operator<(const SymbolValue &other) const {
   if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal < OtherVal));
@@ -240,7 +240,7 @@ SymbolValue SymbolValue::operator<(const SymbolValue &other) const {
     }
   } else {
     int ThisVal = GetInt();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal < OtherVal));
@@ -279,7 +279,7 @@ SymbolValue SymbolValue::operator==(const SymbolValue &other) const {
   if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal == OtherVal));
@@ -289,7 +289,7 @@ SymbolValue SymbolValue::operator==(const SymbolValue &other) const {
     }
   } else {
     int ThisVal = GetInt();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal == OtherVal));
@@ -308,7 +308,7 @@ SymbolValue SymbolValue::operator&&(const SymbolValue &other) const {
   if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal && OtherVal));
@@ -318,7 +318,7 @@ SymbolValue SymbolValue::operator&&(const SymbolValue &other) const {
     }
   } else {
     int ThisVal = GetInt();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal && OtherVal));
@@ -336,7 +336,7 @@ SymbolValue SymbolValue::operator||(const SymbolValue &other) const {
   if (type == ValueType::Float) {
     float ThisVal;
     ThisVal = GetFloat();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal || OtherVal));
@@ -346,7 +346,7 @@ SymbolValue SymbolValue::operator||(const SymbolValue &other) const {
     }
   } else {
     int ThisVal = GetInt();
-    if (type == ValueType::Float) {
+    if (other.type == ValueType::Float) {
       float OtherVal;
       OtherVal = other.GetFloat();
       return SymbolValue((int)(ThisVal || OtherVal));

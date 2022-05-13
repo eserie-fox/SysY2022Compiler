@@ -158,7 +158,7 @@ class TACBuilder {
   ExpressionPtr CreateAssign(SymbolPtr var, ExpressionPtr exp);
 
   ExpressionPtr AccessArray(ExpressionPtr array, std::vector<ExpressionPtr> pos);
-  ExpressionPtr MakeArrayInit(ExpressionPtr array, ExpressionPtr init_array);
+  ExpressionPtr CreateArrayInit(ExpressionPtr array, ExpressionPtr init_array);
 
   ExpressionPtr CreateConstExp(int n);
   ExpressionPtr CreateConstExp(float fn);

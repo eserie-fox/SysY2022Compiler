@@ -145,7 +145,7 @@ TEST(TACBuilder, ConstArrayInit1) {
   { array2->subarray->emplace(1, builder->CreateConstExp(1)); }
   { array2->subarray->emplace(2, builder->CreateConstExp(2)); }
   { array2->subarray->emplace(3, builder->CreateConstExp(3)); }
-  builder->MakeArrayInit(arrayExp, builder->CreateConstExp(array2));
+  builder->CreateArrayInit(arrayExp, builder->CreateConstExp(array2));
   ASSERT_EQ(2, array1->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(0)->ret->value_.GetArrayDescriptor()->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->size());
@@ -193,7 +193,7 @@ TEST(TACBuilder, ConstArrayInit2) {
   { array2->subarray->emplace(0, builder->CreateConstExp(0)); }
   { array2->subarray->emplace(1, builder->CreateConstExp(1)); }
   { array2->subarray->emplace(2, builder->CreateConstExp(2)); }
-  builder->MakeArrayInit(arrayExp, builder->CreateConstExp(array2));
+  builder->CreateArrayInit(arrayExp, builder->CreateConstExp(array2));
   ASSERT_EQ(2, array1->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(0)->ret->value_.GetArrayDescriptor()->subarray->size());
   ASSERT_EQ(1, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->size());
@@ -247,7 +247,7 @@ TEST(TACBuilder, ConstArrayInit3) {
     array3->subarray->emplace(1, builder->CreateConstExp(3));
     array2->subarray->emplace(1, builder->CreateConstExp(array3));
   }
-  builder->MakeArrayInit(arrayExp, builder->CreateConstExp(array2));
+  builder->CreateArrayInit(arrayExp, builder->CreateConstExp(array2));
   ASSERT_EQ(2, array1->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(0)->ret->value_.GetArrayDescriptor()->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->size());
@@ -301,7 +301,7 @@ TEST(TACBuilder, ConstArrayInit4) {
     array2->subarray->emplace(1, builder->CreateConstExp(2));
     array2->subarray->emplace(2, builder->CreateConstExp(3));
   }
-  builder->MakeArrayInit(arrayExp, builder->CreateConstExp(array2));
+  builder->CreateArrayInit(arrayExp, builder->CreateConstExp(array2));
   ASSERT_EQ(2, array1->subarray->size());
   ASSERT_EQ(1, array1->subarray->at(0)->ret->value_.GetArrayDescriptor()->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->size());
@@ -351,7 +351,7 @@ TEST(TACBuilder, ConstArrayInit5) {
     array3->subarray->emplace(0, builder->CreateConstExp(2));
     array2->subarray->emplace(1, builder->CreateConstExp(array3));
   }
-  builder->MakeArrayInit(arrayExp, builder->CreateConstExp(array2));
+  builder->CreateArrayInit(arrayExp, builder->CreateConstExp(array2));
   ASSERT_EQ(2, array1->subarray->size());
   ASSERT_EQ(1, array1->subarray->at(0)->ret->value_.GetArrayDescriptor()->subarray->size());
   ASSERT_EQ(1, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->size());
@@ -395,7 +395,7 @@ TEST(TACBuilder, ConstArrayInit6) {
     array3->subarray->emplace(0, builder->CreateConstExp(2));
     array2->subarray->emplace(1, builder->CreateConstExp(array3));
   }
-  builder->MakeArrayInit(arrayExp, builder->CreateConstExp(array2));
+  builder->CreateArrayInit(arrayExp, builder->CreateConstExp(array2));
   ASSERT_EQ(2, array1->subarray->size());
   ASSERT_EQ(0, array1->subarray->at(0)->ret->value_.GetArrayDescriptor()->subarray->size());
   ASSERT_EQ(1, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->size());
@@ -433,7 +433,7 @@ TEST(TACBuilder, VarArrayInit1) {
   { array2->subarray->emplace(1, builder->CreateConstExp(1)); }
   { array2->subarray->emplace(2, builder->CreateArithmeticOperation(TACOperationType::Add, tmpE1, tmpE2)); }
   { array2->subarray->emplace(3, builder->CreateConstExp(3)); }
-  builder->MakeArrayInit(arrayExp, builder->CreateConstExp(array2));
+  builder->CreateArrayInit(arrayExp, builder->CreateConstExp(array2));
   ASSERT_EQ(2, array1->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(0)->ret->value_.GetArrayDescriptor()->subarray->size());
   ASSERT_EQ(2, array1->subarray->at(1)->ret->value_.GetArrayDescriptor()->subarray->size());

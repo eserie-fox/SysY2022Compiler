@@ -263,10 +263,21 @@ VarDef
   {
     int type;
     SymbolPtr var;
+    ExpressionPtr exp;
     tacbuilder->Top(&type);
     var = tacbuilder->CreateVariable($1, (ValueType)type);
-    (*$3->tac) += tacbuilder->NewTAC(TACOperationType::Variable,var);
-    $$ = tacbuilder->CreateAssign(var, $3);
+    if($3->ret->value_.Type()!=(ValueType)type){
+      if((ValueType)type == ValueType::Int){
+        exp = tacbuilder->CastFloatToInt($3);
+      }else{
+        exp = tacbuilder->CastIntToFloat($3);
+      }
+      (*exp->tac) += tacbuilder->NewTAC(TACOperationType::Variable,var);
+      $$ = tacbuilder->CreateAssign(var, exp);
+    }else{
+      (*$3->tac) += tacbuilder->NewTAC(TACOperationType::Variable,var);
+      $$ = tacbuilder->CreateAssign(var, $3);
+    }
   }
   /* | IDENTIFIER ConstExp_list
   | IDENTIFIER ConstExp_list '=' InitVal */
@@ -437,7 +448,18 @@ Stmt
     {
       throw RuntimeException("Cant assign to constant");
     }
-    $$ = tacbuilder->CreateAssign($1, $3)->tac;
+    ExpressionPtr exp;
+    if($3->ret->value_.Type()!=$1->value_.Type()){
+      if($1->value_.Type() == ValueType::Int){
+        exp = tacbuilder->CastFloatToInt($3);
+      }else{
+        exp = tacbuilder->CastIntToFloat($3);
+      }
+      $$ = tacbuilder->CreateAssign($1, exp)->tac;
+    }else{
+      $$ = tacbuilder->CreateAssign($1, $3)->tac;
+    }
+    
   }
   | SEMI
   {
@@ -546,8 +568,33 @@ UnaryExp
   | IDENTIFIER LS FuncRParams RS
   {
     ParamListPtr params = tacbuilder->FindFunctionLabel($1)->value_.GetParameters();
+    size_t nfuncparam = params->size();
+    size_t narg = $3->size();
+    if(nfuncparam!=narg)
+    {
+      throw RuntimeException("Function '" );
+    }
+    auto paramsPtr = params->begin();
+    auto argPtr = $3->begin();
+    ExpressionPtr exp;
+    ArgListPtr ansArg = tacbuilder->NewArgList();
+    while(argPtr != $3->end()){
+      if((*paramsPtr)->value_.Type()!=(*argPtr)->ret->value_.Type()){
+        if((*paramsPtr)->value_.Type() == ValueType::Int){
+          exp = tacbuilder->CastFloatToInt((*argPtr));
+        }
+        else{
+          exp = tacbuilder->CastIntToFloat((*argPtr));
+        }
+        ansArg->push_back_argument(exp);
+      }else{
+        ansArg->push_back_argument((*argPtr));
+      }
+      argPtr++;
+      paramsPtr++;
+    }
     SymbolPtr ret_sym = tacbuilder->CreateTempVariable(params->get_return_type());
-    TACListPtr tac = tacbuilder->CreateCallWithRet($1, $3, ret_sym);
+    TACListPtr tac = tacbuilder->CreateCallWithRet($1, ansArg, ret_sym);
     $$ = tacbuilder->NewExp(tac, ret_sym);
   }
   | UnaryOp UnaryExp

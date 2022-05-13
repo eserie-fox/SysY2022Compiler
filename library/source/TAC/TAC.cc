@@ -305,7 +305,7 @@ int TACBuilder::ArrayInitImpl(ExpressionPtr array, TACFactory::FlattenedArray::i
   return OK;
 }
 
-ExpressionPtr TACBuilder::MakeArrayInit(ExpressionPtr array, ExpressionPtr init_array) {
+ExpressionPtr TACBuilder::CreateArrayInit(ExpressionPtr array, ExpressionPtr init_array) {
   // if (array->type_ != SymbolType::Variable && array->type_ != SymbolType::Constant) {
   //   throw LogicException("[" + std::string(__func__) + "] Variabel or Constant are expected for array, but actually " +
   //                        std::string(magic_enum::enum_name<SymbolType>(array->type_)));
