@@ -570,31 +570,35 @@ UnaryExp
     ParamListPtr params = tacbuilder->FindFunctionLabel($1)->value_.GetParameters();
     size_t nfuncparam = params->size();
     size_t narg = $3->size();
-    if(nfuncparam!=narg)
+    TACListPtr tac;
+    SymbolPtr ret_sym;
+    if(nfuncparam==narg)
     {
-      throw RuntimeException("Function '" );
-    }
-    auto paramsPtr = params->begin();
-    auto argPtr = $3->begin();
-    ExpressionPtr exp;
-    ArgListPtr ansArg = tacbuilder->NewArgList();
-    while(argPtr != $3->end()){
-      if((*paramsPtr)->value_.Type()!=(*argPtr)->ret->value_.Type()){
-        if((*paramsPtr)->value_.Type() == ValueType::Int){
-          exp = tacbuilder->CastFloatToInt((*argPtr));
+      auto paramsPtr = params->begin();
+      auto argPtr = $3->begin();
+      ExpressionPtr exp;
+      ArgListPtr ansArg = tacbuilder->NewArgList();
+      while(argPtr != $3->end()){
+        if((*paramsPtr)->value_.Type()!=(*argPtr)->ret->value_.Type()){
+          if((*paramsPtr)->value_.Type() == ValueType::Int){
+            exp = tacbuilder->CastFloatToInt((*argPtr));
+          }
+          else{
+            exp = tacbuilder->CastIntToFloat((*argPtr));
+          }
+          ansArg->push_back_argument(exp);
+        }else{
+          ansArg->push_back_argument((*argPtr));
         }
-        else{
-          exp = tacbuilder->CastIntToFloat((*argPtr));
-        }
-        ansArg->push_back_argument(exp);
-      }else{
-        ansArg->push_back_argument((*argPtr));
+        argPtr++;
+        paramsPtr++;
       }
-      argPtr++;
-      paramsPtr++;
+      ret_sym = tacbuilder->CreateTempVariable(params->get_return_type());
+      tac = tacbuilder->CreateCallWithRet($1, ansArg, ret_sym);
+    }else{
+      ret_sym = tacbuilder->CreateTempVariable(params->get_return_type());
+      tac = tacbuilder->CreateCallWithRet($1, $3, ret_sym);
     }
-    SymbolPtr ret_sym = tacbuilder->CreateTempVariable(params->get_return_type());
-    TACListPtr tac = tacbuilder->CreateCallWithRet($1, ansArg, ret_sym);
     $$ = tacbuilder->NewExp(tac, ret_sym);
   }
   | UnaryOp UnaryExp
