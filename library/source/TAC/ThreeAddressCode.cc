@@ -72,6 +72,8 @@ std::string ThreeAddressCode::ToString() const {
       return "Return" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_name()));
     case TACOperationType::Variable:
       return a_->value_.TypeToString() + ": " + a_->get_name();
+    case TACOperationType::Constant:
+      return "Const " + a_->value_.TypeToString() + ": " + a_->get_name();
     default:
       return "Undefined";
   }

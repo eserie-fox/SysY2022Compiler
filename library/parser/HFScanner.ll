@@ -163,6 +163,10 @@ using token = HaveFunCompiler::Parser::Parser::token;
 
 "}"  {  return token::RB; }
 
+"["  {  return token::LM; }
+
+"]"  {  return token::RM; }
+
 ([ \t\r])+ {
   loc->step();
 }

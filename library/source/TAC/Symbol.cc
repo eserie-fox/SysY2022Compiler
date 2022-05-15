@@ -71,7 +71,8 @@ std::string SymbolValue::ToString() const {
     case ValueType::Array:
     {
       auto array = GetArrayDescriptor();
-      std::string name = array->base_addr.lock()->name_.value() + "+";
+      std::string name = "null+";
+      if(!array->base_addr.expired()) name = array->base_addr.lock()->name_.value_or("null") + "+";
       if (array->base_offset->type_ == SymbolType::Constant) {
         name += std::to_string(array->base_offset->value_.GetInt());
       } else {
@@ -409,6 +410,7 @@ std::string SymbolValue::TypeToString() const {
 
   switch (Type()) {
     case ValueType::Array: {
+      ret =  std::string(magic_enum::enum_name<ValueType>(GetArrayDescriptor()->value_type));
       for (auto d : GetArrayDescriptor()->dimensions) {
         ret += "[" + std::to_string(d) + "]";
       }

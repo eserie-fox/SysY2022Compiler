@@ -70,7 +70,7 @@ const int NONFUNC_BLOCK_FLAG = 2024;
 %token<std::string> WORD
 %token              NEWLINE
 %token              CHAR
-%token INT EQ NE LT LE LEQ COM LS LB RS RB GT GE IF ELSE WHILE CONTINUE RETURN LA LO LN FLOAT CONST VOID BREAK ADD SUB MUL DIV MOD SEMI
+%token INT EQ NE LT LE LEQ COM LS LB RS RB LM RM GT GE IF ELSE WHILE CONTINUE RETURN LA LO LN FLOAT CONST VOID BREAK ADD SUB MUL DIV MOD SEMI
 %token <int> IntConst
 %token <float> floatConst
 %token <std::string> IDENTIFIER
@@ -86,14 +86,16 @@ const int NONFUNC_BLOCK_FLAG = 2024;
 /* ConstExp_list ConstInitVal_list Exp_list InitVal_list */
 
 %type <TACListPtr> Start CompUnit Decls Decl FuncDef WHILEUP ConstDecl VarDecl ConstDef_list ConstDef VarDef_list Block BlockItem_list BlockItem Stmt LBUP RBUP
-%type <ExpressionPtr> ConstExp Exp Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal PrimaryExp
+%type <ExpressionPtr> ConstExp LVal Exp Cond AddExp LOrExp Number UnaryExp MulExp RelExp EqExp LAndExp ConstInitVal VarDef InitVal PrimaryExp
 /* %type <HaveFunCompiler::parser::SymbolPtr>  */
 %type <ParamListPtr> FuncFParams 
 %type <ArgListPtr> FuncRParams
-%type <SymbolPtr> FuncFParam LVal
+%type <SymbolPtr> FuncFParam
 %type <TACOperationType> UnaryOp  
 %type <std::string> FuncIdenti
 %type FuncHead
+%type <ArrayDescriptorPtr> ConstExp_list ConstInitVal_list InitVal_list
+%type <std::vector<ExpressionPtr>> Exp_list
 
 
 %locations
@@ -205,32 +207,66 @@ ConstDef
     }
     
     $$ = tacbuilder->NewTACList();
-  };
+  }
+  | IDENTIFIER ConstExp_list LEQ ConstInitVal
+  {
+    $2->base_offset = tacbuilder->CreateConstExp(0)->ret;
+    int type;
+    tacbuilder->Top(&type);
+    $2->value_type = (ValueType)type;
+    auto arraySym = tacbuilder->NewSymbol(SymbolType::Constant, $1, 0, SymbolValue($2));
+    tacbuilder->BindConstName($1, arraySym);
+    $2->base_addr = arraySym;
+    auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Constant,arraySym)), arraySym);
+    $$ = tacbuilder->CreateArrayInit(arrayExp, $4)->tac;
+  }
+  ;
 
-/* ConstExp_list
-  : '[' ConstExp ']'
-  | ConstExp_list '[' ConstExp ']'
-  ; */
+ConstExp_list
+  : LM ConstExp RM
+  {
+    auto array = tacbuilder->NewArrayDescriptor();
+    int dim = $2->ret->value_.GetInt();
+    array->dimensions.push_back(dim);
+    $$ = array;
+  }
+  | ConstExp_list LM ConstExp RM
+  {
+    int dim = $3->ret->value_.GetInt();
+    $1->dimensions.push_back(dim);
+    $$ = $1;
+  }
+  ;
 
 ConstInitVal
   : ConstExp
   {
     $$ = $1;
   }
-  /* | LB RB
-  | LB ConstInitVal_list RB */
+  | LB RB
+  {
+    auto array = tacbuilder->NewArrayDescriptor();
+    $$ = tacbuilder->CreateConstExp(array);
+  }
+  | LB ConstInitVal_list RB
+  {
+    $$ = tacbuilder->CreateConstExp($2);
+  }
   ;
 
-/* ConstInitVal_list
+ConstInitVal_list
   : ConstInitVal
   {
-    $$ = $1->tac;
+    auto array = tacbuilder->NewArrayDescriptor();
+    array->subarray->emplace(array->subarray->size(),$1);
+    $$ = array;
   }
   | ConstInitVal_list COM ConstInitVal
   {
-    $$ = $1
+    $1->subarray->emplace($1->subarray->size(),$3);
+    $$ = $1;
   }
-  ; */
+  ;
 
 VarDecl: BType VarDef_list SEMI
 {
@@ -266,21 +302,53 @@ VarDef
     ExpressionPtr exp;
     tacbuilder->Top(&type);
     var = tacbuilder->CreateVariable($1, (ValueType)type);
-    if($3->ret->value_.Type()!=(ValueType)type){
+    ExpressionPtr tempexp;
+    if($3->ret->value_.Type()==ValueType::Array){
+      SymbolPtr tempvar = tacbuilder->CreateTempVariable($3->ret->value_.GetArrayDescriptor()->value_type);
+      tempexp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,tempvar)),tempvar);
+      // *tempexp->tac += tacbuilder->NewTAC(TACOperationType::Variable,tempvar);
+      // tempexp->ret = tempvar;
+      tempexp = tacbuilder->CreateAssign(tempvar,$3);
+    }else{
+      tempexp = $3;
+    }
+    if(tempexp->ret->value_.Type()!=(ValueType)type){
       if((ValueType)type == ValueType::Int){
-        exp = tacbuilder->CastFloatToInt($3);
+        exp = tacbuilder->CastFloatToInt(tempexp);
       }else{
-        exp = tacbuilder->CastIntToFloat($3);
+        exp = tacbuilder->CastIntToFloat(tempexp);
       }
       (*exp->tac) += tacbuilder->NewTAC(TACOperationType::Variable,var);
       $$ = tacbuilder->CreateAssign(var, exp);
     }else{
-      (*$3->tac) += tacbuilder->NewTAC(TACOperationType::Variable,var);
-      $$ = tacbuilder->CreateAssign(var, $3);
+      (*tempexp->tac) += tacbuilder->NewTAC(TACOperationType::Variable,var);
+      $$ = tacbuilder->CreateAssign(var, tempexp);
     }
   }
-  /* | IDENTIFIER ConstExp_list
-  | IDENTIFIER ConstExp_list '=' InitVal */
+  | IDENTIFIER ConstExp_list
+  {
+    $2->base_offset = tacbuilder->CreateConstExp(0)->ret;
+    int type;
+    tacbuilder->Top(&type);
+    $2->value_type = (ValueType)type;
+    auto arraySym = tacbuilder->CreateVariable($1, ValueType::Array);
+    arraySym->value_ = SymbolValue($2);
+    $2->base_addr = arraySym;
+    auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,arraySym)), arraySym);
+    $$ = arrayExp;
+  }
+  | IDENTIFIER ConstExp_list LEQ InitVal
+  {
+    $2->base_offset = tacbuilder->CreateConstExp(0)->ret;
+    int type;
+    tacbuilder->Top(&type);
+    $2->value_type = (ValueType)type;
+    auto arraySym = tacbuilder->CreateVariable($1, ValueType::Array);
+    arraySym->value_ = SymbolValue($2);
+    $2->base_addr = arraySym;
+    auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,arraySym)), arraySym);
+    $$ = tacbuilder->CreateArrayInit(arrayExp, $4);
+  }
   ;
 
 InitVal
@@ -288,20 +356,31 @@ InitVal
   {
     $$ = $1;
   }
-  /* | LB RB
-  | LB InitVal_list RB */
+  | LB RB
+  {
+    auto array = tacbuilder->NewArrayDescriptor();
+    $$ = tacbuilder->NewExp(tacbuilder->NewTACList(),tacbuilder->NewSymbol(SymbolType::Variable,std::nullopt,0,SymbolValue(array)));
+  }
+  | LB InitVal_list RB
+  {
+    $$ = tacbuilder->NewExp(tacbuilder->NewTACList(),tacbuilder->NewSymbol(SymbolType::Variable,std::nullopt,0,SymbolValue($2)));
+  }
   ;
 
-/* InitVal_list
+InitVal_list
   : InitVal
   {
-    $$ = $1->tac;
+    auto array = tacbuilder->NewArrayDescriptor();
+    array->subarray->emplace(array->subarray->size(),$1);
+    $$ = array;
   }
   | InitVal_list COM InitVal
   {
-
+    $1->subarray->emplace($1->subarray->size(),$3);
+    $$ = $1;
   }
-  ; */
+  ;
+
 FuncIdenti
   :IDENTIFIER
   {
@@ -369,14 +448,23 @@ FuncFParam
     tacbuilder->Pop();
     $$ = var;
   }
-  /* | BType IDENTIFIER '[' ']' Exp_list
-  | BType IDENTIFIER '[' ']' */
+  /* | BType IDENTIFIER LM RM Exp_list
+  | BType IDENTIFIER LM RM */
   ;
 
-/* Exp_list
-  : '[' Exp ']'
-  | Exp_list '[' Exp ']'
-  ; */
+Exp_list
+  : LM Exp RM
+  {
+    std::vector<ExpressionPtr> vec;
+    vec.push_back($2);
+    $$ = vec;
+  }
+  | Exp_list LM Exp RM
+  {
+    $1.push_back($3);
+    $$ = $1;
+  }
+  ;
 
 Block
   : LBUP RBUP
@@ -444,20 +532,20 @@ BlockItem
 Stmt
   : LVal LEQ Exp SEMI
   {
-    if($1->type_ == SymbolType::Constant)
+    if($1->ret->type_ == SymbolType::Constant)
     {
       throw RuntimeException("Cant assign to constant");
     }
     ExpressionPtr exp;
-    if($3->ret->value_.Type()!=$1->value_.Type()){
-      if($1->value_.Type() == ValueType::Int){
+    if($3->ret->value_.Type()!=$1->ret->value_.Type()){
+      if($1->ret->value_.Type() == ValueType::Int){
         exp = tacbuilder->CastFloatToInt($3);
       }else{
         exp = tacbuilder->CastIntToFloat($3);
       }
-      $$ = tacbuilder->CreateAssign($1, exp)->tac;
+      $$ = tacbuilder->CreateAssign($1->ret, exp)->tac;
     }else{
-      $$ = tacbuilder->CreateAssign($1, $3)->tac;
+      $$ = tacbuilder->CreateAssign($1->ret, $3)->tac;
     }
     
   }
@@ -523,13 +611,14 @@ Exp : AddExp ;
 
 Cond : LOrExp ;
 
-/* LVal : IDENTIFIER Exp_list 
-{
-  $$ = tacbuilder->FindVariableOrConstant($1);
-} */
 LVal : IDENTIFIER
 {
-  $$ = tacbuilder->FindVariableOrConstant($1);
+  $$ = tacbuilder->NewExp(tacbuilder->NewTACList(), tacbuilder->FindVariableOrConstant($1));
+}
+| IDENTIFIER Exp_list 
+{
+  auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(), tacbuilder->FindVariableOrConstant($1));
+  $$ = tacbuilder->AccessArray(arrayExp, $2);
 }
 ;
 
@@ -540,7 +629,7 @@ PrimaryExp
   }
   | LVal
   {
-    $$ = tacbuilder->NewExp(tacbuilder->NewTACList(), $1);
+    $$ = $1;
   }
   | Number
   ;

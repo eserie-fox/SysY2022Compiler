@@ -32,6 +32,7 @@ enum class TACOperationType {
   FunctionEnd,
   Label,
   Variable,
+  Constant,
   // formal
   Parameter,
   // actual
