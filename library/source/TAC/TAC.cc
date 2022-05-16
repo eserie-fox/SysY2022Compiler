@@ -70,29 +70,6 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
   return NewExp(tac_list, var);
 }
 
-void TACFactory::FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {
-  out_result->emplace_back(1, nullptr);
-  std::vector<std::pair<size_t, ExpressionPtr>> subarray;
-  for (const auto &[idx, valPtr] : *array->subarray) {
-    subarray.emplace_back(idx, valPtr);
-  }
-  std::sort(subarray.begin(), subarray.end());
-  for (const auto &[idx, valPtr] : subarray) {
-    if (valPtr->ret->value_.Type() != SymbolValue::ValueType::Array) {
-      out_result->emplace_back(0, valPtr);
-    } else {
-      FlattenInitArrayImpl(out_result, valPtr->ret->value_.GetArrayDescriptor());
-    }
-  }
-  out_result->emplace_back(2, nullptr);
-}
-
-TACFactory::FlattenedArray TACFactory::FlattenInitArray(ArrayDescriptorPtr array) {
-  FlattenedArray ret;
-  FlattenInitArrayImpl(&ret, array);
-  return ret;
-}
-
 // TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
 //   auto tac_list = NewTACList();
 //   for (auto exp : *args) {
@@ -202,6 +179,49 @@ ExpressionPtr TACBuilder::CreateAssign(SymbolPtr var, ExpressionPtr exp) {
   return TACFactory::Instance()->MakeAssign(var, exp);
 }
 
+void TACBuilder::FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {
+  out_result->emplace_back(1, nullptr);
+  std::vector<std::pair<size_t, ExpressionPtr>> subarray;
+  for (const auto &[idx, valPtr] : *array->subarray) {
+    subarray.emplace_back(idx, valPtr);
+  }
+  std::sort(subarray.begin(), subarray.end());
+  for (const auto &[idx, valPtr] : subarray) {
+    if (valPtr->ret->value_.Type() != SymbolValue::ValueType::Array) {
+      out_result->emplace_back(0, valPtr);
+    }
+    // else if (auto arrayDescriptor = valPtr->ret->value_.GetArrayDescriptor(); arrayDescriptor->dimensions.empty()) {
+    //   if (!arrayDescriptor->base_addr.expired() && arrayDescriptor->base_addr.lock()->type_ == SymbolType::Constant)
+    //   {
+    //     if (!arrayDescriptor->subarray->empty()) {
+    //       assert(arrayDescriptor->subarray->size() == 1);
+    //       out_result->emplace_back(0, arrayDescriptor->subarray->begin()->second);
+    //     } else {
+    //       if (arrayDescriptor->value_type == SymbolValue::ValueType::Int)
+    //         out_result->emplace_back(0, CreateConstExp(0));
+    //       else
+    //         out_result->emplace_back(0, CreateConstExp(static_cast<float>(0)));
+    //     }
+    //   } else {
+    //     auto tmpVar = CreateTempVariable(arrayDescriptor->value_type);
+    //     (*valPtr->tac) += NewTAC(TACOperationType::Variable, tmpVar);
+    //     auto tmpExp = CreateAssign(tmpVar, valPtr);
+    //     out_result->emplace_back(0, tmpExp);
+    //   }
+    // }
+    else {
+      FlattenInitArrayImpl(out_result, valPtr->ret->value_.GetArrayDescriptor());
+    }
+  }
+  out_result->emplace_back(2, nullptr);
+}
+
+TACBuilder::FlattenedArray TACBuilder::FlattenInitArray(ArrayDescriptorPtr array) {
+  FlattenedArray ret;
+  FlattenInitArrayImpl(&ret, array);
+  return ret;
+}
+
 ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<ExpressionPtr> pos) {
   auto arrayDescriptor = array->ret->value_.GetArrayDescriptor();
   if (pos.size() > arrayDescriptor->dimensions.size()) {
@@ -213,7 +233,8 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
   }
   auto idx_exp = pos.front();
   pos.erase(pos.cbegin());
-  if (idx_exp->ret->type_ == SymbolType::Constant && arrayDescriptor->base_offset->type_ == SymbolType::Constant) {
+  if (array->ret->type_ == SymbolType::Constant && idx_exp->ret->type_ == SymbolType::Constant &&
+      arrayDescriptor->base_offset->type_ == SymbolType::Constant) {
     int idx = idx_exp->ret->value_.GetInt();
     if (idx < 0) {
       throw RuntimeException("Array index must be non-negative, but encountered " + std::to_string(idx));
@@ -261,8 +282,8 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
   }
 }
 
-int TACBuilder::ArrayInitImpl(ExpressionPtr array, TACFactory::FlattenedArray::iterator &it,
-                              const TACFactory::FlattenedArray::iterator &end, TACListPtr tac_list) {
+int TACBuilder::ArrayInitImpl(ExpressionPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end,
+                              TACListPtr tac_list) {
   enum { OK, IGNORE };
   if (it == end) {
     return IGNORE;
@@ -319,7 +340,7 @@ ExpressionPtr TACBuilder::CreateArrayInit(ExpressionPtr array, ExpressionPtr ini
   //                        array->value_.TypeToString() + " and " + init_array->value_.TypeToString());
   // }
 
-  auto finit_array = TACFactory::Instance()->FlattenInitArray(init_array->ret->value_.GetArrayDescriptor());
+  auto finit_array = FlattenInitArray(init_array->ret->value_.GetArrayDescriptor());
   for (auto &pr : finit_array) {
     if (pr.second) {
       if (array->ret->type_ == SymbolType::Constant && pr.second->ret->type_ != SymbolType::Constant) {

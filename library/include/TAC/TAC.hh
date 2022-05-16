@@ -28,10 +28,6 @@ class TACFactory {
   friend class TACBuilder;
 
  private:
-  using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
-  void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);
-  FlattenedArray FlattenInitArray(ArrayDescriptorPtr array);
-
   static TACFactory *Instance() {
     static TACFactory factory;
     return &factory;
@@ -54,7 +50,6 @@ class TACFactory {
   //新形参列表，用于定义函数
   ParamListPtr NewParamList();
   ArrayDescriptorPtr NewArrayDescriptor();
-
 
   TACListPtr MakeFunction(SymbolPtr func_head, TACListPtr body);
   ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
@@ -207,8 +202,11 @@ class TACBuilder {
   TACListPtr GetTACList();
 
  private:
-  int ArrayInitImpl(ExpressionPtr array, TACFactory::FlattenedArray::iterator &it,
-                    const TACFactory::FlattenedArray::iterator &end, TACListPtr tac_list);
+  using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
+  void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);
+  FlattenedArray FlattenInitArray(ArrayDescriptorPtr array);
+  int ArrayInitImpl(ExpressionPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end,
+                    TACListPtr tac_list);
   std::string AppendScopePrefix(const std::string &name, uint64_t scope_id = (uint64_t)-1);
   SymbolPtr FindSymbolWithName(const std::string &name);
   VariantStack compiler_stack_;

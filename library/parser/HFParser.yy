@@ -305,9 +305,7 @@ VarDef
     ExpressionPtr tempexp;
     if($3->ret->value_.Type()==ValueType::Array){
       SymbolPtr tempvar = tacbuilder->CreateTempVariable($3->ret->value_.GetArrayDescriptor()->value_type);
-      tempexp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,tempvar)),tempvar);
-      // *tempexp->tac += tacbuilder->NewTAC(TACOperationType::Variable,tempvar);
-      // tempexp->ret = tempvar;
+      (*$3->tac) += tacbuilder->NewTAC(TACOperationType::Variable,tempvar);
       tempexp = tacbuilder->CreateAssign(tempvar,$3);
     }else{
       tempexp = $3;
@@ -354,7 +352,30 @@ VarDef
 InitVal
   : Exp
   {
-    $$ = $1;
+    if($1->ret->value_.Type() == ValueType::Array)
+    {
+      auto arrayDescriptor = $1->ret->value_.GetArrayDescriptor();
+      if($1->ret->type_ == SymbolType::Constant)
+      {
+        if (!arrayDescriptor->subarray->empty()) {
+          assert(arrayDescriptor->subarray->size() == 1);
+          $$ = arrayDescriptor->subarray->begin()->second;
+        } else {
+          if (arrayDescriptor->value_type == SymbolValue::ValueType::Int){
+            $$ = tacbuilder->CreateConstExp(0);
+          }
+          else{
+            $$ = tacbuilder->CreateConstExp(static_cast<float>(0));
+          }
+        }
+      }else{
+        SymbolPtr tmpVar = tacbuilder->CreateTempVariable(arrayDescriptor->value_type);
+        (*$1->tac) += tacbuilder->NewTAC(TACOperationType::Variable,tmpVar);
+        $$ = tacbuilder->CreateAssign(tmpVar,$1);
+      }
+    }else{
+      $$ = $1;
+    }
   }
   | LB RB
   {
