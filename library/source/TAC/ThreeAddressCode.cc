@@ -1,4 +1,5 @@
 #include "TAC/ThreeAddressCode.hh"
+#include <algorithm>
 #include <unordered_map>
 #include "MagicEnum.hh"
 #include "TAC/Symbol.hh"
@@ -49,31 +50,61 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::IntToFloat:
       return a_->get_name() + " = " + OpStr[operation_] + b_->get_name();
     case TACOperationType::Argument:
-      return "Argument(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
-             "): " + a_->get_name();
+    {
+      std::string ret = "arg ";
+      bool is_array = a_->value_.Type() == SymbolValue::ValueType::Array;
+      if (is_array) {
+        if (!a_->value_.GetArrayDescriptor()->dimensions.empty()) {
+          ret += "&";
+        }
+      }
+      ret += a_->name_.value_or("nullname");
+      if(is_array){
+        ret += "[" + a_->value_.GetArrayDescriptor()->base_offset->get_name() + "]";
+      }
+      return ret;
+      // return "Argument(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
+      //        "): " + a_->get_name();
+    }
     case TACOperationType::Assign:
       return a_->get_name() + " = " + b_->get_name();
     case TACOperationType::Call:
       return (a_ == nullptr ? "" : (a_->get_name() + " = ")) + "Call " + b_->get_name();
-    case TACOperationType::FunctionBegin:
-      return "FuncBegin";
-    case TACOperationType::FunctionEnd:
-      return "FuncEnd";
+    case TACOperationType::FunctionBegin: {
+      return "fbegin";
+      // return "FuncBegin";
+    }
+    case TACOperationType::FunctionEnd: {
+      return "fend";
+      // return "FuncEnd";
+    }
     case TACOperationType::Goto:
       return "Goto " + a_->get_name();
     case TACOperationType::IfZero:
       return "IfZero " + b_->get_name() + " Goto " + a_->get_name();
     case TACOperationType::Label:
-      return a_->get_name() + ":";
-    case TACOperationType::Parameter:
-      return "Parameter(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
-             "): " + a_->get_name();
+    {
+      return "label " + a_->name_.value_or("nullname") + ":";
+      // return a_->get_name() + ":";
+    }
+    case TACOperationType::Parameter: {
+      std::string ret = "param " + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) + " ";
+      std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
+      ret += a_->name_.value_or("nullname");
+      if (a_->value_.Type() == SymbolValue::ValueType::Array) {
+        ret += "[]";
+      }
+      return ret;
+      // return "Parameter(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
+      //        "): " + a_->get_name();
+    }
+
     case TACOperationType::Return:
       return "Return" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_name()));
     case TACOperationType::Variable:
       return a_->value_.TypeToString() + ": " + a_->get_name();
     case TACOperationType::Constant:
-      return "Const " + a_->value_.TypeToString() + ": " + a_->get_name();
+      return "const " + a_->value_.TypeToString() + ": " + a_->get_name();
     default:
       return "Undefined";
   }

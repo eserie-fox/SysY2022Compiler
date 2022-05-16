@@ -1,10 +1,11 @@
 #include "TAC/Symbol.hh"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <exception>
+#include <iostream>
 #include <stdexcept>
 #include <string>
-#include <iostream>
 #include "MagicEnum.hh"
 
 namespace HaveFunCompiler {
@@ -71,8 +72,8 @@ std::string SymbolValue::ToString() const {
     case ValueType::Array:
     {
       auto array = GetArrayDescriptor();
-      std::string name = "null+";
-      if(!array->base_addr.expired()) name = array->base_addr.lock()->name_.value_or("null") + "+";
+      std::string name = "nullname+";
+      if(!array->base_addr.expired()) name = array->base_addr.lock()->name_.value_or("nullname") + "+";
       if (array->base_offset->type_ == SymbolType::Constant) {
         name += std::to_string(array->base_offset->value_.GetInt());
       } else {
@@ -407,13 +408,18 @@ bool SymbolValue::IsAssignableTo(const SymbolValue &other) const {
 
 std::string SymbolValue::TypeToString() const {
   std::string ret = std::string(magic_enum::enum_name<ValueType>(Type()));
+  std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
 
   switch (Type()) {
     case ValueType::Array: {
-      ret =  std::string(magic_enum::enum_name<ValueType>(GetArrayDescriptor()->value_type));
+      ret = std::string(magic_enum::enum_name<ValueType>(GetArrayDescriptor()->value_type));
+      std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
+      size_t total_size = 1;
       for (auto d : GetArrayDescriptor()->dimensions) {
-        ret += "[" + std::to_string(d) + "]";
+        total_size *= d;
+        // ret += "[" + std::to_string(d) + "]";
       }
+      ret += "[" + std::to_string(total_size) + "]";
       break;
     }
     case ValueType::Parameters: {
