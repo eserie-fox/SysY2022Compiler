@@ -151,8 +151,40 @@ std::shared_ptr<ThreeAddressCodeList> ThreeAddressCodeList::MakeCopy() const {
 }
 
 std::string ThreeAddressCodeList::ToString() const {
+  ThreeAddressCodeList func_list;
+  ThreeAddressCodeList glob_list;
+  int infunc = 0;
+  for (auto it = list_.begin(); it != list_.end(); it++) {
+    if ((*it)->operation_ == TACOperationType::Label) {
+      auto nxt = it;
+      ++nxt;
+      if (nxt != list_.end()) {
+        if ((*nxt)->operation_ == TACOperationType::FunctionBegin) {
+          func_list += (*it);
+          func_list += (*nxt);
+          infunc++;
+          it = nxt;
+          continue;
+        }
+      }
+    }
+    if((*it)->operation_ == TACOperationType::FunctionEnd){
+      func_list += (*it);
+      infunc--;
+      continue;
+    }
+    if (infunc) {
+      func_list += (*it);
+    } else {
+      glob_list += (*it);
+    }
+  }
+
   std::string ret;
-  for (const auto &tac : list_) {
+  for (const auto &tac : func_list) {
+    ret += tac->ToString() + "\n";
+  }
+  for (const auto &tac : glob_list) {
     ret += tac->ToString() + "\n";
   }
   return ret;
