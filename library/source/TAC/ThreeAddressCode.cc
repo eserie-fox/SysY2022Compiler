@@ -42,15 +42,14 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::LessOrEqual:
     case TACOperationType::LogicAnd:
     case TACOperationType::LogicOr:
-      return a_->get_name() + " = " + b_->get_name() + " " + OpStr[operation_] + " " + c_->get_name();
+      return a_->get_tac_name() + " = " + b_->get_tac_name() + " " + OpStr[operation_] + " " + c_->get_tac_name();
     case TACOperationType::UnaryMinus:
     case TACOperationType::UnaryNot:
     case TACOperationType::UnaryPositive:
     case TACOperationType::FloatToInt:
     case TACOperationType::IntToFloat:
-      return a_->get_name() + " = " + OpStr[operation_] + b_->get_name();
-    case TACOperationType::Argument:
-    {
+      return a_->get_tac_name() + " = " + OpStr[operation_] + b_->get_tac_name();
+    case TACOperationType::Argument: {
       std::string ret = "arg ";
       bool is_array = a_->value_.Type() == SymbolValue::ValueType::Array;
       if (is_array) {
@@ -58,18 +57,15 @@ std::string ThreeAddressCode::ToString() const {
           ret += "&";
         }
       }
-      ret += a_->name_.value_or("nullname");
-      if(is_array){
-        ret += "[" + a_->value_.GetArrayDescriptor()->base_offset->get_name() + "]";
-      }
+      ret += a_->value_.ToString();
       return ret;
       // return "Argument(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
       //        "): " + a_->get_name();
     }
     case TACOperationType::Assign:
-      return a_->get_name() + " = " + b_->get_name();
+      return a_->get_tac_name() + " = " + b_->get_tac_name();
     case TACOperationType::Call:
-      return (a_ == nullptr ? "" : (a_->get_name() + " = ")) + "Call " + b_->get_name();
+      return (a_ == nullptr ? "" : (a_->get_tac_name() + " = ")) + "call " + b_->get_tac_name();
     case TACOperationType::FunctionBegin: {
       return "fbegin";
       // return "FuncBegin";
@@ -79,12 +75,11 @@ std::string ThreeAddressCode::ToString() const {
       // return "FuncEnd";
     }
     case TACOperationType::Goto:
-      return "Goto " + a_->get_name();
+      return "jump " + a_->get_tac_name();
     case TACOperationType::IfZero:
-      return "IfZero " + b_->get_name() + " Goto " + a_->get_name();
-    case TACOperationType::Label:
-    {
-      return "label " + a_->name_.value_or("nullname") + ":";
+      return "ifz " + b_->get_tac_name() + " jump " + a_->get_tac_name();
+    case TACOperationType::Label: {
+      return "label " + a_->get_tac_name();
       // return a_->get_name() + ":";
     }
     case TACOperationType::Parameter: {
@@ -100,11 +95,11 @@ std::string ThreeAddressCode::ToString() const {
     }
 
     case TACOperationType::Return:
-      return "Return" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_name()));
+      return "ret" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_tac_name()));
     case TACOperationType::Variable:
-      return a_->value_.TypeToString() + ": " + a_->get_name();
+      return a_->value_.TypeToTACString() + " " + a_->get_tac_name();
     case TACOperationType::Constant:
-      return "const " + a_->value_.TypeToString() + ": " + a_->get_name();
+      return "const " + a_->value_.TypeToTACString() + " " + a_->get_tac_name();
     default:
       return "Undefined";
   }

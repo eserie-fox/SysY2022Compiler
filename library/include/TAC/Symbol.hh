@@ -72,6 +72,7 @@ struct SymbolValue {
 
   bool IsAssignableTo(const SymbolValue &other) const;
   std::string TypeToString() const;
+  std::string TypeToTACString() const;
   operator bool() const;
 
  private:
@@ -88,6 +89,7 @@ struct Symbol {
   int offset_;
   SymbolValue value_;
   std::string get_name() const;
+  std::string get_tac_name() const;
 };
 
 class Expression;
