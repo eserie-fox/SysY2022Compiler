@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Threads REQUIRED)
-if(CMAKE_USE_PTHREADS_INIT)
+if(Threads_FOUND)
     set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread")
 else()
     message (FATAL_ERROR "Cannot find pthread")
