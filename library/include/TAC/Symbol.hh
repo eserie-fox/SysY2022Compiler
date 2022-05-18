@@ -89,7 +89,7 @@ struct Symbol {
   int offset_;
   SymbolValue value_;
   std::string get_name() const;
-  std::string get_tac_name() const;
+  std::string get_tac_name(bool name_only = true) const;
 };
 
 class Expression;

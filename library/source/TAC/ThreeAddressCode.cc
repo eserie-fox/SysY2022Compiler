@@ -57,7 +57,7 @@ std::string ThreeAddressCode::ToString() const {
           ret += "&";
         }
       }
-      ret += a_->value_.ToString();
+      ret += a_->get_tac_name(false);
       return ret;
       // return "Argument(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
       //        "): " + a_->get_name();

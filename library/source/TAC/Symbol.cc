@@ -535,18 +535,19 @@ std::string Symbol::get_name() const {
   return value_.ToString();
 }
 
-std::string Symbol::get_tac_name() const {
+std::string Symbol::get_tac_name(bool name_only) const {
   if (name_.has_value()) {
     std::string name = name_.value();
     switch (value_.Type()) {
-      // case SymbolValue::ValueType::Array: {
-      //   size_t total_size = 1;
-      //   for (auto d : value_.GetArrayDescriptor()->dimensions) {
-      //     total_size *= d;
-      //   }
-      //   name += "[" + std::to_string(total_size) + "]";
-      //   break;
-      // }
+      case SymbolValue::ValueType::Array: {
+        // size_t total_size = 1;
+        // for (auto d : value_.GetArrayDescriptor()->dimensions) {
+        //   total_size *= d;
+        // }
+        if(!name_only)
+          name += "[" + value_.GetArrayDescriptor()->base_offset->get_tac_name() + "]";
+        break;
+      }
       // case SymbolValue::ValueType::Parameters: {
       //   auto param = value_.GetParameters();
       //   name += ": ";

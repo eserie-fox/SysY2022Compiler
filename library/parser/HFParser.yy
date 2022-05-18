@@ -352,6 +352,9 @@ VarDef
 InitVal
   : Exp
   {
+    ExpressionPtr exp;
+    int type;
+    tacbuilder->Top(&type);
     if($1->ret->value_.Type() == ValueType::Array)
     {
       auto arrayDescriptor = $1->ret->value_.GetArrayDescriptor();
@@ -359,9 +362,18 @@ InitVal
       {
         if (!arrayDescriptor->subarray->empty()) {
           assert(arrayDescriptor->subarray->size() == 1);
-          $$ = arrayDescriptor->subarray->begin()->second;
+          if((ValueType)type != arrayDescriptor->subarray->begin()->second->ret->value_.Type()){
+            if((ValueType)type == SymbolValue::ValueType::Int){
+              exp = tacbuilder->CastFloatToInt(arrayDescriptor->subarray->begin()->second);
+            }else{
+              exp = tacbuilder->CastIntToFloat(arrayDescriptor->subarray->begin()->second);
+            }
+            $$ = exp;
+          }else{
+            $$ = arrayDescriptor->subarray->begin()->second;
+          }
         } else {
-          if (arrayDescriptor->value_type == SymbolValue::ValueType::Int){
+          if ((ValueType)type == SymbolValue::ValueType::Int){
             $$ = tacbuilder->CreateConstExp(0);
           }
           else{
@@ -371,10 +383,29 @@ InitVal
       }else{
         SymbolPtr tmpVar = tacbuilder->CreateTempVariable(arrayDescriptor->value_type);
         (*$1->tac) += tacbuilder->NewTAC(TACOperationType::Variable,tmpVar);
-        $$ = tacbuilder->CreateAssign(tmpVar,$1);
+        ExpressionPtr tempexp = tacbuilder->CreateAssign(tmpVar,$1);
+        if((ValueType)type != arrayDescriptor->subarray->begin()->second->ret->value_.Type()){
+          if((ValueType)type == SymbolValue::ValueType::Int){
+            exp = tacbuilder->CastFloatToInt(tempexp);
+          }else{
+            exp = tacbuilder->CastIntToFloat(tempexp);
+          }
+          $$ = exp;
+        }else{
+          $$ = tempexp;
+        }
       }
     }else{
-      $$ = $1;
+      if($1->ret->value_.Type()!=(ValueType)type){
+        if((ValueType)type == ValueType::Int){
+          exp = tacbuilder->CastFloatToInt($1);
+        }else{
+          exp = tacbuilder->CastIntToFloat($1);
+        }
+        $$ = exp;
+      }else{
+        $$ = $1;
+      }
     }
   }
   | LB RB
@@ -469,8 +500,37 @@ FuncFParam
     tacbuilder->Pop();
     $$ = var;
   }
-  /* | BType IDENTIFIER LM RM Exp_list
-  | BType IDENTIFIER LM RM */
+  | BType IDENTIFIER LM RM Exp_list
+  {
+    auto array = tacbuilder->NewArrayDescriptor();
+    array->dimensions.push_back(0);
+    for(auto it : $5){
+      array->dimensions.push_back(it->ret->value_.GetInt());
+    }
+    array->base_offset = tacbuilder->CreateConstExp(0)->ret;
+    int type;
+    tacbuilder->Top(&type);
+    array->value_type = (ValueType)type;
+    auto arraySym = tacbuilder->CreateVariable($2, ValueType::Array);
+    arraySym->value_ = SymbolValue(array);
+    array->base_addr = arraySym;
+    // auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,arraySym)), arraySym);
+    $$ = arraySym;
+  }
+  | BType IDENTIFIER LM RM
+  {
+    auto array = tacbuilder->NewArrayDescriptor();
+    array->dimensions.push_back(0);
+    array->base_offset = tacbuilder->CreateConstExp(0)->ret;
+    int type;
+    tacbuilder->Top(&type);
+    array->value_type = (ValueType)type;
+    auto arraySym = tacbuilder->CreateVariable($2, ValueType::Array);
+    arraySym->value_ = SymbolValue(array);
+    array->base_addr = arraySym;
+    // auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,arraySym)), arraySym);
+    $$ = arraySym;
+  }
   ;
 
 Exp_list
