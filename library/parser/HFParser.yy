@@ -384,7 +384,7 @@ InitVal
         SymbolPtr tmpVar = tacbuilder->CreateTempVariable(arrayDescriptor->value_type);
         (*$1->tac) += tacbuilder->NewTAC(TACOperationType::Variable,tmpVar);
         ExpressionPtr tempexp = tacbuilder->CreateAssign(tmpVar,$1);
-        if((ValueType)type != arrayDescriptor->subarray->begin()->second->ret->value_.Type()){
+        if((ValueType)type != arrayDescriptor->value_type){
           if((ValueType)type == SymbolValue::ValueType::Int){
             exp = tacbuilder->CastFloatToInt(tempexp);
           }else{

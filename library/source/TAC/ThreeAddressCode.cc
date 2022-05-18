@@ -63,7 +63,7 @@ std::string ThreeAddressCode::ToString() const {
       //        "): " + a_->get_name();
     }
     case TACOperationType::Assign:
-      return a_->get_tac_name() + " = " + b_->get_tac_name();
+      return a_->get_tac_name(false) + " = " + b_->get_tac_name(false);
     case TACOperationType::Call:
       return (a_ == nullptr ? "" : (a_->get_tac_name() + " = ")) + "call " + b_->get_tac_name();
     case TACOperationType::FunctionBegin: {
