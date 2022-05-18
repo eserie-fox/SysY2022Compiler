@@ -57,15 +57,15 @@ std::string ThreeAddressCode::ToString() const {
           ret += "&";
         }
       }
-      ret += a_->get_tac_name(false);
+      ret += a_->get_tac_name();
       return ret;
       // return "Argument(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
       //        "): " + a_->get_name();
     }
     case TACOperationType::Assign:
-      return a_->get_tac_name(false) + " = " + b_->get_tac_name(false);
+      return a_->get_tac_name() + " = " + b_->get_tac_name();
     case TACOperationType::Call:
-      return (a_ == nullptr ? "" : (a_->get_tac_name() + " = ")) + "call " + b_->get_tac_name();
+      return (a_ == nullptr ? "" : (a_->get_tac_name(true) + " = ")) + "call " + b_->get_tac_name(true);
     case TACOperationType::FunctionBegin: {
       return "fbegin";
       // return "FuncBegin";
@@ -85,7 +85,7 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::Parameter: {
       std::string ret = "param " + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) + " ";
       std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
-      ret += a_->name_.value_or("nullname");
+      ret += a_->get_tac_name(true);
       if (a_->value_.Type() == SymbolValue::ValueType::Array) {
         ret += "[]";
       }
@@ -97,9 +97,9 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::Return:
       return "ret" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_tac_name()));
     case TACOperationType::Variable:
-      return a_->value_.TypeToTACString() + " " + a_->get_tac_name();
+      return a_->value_.TypeToTACString() + " " + a_->get_tac_name(true);
     case TACOperationType::Constant:
-      return "const " + a_->value_.TypeToTACString() + " " + a_->get_tac_name();
+      return "const " + a_->value_.TypeToTACString() + " " + a_->get_tac_name(true);
     default:
       return "Undefined";
   }
@@ -168,7 +168,7 @@ std::string ThreeAddressCodeList::ToString() const {
         }
       }
     }
-    if((*it)->operation_ == TACOperationType::FunctionEnd){
+    if ((*it)->operation_ == TACOperationType::FunctionEnd) {
       func_list += (*it);
       infunc--;
       continue;

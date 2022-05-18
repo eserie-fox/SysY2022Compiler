@@ -501,6 +501,14 @@ SymbolValue::operator bool() const {
 }
 
 std::string Symbol::get_name() const {
+  if (value_.Type() == SymbolValue::ValueType::Array) {
+    auto arrayDescriptor = value_.GetArrayDescriptor();
+    std::string name = arrayDescriptor->base_addr.lock()->get_tac_name(true);
+    for (auto d : value_.GetArrayDescriptor()->dimensions) {
+      name += "[" + std::to_string(d) + "]";
+    }
+    return name;
+  }
   if (name_.has_value()) {
     std::string name = name_.value();
     switch (value_.Type()) {
@@ -536,38 +544,13 @@ std::string Symbol::get_name() const {
 }
 
 std::string Symbol::get_tac_name(bool name_only) const {
+  if (value_.Type() == SymbolValue::ValueType::Array && !name_only) {
+    auto arrayDescriptor = value_.GetArrayDescriptor();
+    std::string name = arrayDescriptor->base_addr.lock()->get_tac_name(true);
+    return name + "[" + arrayDescriptor->base_offset->get_tac_name() + "]";
+  }
   if (name_.has_value()) {
     std::string name = name_.value();
-    switch (value_.Type()) {
-      case SymbolValue::ValueType::Array: {
-        // size_t total_size = 1;
-        // for (auto d : value_.GetArrayDescriptor()->dimensions) {
-        //   total_size *= d;
-        // }
-        if(!name_only)
-          name += "[" + value_.GetArrayDescriptor()->base_offset->get_tac_name() + "]";
-        break;
-      }
-      // case SymbolValue::ValueType::Parameters: {
-      //   auto param = value_.GetParameters();
-      //   name += ": ";
-      //   name += magic_enum::enum_name<SymbolValue::ValueType>(param->get_return_type());
-      //   name += "(";
-      //   for (auto sym : *param) {
-      //     name += sym->value_.TypeToString() + ",";
-      //   }
-      //   if (param->empty()) {
-      //     name.push_back(')');
-      //   } else {
-      //     name.back() = ')';
-      //   }
-      //   break;
-      // }
-
-      default: {
-        break;
-      }
-    }
     return name;
   }
   return value_.ToString();
