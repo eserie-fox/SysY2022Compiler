@@ -270,6 +270,7 @@ ConstInitVal_list
 
 VarDecl: BType VarDef_list SEMI
 {
+  tacbuilder->Pop();
   $$ = $2;
 }
 ;
@@ -445,6 +446,7 @@ FuncIdenti
 FuncHead
   : VOID FuncIdenti LS FuncFParams RS
   {
+    tacbuilder->Push((int)ValueType::Void);
     SymbolPtr func_label;
     tacbuilder->TopFunc(&func_label);
     tacbuilder->CreateFunctionHead(ValueType::Void,func_label,$4);
@@ -454,7 +456,6 @@ FuncHead
   {
     int type;
     tacbuilder->Top(&type);
-    tacbuilder->Pop();
     SymbolPtr func_label;
     tacbuilder->TopFunc(&func_label);
     tacbuilder->CreateFunctionHead((ValueType)type,func_label,$4);
@@ -464,6 +465,7 @@ FuncHead
 FuncDef 
   : FuncHead Block 
   {
+    tacbuilder->Pop();
     tacbuilder->PopFunc();
     SymbolPtr func_head;
     tacbuilder->TopFunc(&func_head);
@@ -671,11 +673,31 @@ Stmt
   }
   | RETURN SEMI
   {
+    int type;
+    tacbuilder->Top(&type);
+    if((ValueType)type!=ValueType::Void){
+      throw RuntimeException("Cant return Void for this function");
+    }
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return));
   }
   | RETURN Exp SEMI
   {
-    $$ = tacbuilder->NewTACList(*$2->tac + tacbuilder->NewTAC(TACOperationType::Return, $2->ret));
+    int type;
+    tacbuilder->Top(&type);
+    if((ValueType)type==ValueType::Void){
+      throw RuntimeException("Cant return the value for Void function");
+    }
+    ExpressionPtr exp;
+    if($2->ret->value_.Type()!=(ValueType)type){
+      if((ValueType)type == ValueType::Int){
+        exp = tacbuilder->CastFloatToInt($2);
+      }else{
+        exp = tacbuilder->CastIntToFloat($2);
+      }
+      $$ = tacbuilder->NewTACList(*exp->tac + tacbuilder->NewTAC(TACOperationType::Return, exp->ret));
+    }
+    else
+      $$ = tacbuilder->NewTACList(*$2->tac + tacbuilder->NewTAC(TACOperationType::Return, $2->ret));
   }
   ;
 
