@@ -168,13 +168,14 @@ using token = HaveFunCompiler::Parser::Parser::token;
 "]"  {  return token::RM; }
 
 ([ \t\r])+ {
-  loc->step();
+  location->columns(yyleng);
+  location->step();
 }
 
 
-\n {
-  loc->lines(yyleng);
-  loc->step();
+\n+ {
+  location->lines(yyleng);
+  location->step();
 }
 
 <<EOF>> return token::END;

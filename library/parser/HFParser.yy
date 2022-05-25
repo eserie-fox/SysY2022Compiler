@@ -4,6 +4,7 @@
 %defines
 %define api.namespace {HaveFunCompiler::Parser}
 %define api.parser.class {Parser}
+%define parse.error detailed
 
 
 %code requires{
@@ -54,6 +55,7 @@ using ValueType =  HaveFunCompiler::ThreeAddressCode::SymbolValue::ValueType;
 #define yylex scanner.yylex
 #define tacbuilder driver.get_tacbuilder()
 #define tacfactory TACFactory::Instance()
+
 const int FUNC_BLOCK_IN_FLAG = 2022;
 const int FUNC_BLOCK_OUT_FLAG = 2023;
 const int NONFUNC_BLOCK_FLAG = 2024;

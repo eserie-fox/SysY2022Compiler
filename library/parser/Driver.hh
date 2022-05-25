@@ -24,6 +24,8 @@ class Driver {
 
   std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACBuilder> get_tacbuilder() const { return tacbuilder; }
 
+  HaveFunCompiler::Parser::Parser::location_type location;
+  
  private:
   void parse_helper(std::istream &stream);
 
