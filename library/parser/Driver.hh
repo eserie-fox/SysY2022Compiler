@@ -2,12 +2,12 @@
 
 #include <cstddef>
 #include <istream>
-#include <string>
 #include <memory>
+#include <string>
 
-#include "TAC/TAC.hh"
 #include "HFParser.hh"
 #include "HFScanner.hh"
+#include "TAC/TAC.hh"
 
 namespace HaveFunCompiler {
 namespace Parser {
@@ -16,18 +16,16 @@ class Driver {
   Driver() = default;
   virtual ~Driver();
 
-  void parse(const char *filename);
+  bool parse(const char *filename);
 
-  void parse(std::istream &iss);
+  bool parse(std::istream &iss);
 
   std::ostream &print(std::ostream &stream);
 
   std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACBuilder> get_tacbuilder() const { return tacbuilder; }
 
-  HaveFunCompiler::Parser::Parser::location_type location;
-  
  private:
-  void parse_helper(std::istream &stream);
+  bool parse_helper(std::istream &stream);
 
   HaveFunCompiler::Parser::Parser *parser = nullptr;
   HaveFunCompiler::Parser::Scanner *scanner = nullptr;

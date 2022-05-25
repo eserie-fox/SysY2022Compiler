@@ -12,7 +12,7 @@ HaveFunCompiler::Parser::Driver::~Driver() {
   parser = nullptr;
 }
 
-void HaveFunCompiler::Parser::Driver::parse(const char *filename) {
+bool HaveFunCompiler::Parser::Driver::parse(const char *filename) {
   assert(filename != nullptr);
   std::ifstream in_file(filename);
   if (!in_file.good()) {
@@ -22,17 +22,24 @@ void HaveFunCompiler::Parser::Driver::parse(const char *filename) {
   return parse_helper(in_file);
 }
 
-void HaveFunCompiler::Parser::Driver::parse(std::istream &stream) {
+bool HaveFunCompiler::Parser::Driver::parse(std::istream &stream) {
   if (!stream.good() || stream.eof()) {
-    return;
+    return false;
   }
   return parse_helper(stream);
 }
 
-void HaveFunCompiler::Parser::Driver::parse_helper(std::istream &stream) {
+bool HaveFunCompiler::Parser::Driver::parse_helper(std::istream &stream) {
+  try {
+    tacbuilder = std::make_shared<HaveFunCompiler::ThreeAddressCode::TACBuilder>();
+  } catch (std::bad_alloc &ba) {
+    std::cerr << "Failed to allocate tacbuilder: (" << ba.what() << "), exiting!\n";
+    exit(EXIT_FAILURE);
+  }
+
   delete scanner;
   try {
-    scanner = new HaveFunCompiler::Parser::Scanner(&stream);
+    scanner = new HaveFunCompiler::Parser::Scanner(&stream, tacbuilder);
   } catch (std::bad_alloc &ba) {
     std::cerr << "Failed to allocate scanner: (" << ba.what() << "), exiting!\n";
     exit(EXIT_FAILURE);
@@ -46,18 +53,14 @@ void HaveFunCompiler::Parser::Driver::parse_helper(std::istream &stream) {
     exit(EXIT_FAILURE);
   }
 
-  try {
-    tacbuilder = std::make_shared<HaveFunCompiler::ThreeAddressCode::TACBuilder>();
-  } catch (std::bad_alloc &ba) {
-    std::cerr << "Failed to allocate tacbuilder: (" << ba.what() << "), exiting!\n";
-    exit(EXIT_FAILURE);
-  }
+
 
   const int accept(0);
   if (parser->parse() != accept) {
     std::cerr << "Parse failed!\n";
+    return false;
   }
-  return;
+  return true;
 }
 
 

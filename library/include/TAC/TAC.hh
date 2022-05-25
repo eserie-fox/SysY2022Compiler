@@ -13,8 +13,10 @@
 #include "UnionStack.hh"
 
 namespace HaveFunCompiler {
+namespace Parser {
+class location;
+}
 namespace ThreeAddressCode {
-
 using SymbolPtr = std::shared_ptr<Symbol>;
 using ThreeAddressCodePtr = std::shared_ptr<ThreeAddressCode>;
 using TACListPtr = std::shared_ptr<ThreeAddressCodeList>;
@@ -26,6 +28,7 @@ using ArrayDescriptorPtr = std::shared_ptr<ArrayDescriptor>;
 class TACFactory {
   NONCOPYABLE(TACFactory)
   friend class TACBuilder;
+  using location = HaveFunCompiler::Parser::location;
 
  private:
   static TACFactory *Instance() {
@@ -51,11 +54,11 @@ class TACFactory {
   ParamListPtr NewParamList();
   ArrayDescriptorPtr NewArrayDescriptor();
 
-  TACListPtr MakeFunction(SymbolPtr func_head, TACListPtr body);
-  ExpressionPtr MakeAssign(SymbolPtr var, ExpressionPtr exp);
+  TACListPtr MakeFunction(const location *plocation_, SymbolPtr func_head, TACListPtr body);
+  ExpressionPtr MakeAssign(const location *plocation_, SymbolPtr var, ExpressionPtr exp);
 
   // TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
-  TACListPtr MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
+  TACListPtr MakeCallWithRet(const location *plocation_, SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
   // if(cond_zero==zero)
   //  stmt
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
@@ -201,8 +204,11 @@ class TACBuilder {
 
   TACListPtr GetTACList();
 
+  void SetLocation(HaveFunCompiler::Parser::location *plocation);
+
  private:
   using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
+  HaveFunCompiler::Parser::location * plocation_;
   void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);
   FlattenedArray FlattenInitArray(ArrayDescriptorPtr array);
   int ArrayInitImpl(ExpressionPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end,

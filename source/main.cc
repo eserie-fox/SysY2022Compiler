@@ -6,7 +6,8 @@
 
 int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
   HaveFunCompiler::Parser::Driver driver;
-  driver.parse("test.txt");
-  driver.print(std::cout) << "\n";
+  if (driver.parse("test.txt")) {
+    driver.print(std::cout) << "\n";
+  }
   return 0;
 }

@@ -2,10 +2,13 @@
 #include <iostream>
 #include "TAC/Symbol.hh"
 #include "TAC/TAC.hh"
+#include "location.hh"
 
 TEST(TACBuilder, CompilerStack) {
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   TACBuilder builder;
+  builder.SetLocation(&loc);
   builder.Push(5);
   int v;
   builder.Top(&v);
@@ -39,6 +42,7 @@ TEST(Symbol, SymbolValue) {
 TEST(TACList, PrintValue) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
   TACListPtr tac_list = builder->NewTACList();
   auto int_a = builder->NewSymbol(SymbolType::Variable, "a", 0, SymbolValue(0));
@@ -52,7 +56,9 @@ TEST(TACList, PrintValue) {
 TEST(TACBuilder, ConstAccessArray) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2, 3};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -90,7 +96,9 @@ TEST(TACBuilder, ConstAccessArray) {
 TEST(TACBuilder, VarAccessArray) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2, 3};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -114,7 +122,9 @@ TEST(TACBuilder, VarAccessArray) {
 TEST(TACBuilder, ConstArrayInit1) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -163,7 +173,9 @@ TEST(TACBuilder, ConstArrayInit1) {
 TEST(TACBuilder, ConstArrayInit2) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -206,7 +218,9 @@ TEST(TACBuilder, ConstArrayInit2) {
 TEST(TACBuilder, ConstArrayInit3) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -263,7 +277,9 @@ TEST(TACBuilder, ConstArrayInit3) {
 TEST(TACBuilder, ConstArrayInit4) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -312,7 +328,9 @@ TEST(TACBuilder, ConstArrayInit4) {
 TEST(TACBuilder, ConstArrayInit5) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -357,7 +375,9 @@ TEST(TACBuilder, ConstArrayInit5) {
 TEST(TACBuilder, ConstArrayInit6) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2};
   array1->base_offset = builder->CreateConstExp(0)->ret;
@@ -396,7 +416,9 @@ TEST(TACBuilder, ConstArrayInit6) {
 TEST(TACBuilder, VarArrayInit1) {
   using namespace std;
   using namespace HaveFunCompiler::ThreeAddressCode;
+  HaveFunCompiler::Parser::location loc;
   auto builder = make_unique<TACBuilder>();
+  builder->SetLocation(&loc);
   auto array1 = builder->NewArrayDescriptor();
   array1->dimensions = {2, 2};
   array1->base_offset = builder->CreateConstExp(0)->ret;

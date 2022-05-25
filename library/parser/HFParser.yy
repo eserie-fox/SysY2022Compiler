@@ -204,7 +204,7 @@ ConstDef
         break;
       }
       default:
-        throw TypeMismatchException(std::string(magic_enum::enum_name((ValueType)type)),"Const");
+        throw TypeMismatchException(scanner.get_location(), std::string(magic_enum::enum_name((ValueType)type)),"Const");
         break;
     }
     
@@ -619,7 +619,7 @@ Stmt
   {
     if($1->ret->type_ == SymbolType::Constant)
     {
-      throw RuntimeException("Cant assign to constant");
+      throw RuntimeException(scanner.get_location(), "Cant assign to constant");
     }
     ExpressionPtr exp;
     if($3->ret->value_.Type()!=$1->ret->value_.Type()){
@@ -678,7 +678,7 @@ Stmt
     int type;
     tacbuilder->Top(&type);
     if((ValueType)type!=ValueType::Void){
-      throw RuntimeException("Cant return Void for this function");
+      throw RuntimeException(scanner.get_location(), "Cant return Void for this function");
     }
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return));
   }
@@ -687,7 +687,7 @@ Stmt
     int type;
     tacbuilder->Top(&type);
     if((ValueType)type==ValueType::Void){
-      throw RuntimeException("Cant return the value for Void function");
+      throw RuntimeException(scanner.get_location(), "Cant return the value for Void function");
     }
     ExpressionPtr exp;
     if($2->ret->value_.Type()!=(ValueType)type){

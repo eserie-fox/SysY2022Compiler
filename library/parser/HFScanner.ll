@@ -4,7 +4,7 @@
 #include "HFScanner.hh"
 #undef YY_DECL
 #define YY_DECL int HaveFunCompiler::Parser::Scanner::yylex(HaveFunCompiler::Parser::Parser::semantic_type *const lval,\
-                   [[maybe_unused]] HaveFunCompiler::Parser::Parser::location_type *location)
+                   HaveFunCompiler::Parser::Parser::location_type *location)
 
 using token = HaveFunCompiler::Parser::Parser::token;
 
@@ -26,7 +26,8 @@ using token = HaveFunCompiler::Parser::Parser::token;
 
 %{
   yylval = lval;
-
+  loc = location;
+  builder_->SetLocation(location);
 %}
 
 
@@ -168,14 +169,13 @@ using token = HaveFunCompiler::Parser::Parser::token;
 "]"  {  return token::RM; }
 
 ([ \t\r])+ {
-  location->columns(yyleng);
-  location->step();
+
 }
 
 
 \n+ {
-  location->lines(yyleng);
-  location->step();
+  loc->lines(yyleng);
+  loc->step();
 }
 
 <<EOF>> return token::END;

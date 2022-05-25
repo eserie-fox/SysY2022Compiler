@@ -7,6 +7,10 @@
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
+#define RUNTIME_EXCEPTION(msg) RuntimeException(*plocation_, msg)
+#define TYPEMISMATCH_EXCEPTION(act, exp, msg) TypeMismatchException(*plocation_, act, exp, msg)
+#define REDEFINITION_EXCEPTION(name) RedefinitionException(*plocation_, name)
+#define NULL_EXCEPTION(file, line, msg) NullReferenceException(*plocation_, file, line, msg)
 
 SymbolPtr TACFactory::NewSymbol(SymbolType type, std::optional<std::string> name, int offset, SymbolValue value) {
   SymbolPtr sym = std::make_shared<Symbol>();
@@ -41,13 +45,13 @@ ArrayDescriptorPtr TACFactory::NewArrayDescriptor() {
   return ret;
 }
 
-TACListPtr TACFactory::MakeFunction(SymbolPtr func_head, TACListPtr body) {
+TACListPtr TACFactory::MakeFunction(const location *plocation_, SymbolPtr func_head, TACListPtr body) {
   auto tac_list = NewTACList();
   (*tac_list) += NewTAC(TACOperationType::Label, func_head);
   (*tac_list) += NewTAC(TACOperationType::FunctionBegin);
   auto params = func_head->value_.GetParameters();
   if (params == nullptr) {
-    throw NullReferenceException(__FILE__, __LINE__, "'params' is null");
+    throw NULL_EXCEPTION(__FILE__, __LINE__, "'params' is null");
   }
   for (auto sym : *params) {
     (*tac_list) += NewTAC(TACOperationType::Parameter, sym);
@@ -57,13 +61,13 @@ TACListPtr TACFactory::MakeFunction(SymbolPtr func_head, TACListPtr body) {
   return tac_list;
 }
 
-ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
+ExpressionPtr TACFactory::MakeAssign(const location *plocation_, SymbolPtr var, ExpressionPtr exp) {
   if (exp->tac == nullptr) {
-    throw NullReferenceException(__FILE__, __LINE__, "'tac' is null");
+    throw NULL_EXCEPTION(__FILE__, __LINE__, "'tac' is null");
   }
   if (!exp->ret->value_.IsAssignableTo(var->value_)) {
-    throw TypeMismatchException(var->value_.TypeToString(), exp->ret->value_.TypeToString(),
-                                " Can't assign this actual type to expected type");
+    throw TYPEMISMATCH_EXCEPTION(var->value_.TypeToString(), exp->ret->value_.TypeToString(),
+                                 " Can't assign this actual type to expected type");
   }
   auto tac_list = exp->tac->MakeCopy();
   (*tac_list) += NewTAC(TACOperationType::Assign, var, exp->ret);
@@ -82,16 +86,17 @@ ExpressionPtr TACFactory::MakeAssign(SymbolPtr var, ExpressionPtr exp) {
 //   return tac_list;
 // }
 
-TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym) {
+TACListPtr TACFactory::MakeCallWithRet(const location *plocation_, SymbolPtr func_label, ArgListPtr args,
+                                       SymbolPtr ret_sym) {
   if (args == nullptr) {
-    throw NullReferenceException(__FILE__, __LINE__, "'args' is null");
+    throw NULL_EXCEPTION(__FILE__, __LINE__, "'args' is null");
   }
   {
     size_t nfuncparam = func_label->value_.GetParameters()->size();
     size_t narg = args->size();
     if (nfuncparam != narg) {
-      throw RuntimeException("Function '" + func_label->get_name() + "' requires " + std::to_string(nfuncparam) +
-                             " parameters, but " + std::to_string(narg) + " arguments provided");
+      throw RUNTIME_EXCEPTION("Function '" + func_label->get_name() + "' requires " + std::to_string(nfuncparam) +
+                              " parameters, but " + std::to_string(narg) + " arguments provided");
     }
     auto paramit = func_label->value_.GetParameters()->begin();
     auto paramend = func_label->value_.GetParameters()->end();
@@ -100,7 +105,7 @@ TACListPtr TACFactory::MakeCallWithRet(SymbolPtr func_label, ArgListPtr args, Sy
     for (; paramit != paramend; ++paramit, ++argit) {
       ++ith;
       if (!(*argit)->ret->value_.IsAssignableTo((*paramit)->value_)) {
-        throw TypeMismatchException(
+        throw TYPEMISMATCH_EXCEPTION(
             (*argit)->ret->value_.TypeToString(), (*paramit)->value_.TypeToString(),
             "Function '" + func_label->get_name() + "'s " + std::to_string(ith) + "th parameter type mismatch");
       }
@@ -176,7 +181,7 @@ ParamListPtr TACBuilder::NewParamList() { return TACFactory::Instance()->NewPara
 ArrayDescriptorPtr TACBuilder::NewArrayDescriptor() { return TACFactory::Instance()->NewArrayDescriptor(); }
 
 ExpressionPtr TACBuilder::CreateAssign(SymbolPtr var, ExpressionPtr exp) {
-  return TACFactory::Instance()->MakeAssign(var, exp);
+  return TACFactory::Instance()->MakeAssign(plocation_, var, exp);
 }
 
 void TACBuilder::FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {
@@ -225,8 +230,8 @@ TACBuilder::FlattenedArray TACBuilder::FlattenInitArray(ArrayDescriptorPtr array
 ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<ExpressionPtr> pos) {
   auto arrayDescriptor = array->ret->value_.GetArrayDescriptor();
   if (pos.size() > arrayDescriptor->dimensions.size()) {
-    throw RuntimeException("Array only has " + std::to_string(arrayDescriptor->dimensions.size()) +
-                           " dimensions but access " + std::to_string(pos.size()) + "th dimension");
+    throw RUNTIME_EXCEPTION("Array only has " + std::to_string(arrayDescriptor->dimensions.size()) +
+                            " dimensions but access " + std::to_string(pos.size()) + "th dimension");
   }
   if (pos.empty()) {
     return array;
@@ -237,7 +242,7 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
       arrayDescriptor->base_offset->type_ == SymbolType::Constant) {
     int idx = idx_exp->ret->value_.GetInt();
     if (idx < 0) {
-      throw RuntimeException("Array index must be non-negative, but encountered " + std::to_string(idx));
+      throw RUNTIME_EXCEPTION("Array index must be non-negative, but encountered " + std::to_string(idx));
     }
     if (arrayDescriptor->subarray->count(idx)) {
       auto val = arrayDescriptor->subarray->at(idx);
@@ -255,7 +260,7 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
     nArrayDescriptor->value_type = arrayDescriptor->value_type;
     ssize_t noffset = arrayDescriptor->base_offset->value_.GetInt() + idx * (ssize_t)size_sublen;
     if (noffset > (ssize_t)INT32_MAX || noffset < 0) {
-      throw RuntimeException("Invalid array access at " + std::to_string(noffset));
+      throw RUNTIME_EXCEPTION("Invalid array access at " + std::to_string(noffset));
     }
     nArrayDescriptor->base_offset = CreateConstExp(static_cast<int>(noffset))->ret;
     auto nArraySym = NewSymbol(array->ret->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor));
@@ -291,7 +296,7 @@ int TACBuilder::ArrayInitImpl(ExpressionPtr array, FlattenedArray::iterator &it,
   auto arrayDescriptor = array->ret->value_.GetArrayDescriptor();
   if (arrayDescriptor->dimensions.empty()) {
     if (it->first == 1) {
-      throw RuntimeException(
+      throw RUNTIME_EXCEPTION(
           "The depth of brace nesting in array initialization expression is too deep for the target array/subarray");
     }
     if (it->first == 2) {
@@ -307,7 +312,7 @@ int TACBuilder::ArrayInitImpl(ExpressionPtr array, FlattenedArray::iterator &it,
       ++it;
       ArrayInitImpl(AccessArray(array, {CreateConstExp((int)i)}), it, end, tac_list);
       if (it->first != 2) {
-        throw RuntimeException("Too many elements in array initialization expression for the target array/subarray");
+        throw RUNTIME_EXCEPTION("Too many elements in array initialization expression for the target array/subarray");
       }
       ++it;
       continue;
@@ -344,20 +349,20 @@ ExpressionPtr TACBuilder::CreateArrayInit(ExpressionPtr array, ExpressionPtr ini
   for (auto &pr : finit_array) {
     if (pr.second) {
       if (array->ret->type_ == SymbolType::Constant && pr.second->ret->type_ != SymbolType::Constant) {
-        throw TypeMismatchException(
+        throw TYPEMISMATCH_EXCEPTION(
             std::string(magic_enum::enum_name<SymbolType>(pr.second->ret->type_)), "Constant",
             pr.second->ret->get_name() + "'s type mismatched, can't initialize const array with non-constant");
       }
       if (pr.second->ret->type_ != SymbolType::Constant && pr.second->ret->type_ != SymbolType::Variable) {
-        throw TypeMismatchException(std::string(magic_enum::enum_name<SymbolType>(pr.second->ret->type_)),
-                                    "Constant or Variable", pr.second->ret->get_name() + "'s type mismatched");
+        throw TYPEMISMATCH_EXCEPTION(std::string(magic_enum::enum_name<SymbolType>(pr.second->ret->type_)),
+                                     "Constant or Variable", pr.second->ret->get_name() + "'s type mismatched");
       }
     }
   }
   if (array->ret->value_.GetArrayDescriptor()->value_type == SymbolValue::ValueType::Int) {
     for (auto &pr : finit_array) {
       if (pr.second != nullptr && pr.second->ret->value_.Type() != SymbolValue::ValueType::Int) {
-        throw TypeMismatchException(
+        throw TYPEMISMATCH_EXCEPTION(
             pr.second->ret->value_.TypeToString(), "Int",
             pr.second->ret->get_name() + "'s value type mismatched, can't initialize int array with non-Int type");
       }
@@ -402,7 +407,7 @@ std::string TACBuilder::AppendScopePrefix(const std::string &name, uint64_t scop
 SymbolPtr TACBuilder::CreateFunctionLabel(const std::string &name) {
   std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToFuncLabelName(name));
   if (symbol_stack_.back().count(label_name)) {
-    throw RedefinitionException(name);
+    throw REDEFINITION_EXCEPTION(name);
   }
   auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Function, label_name);
   symbol_stack_.back()[label_name] = sym;
@@ -412,7 +417,7 @@ SymbolPtr TACBuilder::CreateFunctionLabel(const std::string &name) {
 SymbolPtr TACBuilder::CreateCustomerLabel(const std::string &name) {
   std::string label_name = AppendScopePrefix(TACFactory::Instance()->ToCustomerLabelName(name));
   if (symbol_stack_.back().count(label_name)) {
-    throw RedefinitionException(name);
+    throw REDEFINITION_EXCEPTION(name);
   }
   auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Label, label_name);
   symbol_stack_.back()[label_name] = sym;
@@ -429,7 +434,7 @@ SymbolPtr TACBuilder::CreateTempLabel() {
 SymbolPtr TACBuilder::CreateVariable(const std::string &name, SymbolValue::ValueType type) {
   std::string var_name = AppendScopePrefix(TACFactory::Instance()->ToVariableOrConstantName(name));
   if (symbol_stack_.back().count(var_name)) {
-    throw RedefinitionException(name);
+    throw REDEFINITION_EXCEPTION(name);
   }
   auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, var_name);
   sym->value_.SetType(type);
@@ -451,7 +456,7 @@ SymbolPtr TACBuilder::CreateFunctionHead(SymbolValue::ValueType ret_type, Symbol
 }
 
 TACListPtr TACBuilder::CreateFunction(SymbolPtr func_head, TACListPtr body) {
-  return TACFactory::Instance()->MakeFunction(func_head, body);
+  return TACFactory::Instance()->MakeFunction(plocation_, func_head, body);
 }
 
 // TACListPtr TACBuilder::CreateCall(const std::string &func_name, ArgListPtr args) {
@@ -465,9 +470,9 @@ TACListPtr TACBuilder::CreateFunction(SymbolPtr func_head, TACListPtr body) {
 TACListPtr TACBuilder::CreateCallWithRet(const std::string &func_name, ArgListPtr args, SymbolPtr ret_sym) {
   auto func_label = FindFunctionLabel(func_name);
   if (func_label == nullptr) {
-    throw RuntimeException("Function with name '" + func_name + "' is not found");
+    throw RUNTIME_EXCEPTION("Function with name '" + func_name + "' is not found");
   }
-  return TACFactory::Instance()->MakeCallWithRet(func_label, args, ret_sym);
+  return TACFactory::Instance()->MakeCallWithRet(plocation_, func_label, args, ret_sym);
 }
 TACListPtr TACBuilder::CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *out_label) {
   auto label = CreateTempLabel();
@@ -499,7 +504,7 @@ TACListPtr TACBuilder::CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr
 void TACBuilder::BindConstName(const std::string &name, SymbolPtr constant) {
   std::string const_name = AppendScopePrefix(TACFactory::Instance()->ToVariableOrConstantName(name));
   if (symbol_stack_.back().count(const_name)) {
-    throw RedefinitionException(name);
+    throw REDEFINITION_EXCEPTION(name);
   }
   symbol_stack_.back()[const_name] = constant;
 }
@@ -517,7 +522,7 @@ SymbolPtr TACBuilder::FindVariableOrConstant(const std::string &name) {
   std::string var_name = TACFactory::Instance()->ToVariableOrConstantName(name);
   auto ret = FindSymbolWithName(var_name);
   if (ret == nullptr) {
-    throw RuntimeException("Variable or Constant named '" + name + "' is not found");
+    throw RUNTIME_EXCEPTION("Variable or Constant named '" + name + "' is not found");
   }
   return ret;
 }
@@ -525,7 +530,7 @@ SymbolPtr TACBuilder::FindFunctionLabel(const std::string &name) {
   std::string func_name = TACFactory::Instance()->ToFuncLabelName(name);
   auto ret = FindSymbolWithName(func_name);
   if (ret == nullptr) {
-    throw RuntimeException("Function named '" + name + "' is not found");
+    throw RUNTIME_EXCEPTION("Function named '" + name + "' is not found");
   }
   return ret;
 }
@@ -533,7 +538,7 @@ SymbolPtr TACBuilder::FindCustomerLabel(const std::string &name) {
   std::string label_name = TACFactory::Instance()->ToCustomerLabelName(name);
   auto ret = FindSymbolWithName(label_name);
   if (ret == nullptr) {
-    throw RuntimeException("Label named '" + name + "' is not found");
+    throw RUNTIME_EXCEPTION("Label named '" + name + "' is not found");
   }
   return ret;
 }
@@ -543,7 +548,7 @@ void TACBuilder::PushLoop(SymbolPtr label_cont, SymbolPtr label_brk) {
 
 void TACBuilder::TopLoop(SymbolPtr *out_label_cont, SymbolPtr *out_label_brk) {
   if (loop_cont_brk_stack_.empty()) {
-    throw RuntimeException("Can't break or continue, you are not in a loop");
+    throw RUNTIME_EXCEPTION("Can't break or continue, you are not in a loop");
   }
   if (out_label_cont) {
     *out_label_cont = loop_cont_brk_stack_.back().first;
@@ -561,7 +566,7 @@ ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
   }
   if (expF->ret->type_ == SymbolType::Variable) {
     if (expF->ret->value_.Type() != SymbolValue::ValueType::Float) {
-      throw TypeMismatchException(expF->ret->value_.TypeToString(), "Float", "Cast fail");
+      throw TYPEMISMATCH_EXCEPTION(expF->ret->value_.TypeToString(), "Float", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
     auto tac_list = TACFactory::Instance()->NewTACList(expF->tac);
@@ -569,8 +574,8 @@ ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
     (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::FloatToInt, tmpSym, expF->ret);
     return TACFactory::Instance()->NewExp(tac_list, tmpSym);
   }
-  throw TypeMismatchException(std::string(magic_enum::enum_name<SymbolType>(expF->ret->type_)), "Constant or Variable",
-                              "You can only cast constant or variable to int");
+  throw TYPEMISMATCH_EXCEPTION(std::string(magic_enum::enum_name<SymbolType>(expF->ret->type_)), "Constant or Variable",
+                               "You can only cast constant or variable to int");
 }
 ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
   if (expI->ret->type_ == SymbolType::Constant) {
@@ -578,7 +583,7 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
   }
   if (expI->ret->type_ == SymbolType::Variable) {
     if (expI->ret->value_.Type() != SymbolValue::ValueType::Int) {
-      throw TypeMismatchException(expI->ret->value_.TypeToString(), "Int", "Cast fail");
+      throw TYPEMISMATCH_EXCEPTION(expI->ret->value_.TypeToString(), "Int", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
     auto tac_list = TACFactory::Instance()->NewTACList(expI->tac);
@@ -586,8 +591,8 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
     (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::IntToFloat, tmpSym, expI->ret);
     return TACFactory::Instance()->NewExp(tac_list, tmpSym);
   }
-  throw TypeMismatchException(std::string(magic_enum::enum_name<SymbolType>(expI->ret->type_)), "Constant or Variable",
-                              "You can only cast constant or variable to float");
+  throw TYPEMISMATCH_EXCEPTION(std::string(magic_enum::enum_name<SymbolType>(expI->ret->type_)), "Constant or Variable",
+                               "You can only cast constant or variable to float");
 }
 
 ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, ExpressionPtr exp1, ExpressionPtr exp2) {
@@ -636,7 +641,7 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
         case TACOperationType::LogicOr:
           return CreateConstExp(val1 || val2);
         default:
-          throw UnknownException(std::string(magic_enum::enum_name(arith_op)));
+          throw UnknownException(*plocation_, std::string(magic_enum::enum_name(arith_op)));
           return nullptr;
       }
     }
@@ -702,10 +707,13 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
     default:
       break;
   }
-  throw UnknownException("Not TAC operation, type is" + std::string(magic_enum::enum_name<TACOperationType>(arith_op)));
+  throw UnknownException(*plocation_,
+                         "Not TAC operation, type is" + std::string(magic_enum::enum_name<TACOperationType>(arith_op)));
 }
 
 void TACBuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }
+
+void TACBuilder::SetLocation(HaveFunCompiler::Parser::location *plocation) { plocation_ = plocation; }
 
 TACListPtr TACBuilder::GetTACList() { return tac_list_; }
 
