@@ -8,9 +8,7 @@
 #include "../src_parser/location.hh"
 
 namespace HaveFunCompiler {
-namespace TACParser {
-
-using location = HaveFunCompiler::Parser::location;
+namespace Parser {
 
 class TACScanner : public yyFlexLexer {
  public:
@@ -18,12 +16,12 @@ class TACScanner : public yyFlexLexer {
 
   using FlexLexer::yylex;
 
-  virtual int yylex(HaveFunCompiler::TACParser::TACParser::semantic_type *const lval, location *location);
+  virtual int yylex(HaveFunCompiler::Parser::TACParser::semantic_type *const lval, location *location);
 
   location &get_location() { return *loc; }
 
  private:
-  HaveFunCompiler::TACParser::TACParser::semantic_type *yylval = nullptr;
+  HaveFunCompiler::Parser::TACParser::semantic_type *yylval = nullptr;
   location *loc = nullptr;
   std::shared_ptr<TACBuilder> builder_;
 };

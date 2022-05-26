@@ -2,7 +2,7 @@
 %require "3.0"
 %debug
 %defines
-%define api.namespace {HaveFunCompiler::TACParser}
+%define api.namespace {HaveFunCompiler::Parser}
 %define api.parser.class {TACParser}
 %define parse.error detailed
 
@@ -12,7 +12,7 @@
 
 %code requires{
   namespace HaveFunCompiler{
-    namespace TACParser{
+    namespace Parser{
       class TACDriver;
       class TACScanner;
     }
@@ -947,7 +947,7 @@ ConstExp : AddExp ;
 %%
 
 
-void HaveFunCompiler::TACParser::TACParser::error(const location_type &l,const std::string &err_message){
+void HaveFunCompiler::Parser::TACParser::error(const location_type &l,const std::string &err_message){
   std::cerr << "Error: "<<err_message <<" at "<<l<<"\n";
 }
 

@@ -3,10 +3,10 @@
 
 #include "HFTACScanner.hh"
 #undef YY_DECL
-#define YY_DECL int HaveFunCompiler::TACParser::TACScanner::yylex(HaveFunCompiler::TACParser::TACParser::semantic_type *const lval,\
-                   HaveFunCompiler::TACParser::location *location)
+#define YY_DECL int HaveFunCompiler::Parser::TACScanner::yylex(HaveFunCompiler::Parser::TACParser::semantic_type *const lval,\
+                   HaveFunCompiler::Parser::location *location)
 
-using token = HaveFunCompiler::TACParser::TACParser::token;
+using token = HaveFunCompiler::Parser::TACParser::token;
 
 #define yyterminate() return(token::END)
 
@@ -18,7 +18,7 @@ using token = HaveFunCompiler::TACParser::TACParser::token;
 
 %option debug
 %option nodefault
-%option yyclass="HaveFunCompiler::TACParser::TACScanner"
+%option yyclass="HaveFunCompiler::Parser::TACScanner"
 %option noyywrap
 %option c++
 

@@ -4,14 +4,14 @@
 
 #include "TACDriver.hh"
 
-HaveFunCompiler::TACParser::TACDriver::~TACDriver() {
+HaveFunCompiler::Parser::TACDriver::~TACDriver() {
   delete scanner;
   scanner = nullptr;
   delete parser;
   parser = nullptr;
 }
 
-bool HaveFunCompiler::TACParser::TACDriver::parse(const char *filename) {
+bool HaveFunCompiler::Parser::TACDriver::parse(const char *filename) {
   assert(filename != nullptr);
   std::ifstream in_file(filename);
   if (!in_file.good()) {
@@ -21,14 +21,14 @@ bool HaveFunCompiler::TACParser::TACDriver::parse(const char *filename) {
   return parse_helper(in_file);
 }
 
-bool HaveFunCompiler::TACParser::TACDriver::parse(std::istream &stream) {
+bool HaveFunCompiler::Parser::TACDriver::parse(std::istream &stream) {
   if (!stream.good() || stream.eof()) {
     return false;
   }
   return parse_helper(stream);
 }
 
-bool HaveFunCompiler::TACParser::TACDriver::parse_helper(std::istream &stream) {
+bool HaveFunCompiler::Parser::TACDriver::parse_helper(std::istream &stream) {
   try {
     tacbuilder = std::make_shared<HaveFunCompiler::ThreeAddressCode::TACBuilder>();
   } catch (std::bad_alloc &ba) {
@@ -38,7 +38,7 @@ bool HaveFunCompiler::TACParser::TACDriver::parse_helper(std::istream &stream) {
 
   delete scanner;
   try {
-    scanner = new HaveFunCompiler::TACParser::TACScanner(&stream, tacbuilder);
+    scanner = new HaveFunCompiler::Parser::TACScanner(&stream, tacbuilder);
   } catch (std::bad_alloc &ba) {
     std::cerr << "Failed to allocate scanner: (" << ba.what() << "), exiting!\n";
     exit(EXIT_FAILURE);
@@ -46,7 +46,7 @@ bool HaveFunCompiler::TACParser::TACDriver::parse_helper(std::istream &stream) {
   delete parser;
 
   try {
-    parser = new HaveFunCompiler::TACParser::TACParser((*scanner), (*this));
+    parser = new HaveFunCompiler::Parser::TACParser((*scanner), (*this));
   } catch (std::bad_alloc &ba) {
     std::cerr << "Failed to allocate parser: (" << ba.what() << "), exiting!\n";
     exit(EXIT_FAILURE);
@@ -62,7 +62,7 @@ bool HaveFunCompiler::TACParser::TACDriver::parse_helper(std::istream &stream) {
   return true;
 }
 
-std::ostream &HaveFunCompiler::TACParser::TACDriver::print(std::ostream &stream) {
+std::ostream &HaveFunCompiler::Parser::TACDriver::print(std::ostream &stream) {
   stream << tacbuilder->GetTACList()->ToString();
   return (stream);
 }

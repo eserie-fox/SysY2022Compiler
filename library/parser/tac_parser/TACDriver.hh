@@ -10,7 +10,7 @@
 #include "TAC/TAC.hh"
 
 namespace HaveFunCompiler {
-namespace TACParser {
+namespace Parser {
 class TACDriver {
  public:
   TACDriver() = default;
@@ -27,8 +27,8 @@ class TACDriver {
  private:
   bool parse_helper(std::istream &stream);
 
-  HaveFunCompiler::TACParser::TACParser *parser = nullptr;
-  HaveFunCompiler::TACParser::TACScanner *scanner = nullptr;
+  HaveFunCompiler::Parser::TACParser *parser = nullptr;
+  HaveFunCompiler::Parser::TACScanner *scanner = nullptr;
   std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACBuilder> tacbuilder = nullptr;
 
   // const std::string red = "\033[1;31m";
