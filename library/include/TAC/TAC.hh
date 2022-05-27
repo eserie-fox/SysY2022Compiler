@@ -28,6 +28,7 @@ using ArrayDescriptorPtr = std::shared_ptr<ArrayDescriptor>;
 class TACFactory {
   NONCOPYABLE(TACFactory)
   friend class TACBuilder;
+  friend class TACRebuilder;
   using location = HaveFunCompiler::Parser::location;
 
  private:
@@ -41,8 +42,8 @@ class TACFactory {
     return std::make_shared<ThreeAddressCodeList>(std::forward<_Args>(__args)...);
   }
   //新Symbol
-  SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, int offset = 0,
-                      SymbolValue value = {});
+  SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, SymbolValue value = {},
+                      int offset = 0);
   //新TAC
   ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b = nullptr,
                              SymbolPtr c = nullptr);
@@ -140,8 +141,8 @@ class TACBuilder {
     return TACFactory::Instance()->NewTACList(std::forward<_Args>(__args)...);
   }
   //新Symbol
-  SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, int offset = 0,
-                      SymbolValue value = {});
+  SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, SymbolValue value = {},
+                      int offset = 0);
   //新TAC
   ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b = nullptr,
                              SymbolPtr c = nullptr);
@@ -208,7 +209,7 @@ class TACBuilder {
 
  private:
   using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
-  HaveFunCompiler::Parser::location * plocation_;
+  HaveFunCompiler::Parser::location *plocation_;
   void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);
   FlattenedArray FlattenInitArray(ArrayDescriptorPtr array);
   int ArrayInitImpl(ExpressionPtr array, FlattenedArray::iterator &it, const FlattenedArray::iterator &end,
@@ -226,8 +227,53 @@ class TACBuilder {
   std::vector<std::pair<SymbolPtr, SymbolPtr>> loop_cont_brk_stack_;
 
   //储存text的表
-  std::unordered_map<std::string, std::shared_ptr<Symbol>> text_tab_;
+  std::unordered_map<std::string, SymbolPtr> text_tab_;
   std::vector<std::string> stored_text_;
+
+  TACListPtr tac_list_;
+};
+
+class TACRebuilder {
+ public:
+  TACRebuilder() = default;
+  //新Symbol
+  SymbolPtr NewSymbol(SymbolType type, std::optional<std::string> name = std::nullopt, SymbolValue value = {},
+                      int offset = 0);
+  //新TAC
+  ThreeAddressCodePtr NewTAC(TACOperationType operation, SymbolPtr a = nullptr, SymbolPtr b = nullptr,
+                             SymbolPtr c = nullptr);
+  //新TAC列表
+  template <typename... _Args>
+  inline std::shared_ptr<ThreeAddressCodeList> NewTACList(_Args &&...__args) {
+    return TACFactory::Instance()->NewTACList(std::forward<_Args>(__args)...);
+  }
+  //新建常量Symbol
+  template <typename ValueType>
+  SymbolPtr CreateConstSym(ValueType value) {
+    return NewSymbol(SymbolType::Constant, std::nullopt, SymbolValue(v));
+  }
+
+  //插入符号表，如果已经存在该名字会覆盖
+  void InsertSymbol(std::string name, SymbolPtr sym);
+  //从符号表中查询，没找到返回nullptr
+  SymbolPtr FindSymbol(std::string name);
+
+  //建一个新数组
+  SymbolPtr CreateArray(SymbolValue::ValueType type, int size, bool is_const = false,
+                        std::optional<std::string> name = std::nullopt);
+  //返回array[index]
+  SymbolPtr AccessArray(SymbolPtr array, SymbolPtr index);
+
+  void SetTACList(TACListPtr tac_list);
+
+  TACListPtr GetTACList();
+
+ private:
+  std::unordered_map<std::string, SymbolPtr> symbol_table_;
+
+  // //储存text的表
+  // std::unordered_map<std::string, SymbolPtr> text_tab_;
+  // std::vector<std::string> stored_text_;
 
   TACListPtr tac_list_;
 };

@@ -12,7 +12,7 @@ namespace ThreeAddressCode {
 #define REDEFINITION_EXCEPTION(name) RedefinitionException(*plocation_, name)
 #define NULL_EXCEPTION(file, line, msg) NullReferenceException(*plocation_, file, line, msg)
 
-SymbolPtr TACFactory::NewSymbol(SymbolType type, std::optional<std::string> name, int offset, SymbolValue value) {
+SymbolPtr TACFactory::NewSymbol(SymbolType type, std::optional<std::string> name, SymbolValue value, int offset) {
   SymbolPtr sym = std::make_shared<Symbol>();
   sym->type_ = type;
   sym->name_ = name;
@@ -166,8 +166,8 @@ std::string TACFactory::ToTempVariableName(uint64_t id) { return "SV_" + std::to
 
 TACBuilder::TACBuilder() : cur_temp_var_(0), cur_temp_label_(0), cur_symtab_id_(0) { EnterSubscope(); }
 
-SymbolPtr TACBuilder::NewSymbol(SymbolType type, std::optional<std::string> name, int offset, SymbolValue value) {
-  return TACFactory::Instance()->NewSymbol(type, name, offset, value);
+SymbolPtr TACBuilder::NewSymbol(SymbolType type, std::optional<std::string> name, SymbolValue value, int offset) {
+  return TACFactory::Instance()->NewSymbol(type, name, value, offset);
 }
 ThreeAddressCodePtr TACBuilder::NewTAC(TACOperationType operation, SymbolPtr a, SymbolPtr b, SymbolPtr c) {
   return TACFactory::Instance()->NewTAC(operation, a, b, c);
@@ -263,7 +263,7 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
       throw RUNTIME_EXCEPTION("Invalid array access at " + std::to_string(noffset));
     }
     nArrayDescriptor->base_offset = CreateConstExp(static_cast<int>(noffset))->ret;
-    auto nArraySym = NewSymbol(array->ret->type_, std::nullopt, 0, SymbolValue(nArrayDescriptor));
+    auto nArraySym = NewSymbol(array->ret->type_, std::nullopt, SymbolValue(nArrayDescriptor));
     arrayDescriptor->subarray->emplace(idx, NewExp(NewTACList(), nArraySym));
     return AccessArray(NewExp(array->tac, nArraySym), pos);
   } else {
@@ -283,7 +283,7 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
         CreateArithmeticOperation(TACOperationType::Mul, idx_exp, CreateConstExp((int)size_sublen)));
     (*tac_list) += offset_exp->tac;
     nArrayDescriptor->base_offset = offset_exp->ret;
-    return AccessArray(NewExp(tac_list, NewSymbol(array->ret->type_, std::nullopt, 0, nArrayDescriptor)), pos);
+    return AccessArray(NewExp(tac_list, NewSymbol(array->ret->type_, std::nullopt, nArrayDescriptor)), pos);
   }
 }
 
@@ -382,7 +382,7 @@ ExpressionPtr TACBuilder::CreateConstExp(float fn) { return CreateConstExp(Symbo
 
 ExpressionPtr TACBuilder::CreateConstExp(SymbolValue v) {
   return TACFactory::Instance()->NewExp(TACFactory::Instance()->NewTACList(),
-                                        TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, 0, v));
+                                        TACFactory::Instance()->NewSymbol(SymbolType::Constant, std::nullopt, v));
 }
 
 SymbolPtr TACBuilder::CreateText(const std::string &text) {
@@ -392,7 +392,7 @@ SymbolPtr TACBuilder::CreateText(const std::string &text) {
   stored_text_.push_back(text);
 
   auto ret =
-      TACFactory::Instance()->NewSymbol(SymbolType::Text, std::nullopt, 0, SymbolValue(stored_text_.back().c_str()));
+      TACFactory::Instance()->NewSymbol(SymbolType::Text, std::nullopt, SymbolValue(stored_text_.back().c_str()));
   text_tab_[text] = ret;
   return ret;
 }
@@ -716,6 +716,52 @@ void TACBuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }
 void TACBuilder::SetLocation(HaveFunCompiler::Parser::location *plocation) { plocation_ = plocation; }
 
 TACListPtr TACBuilder::GetTACList() { return tac_list_; }
+
+SymbolPtr TACRebuilder::NewSymbol(SymbolType type, std::optional<std::string> name, SymbolValue value, int offset) {
+  return TACFactory::Instance()->NewSymbol(type, name, value, offset);
+}
+ThreeAddressCodePtr TACRebuilder::NewTAC(TACOperationType operation, SymbolPtr a, SymbolPtr b, SymbolPtr c) {
+  return TACFactory::Instance()->NewTAC(operation, a, b, c);
+}
+
+void TACRebuilder::InsertSymbol(std::string name, SymbolPtr sym) { symbol_table_[name] = sym; }
+
+SymbolPtr TACRebuilder::FindSymbol(std::string name) {
+  auto it = symbol_table_.find(name);
+  if (it == symbol_table_.end()) {
+    return nullptr;
+  }
+  return it->second;
+}
+
+//没有记录名字，记得给他设置名字，如果有的话。
+SymbolPtr TACRebuilder::CreateArray(SymbolValue::ValueType type, int size, bool is_const,
+                                    std::optional<std::string> name) {
+  auto arrayDescriptor = TACFactory::Instance()->NewArrayDescriptor();
+  arrayDescriptor->dimensions.push_back(size);
+  arrayDescriptor->value_type = type;
+  arrayDescriptor->base_offset = CreateConstSym(0);
+  auto array_sym =
+      NewSymbol(is_const ? SymbolType::Constant : SymbolType::Variable, name, SymbolValue(arrayDescriptor));
+  arrayDescriptor->base_addr = array_sym;
+  return array_sym;
+}
+//返回array[index]
+SymbolPtr TACRebuilder::AccessArray(SymbolPtr array, SymbolPtr index) {
+  auto oriArrayDescriptor = array->value_.GetArrayDescriptor();
+  assert(oriArrayDescriptor != nullptr);
+  assert(oriArrayDescriptor->dimensions.size() == 1);
+  auto arrayDescriptor = TACFactory::Instance()->NewArrayDescriptor();
+  arrayDescriptor->dimensions.push_back(oriArrayDescriptor->dimensions[0]);
+  arrayDescriptor->value_type = oriArrayDescriptor->value_type;
+  arrayDescriptor->base_offset = index;
+  arrayDescriptor->base_addr = oriArrayDescriptor->base_addr;
+  return NewSymbol(array->type_, std::nullopt, SymbolValue(arrayDescriptor));
+}
+
+void TACRebuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }
+
+TACListPtr TACRebuilder::GetTACList() { return tac_list_; }
 
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler

@@ -72,7 +72,39 @@ const int NONFUNC_BLOCK_FLAG = 2024;
 %token<std::string> WORD
 %token              NEWLINE
 %token              CHAR
-%token INT EQ NE LT LE LEQ COM LS LB RS RB LM RM GT GE IF ELSE WHILE CONTINUE RETURN LA LO LN FLOAT CONST VOID BREAK ADD SUB MUL DIV MOD SEMI
+%token INT "'int'"
+%token EQ "'=='" 
+%token NE "'!='"
+%token LT "'<'"
+%token LE "'<='"
+%token LEQ "'='"
+%token COM "','"
+%token LS "'('"
+%token LB "'{'"
+%token RS "')'"
+%token RB "'}'"
+%token LM "'['"
+%token RM "']'"
+%token GT "'>'"
+%token GE "'>='"
+%token IF "'if'"
+%token ELSE "'else'"
+%token WHILE "'while'"
+%token CONTINUE "'continue'"
+%token RETURN "'return'"
+%token LA "'&&'"
+%token LO "'||'"
+%token LN "'!'"
+%token FLOAT "'float'"
+%token CONST "'const'"
+%token VOID "'void'"
+%token BREAK "'break'"
+%token ADD "'+'"
+%token SUB "'-'"
+%token MUL "'*'"
+%token DIV "'/'"
+%token MOD "'%'"
+%token SEMI "';'"
 %token <int> IntConst
 %token <float> floatConst
 %token <std::string> IDENTIFIER
@@ -216,7 +248,7 @@ ConstDef
     int type;
     tacbuilder->Top(&type);
     $2->value_type = (ValueType)type;
-    auto arraySym = tacbuilder->NewSymbol(SymbolType::Constant, $1, 0, SymbolValue($2));
+    auto arraySym = tacbuilder->NewSymbol(SymbolType::Constant, $1, SymbolValue($2));
     tacbuilder->BindConstName($1, arraySym);
     $2->base_addr = arraySym;
     auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Constant,arraySym)), arraySym);
@@ -414,11 +446,11 @@ InitVal
   | LB RB
   {
     auto array = tacbuilder->NewArrayDescriptor();
-    $$ = tacbuilder->NewExp(tacbuilder->NewTACList(),tacbuilder->NewSymbol(SymbolType::Variable,std::nullopt,0,SymbolValue(array)));
+    $$ = tacbuilder->NewExp(tacbuilder->NewTACList(),tacbuilder->NewSymbol(SymbolType::Variable,std::nullopt,SymbolValue(array)));
   }
   | LB InitVal_list RB
   {
-    $$ = tacbuilder->NewExp(tacbuilder->NewTACList(),tacbuilder->NewSymbol(SymbolType::Variable,std::nullopt,0,SymbolValue($2)));
+    $$ = tacbuilder->NewExp(tacbuilder->NewTACList(),tacbuilder->NewSymbol(SymbolType::Variable,std::nullopt,SymbolValue($2)));
   }
   ;
 
