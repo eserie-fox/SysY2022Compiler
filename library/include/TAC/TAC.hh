@@ -250,7 +250,7 @@ class TACRebuilder {
   //新建常量Symbol
   template <typename ValueType>
   SymbolPtr CreateConstSym(ValueType value) {
-    return NewSymbol(SymbolType::Constant, std::nullopt, SymbolValue(v));
+    return NewSymbol(SymbolType::Constant, std::nullopt, SymbolValue(value));
   }
 
   //插入符号表，如果已经存在该名字会覆盖
