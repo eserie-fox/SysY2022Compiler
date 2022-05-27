@@ -39,17 +39,27 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 "void" { return token::VOID; }
 
-"return"  {  return token::RETURN;  }
+"ret"  {  return token::RET;  }
 
-"continue"  {  return token::CONTINUE;  }
+"ifz"  {  return token::IFZ;  }
 
-"break" { return token::BREAK; }
+"label" { return token::LABEL; }
 
-"if"  {  return token::IF;  }
+"goto" { return token::GOTO; }
 
-"else"  {  return token::ELSE;  }
+"string" { return token::STRING; }
 
-"while"  {  return token::WHILE;  }
+"fbegin" { return token::FBEGIN; }
+
+"fend" { return token::FEND; }
+
+"arg" { return token::ARG; }
+
+"param" { return token::PARAM; }
+
+"call" { return token::CALL; }
+
+
 
 [A-Za-z_]([A-Za-z]|_|[0-9])* {
   yylval->build<std::string>(yytext);
@@ -167,6 +177,8 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 "["  {  return token::LM; }
 
 "]"  {  return token::RM; }
+
+"&" { return token::AND; }
 
 ([ \t\r])+ {
 
