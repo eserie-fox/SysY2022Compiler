@@ -37,19 +37,27 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 "const" { return token::CONST; }
 
-"void" { return token::VOID; }
+"ret"  {  return token::RET;  }
 
-"return"  {  return token::RETURN;  }
+"ifz"  {  return token::IFZ;  }
 
-"continue"  {  return token::CONTINUE;  }
+"label" { return token::LABEL; }
 
-"break" { return token::BREAK; }
+"goto" { return token::GOTO; }
 
-"if"  {  return token::IF;  }
+"string" { return token::STRING; }
 
-"else"  {  return token::ELSE;  }
+"fbegin" { return token::FBEGIN; }
 
-"while"  {  return token::WHILE;  }
+"fend" { return token::FEND; }
+
+"arg" { return token::ARG; }
+
+"param" { return token::PARAM; }
+
+"call" { return token::CALL; }
+
+
 
 [A-Za-z_]([A-Za-z]|_|[0-9])* {
   yylval->build<std::string>(yytext);
@@ -122,10 +130,6 @@ using token = HaveFunCompiler::Parser::TACParser::token;
   return token::floatConst;
 }
 
-"&&" {  return token::LA;}
-
-"||" { return token::LO;}
-
 "!"  { return token::LN;}
 
 "=="  {  return token::EQ;  }
@@ -148,25 +152,18 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 "/"  {  return token::DIV; }
 
-";"  {  return token::SEMI; }
-
 "%"  {  return token::MOD; }
 
 "="  {  return token::LEQ; }
-
-","  {  return token::COM; }
-
 "("  {  return token::LS; }
 
 ")"  {  return token::RS; }
 
-"{"  {  return token::LB; }
-
-"}"  {  return token::RB; }
-
 "["  {  return token::LM; }
 
 "]"  {  return token::RM; }
+
+"&" { return token::AND; }
 
 ([ \t\r])+ {
 
