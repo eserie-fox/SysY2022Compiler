@@ -75,9 +75,9 @@ std::string ThreeAddressCode::ToString() const {
       // return "FuncEnd";
     }
     case TACOperationType::Goto:
-      return "jump " + a_->get_tac_name();
+      return "goto " + a_->get_tac_name();
     case TACOperationType::IfZero:
-      return "ifz " + b_->get_tac_name() + " jump " + a_->get_tac_name();
+      return "ifz " + b_->get_tac_name() + " goto " + a_->get_tac_name();
     case TACOperationType::Label: {
       return "label " + a_->get_tac_name();
       // return a_->get_name() + ":";
@@ -100,6 +100,10 @@ std::string ThreeAddressCode::ToString() const {
       return a_->value_.TypeToTACString() + " " + a_->get_tac_name(true);
     case TACOperationType::Constant:
       return "const " + a_->value_.TypeToTACString() + " " + a_->get_tac_name(true);
+    case TACOperationType::BlockBegin:
+      return "bbegin";
+    case TACOperationType::BlockEnd:
+      return "bend";
     default:
       return "Undefined";
   }
@@ -181,10 +185,10 @@ std::string ThreeAddressCodeList::ToString() const {
   }
 
   std::string ret;
-  for (const auto &tac : func_list) {
+  for (const auto &tac : glob_list) {
     ret += tac->ToString() + "\n";
   }
-  for (const auto &tac : glob_list) {
+  for (const auto &tac : func_list) {
     ret += tac->ToString() + "\n";
   }
   return ret;

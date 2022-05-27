@@ -554,11 +554,14 @@ Exp_list
 Block
   : LBUP RBUP
   {
-    $$ = tacbuilder->NewTACList();
+    $$ = $1;
+    (*$$) += $2;
   }
   | LBUP BlockItem_list RBUP
   {
-    $$ = $2;
+    $$ = $1;
+    (*$$) += $2;
+    (*$$) += $3;
   }
   ;
 
@@ -578,7 +581,7 @@ LBUP: LB
     tacbuilder->PushFunc(NONFUNC_BLOCK_FLAG);
     tacbuilder->EnterSubscope();
   }
-  $$ = tacbuilder->NewTACList();
+  $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::BlockBegin));
 }
 ;
 
@@ -597,7 +600,7 @@ RBUP:RB
     tacbuilder->PopFunc();
     tacbuilder->ExitSubscope();
   }
-  $$ = tacbuilder->NewTACList();
+  $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::BlockEnd));
 }
 ;
 
