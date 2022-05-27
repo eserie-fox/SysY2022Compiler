@@ -160,9 +160,9 @@ using token = HaveFunCompiler::Parser::Parser::token;
 
 ")"  {  return token::RS; }
 
-"{"  {  return token::LB; }
+"{"  {  return token::LeftCurlyBracket; }
 
-"}"  {  return token::RB; }
+"}"  {  return token::RightCurlyBracket; }
 
 "["  {  return token::LM; }
 

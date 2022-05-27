@@ -100,6 +100,10 @@ std::string ThreeAddressCode::ToString() const {
       return a_->value_.TypeToTACString() + " " + a_->get_tac_name(true);
     case TACOperationType::Constant:
       return "const " + a_->value_.TypeToTACString() + " " + a_->get_tac_name(true);
+    case TACOperationType::BlockBegin:
+      return "bbegin";
+    case TACOperationType::BlockEnd:
+      return "bend";
     default:
       return "Undefined";
   }

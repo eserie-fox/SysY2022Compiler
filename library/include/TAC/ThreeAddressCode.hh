@@ -41,6 +41,9 @@ enum class TACOperationType {
   Return,
   FloatToInt,
   IntToFloat,
+  BlockBegin,
+  BlockEnd,
+  //Address不会从前端生成
   Address, /* TAC:Address ret_sym array_sym null */
 };
 
