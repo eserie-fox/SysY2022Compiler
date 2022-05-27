@@ -37,8 +37,6 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 "const" { return token::CONST; }
 
-"void" { return token::VOID; }
-
 "ret"  {  return token::RET;  }
 
 "ifz"  {  return token::IFZ;  }
@@ -132,10 +130,6 @@ using token = HaveFunCompiler::Parser::TACParser::token;
   return token::floatConst;
 }
 
-"&&" {  return token::LA;}
-
-"||" { return token::LO;}
-
 "!"  { return token::LN;}
 
 "=="  {  return token::EQ;  }
@@ -158,21 +152,12 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 "/"  {  return token::DIV; }
 
-";"  {  return token::SEMI; }
-
 "%"  {  return token::MOD; }
 
 "="  {  return token::LEQ; }
-
-","  {  return token::COM; }
-
 "("  {  return token::LS; }
 
 ")"  {  return token::RS; }
-
-"{"  {  return token::LB; }
-
-"}"  {  return token::RB; }
 
 "["  {  return token::LM; }
 
