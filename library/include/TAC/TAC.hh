@@ -268,8 +268,12 @@ class TACRebuilder {
 
   TACListPtr GetTACList();
 
+  void SetLocation(HaveFunCompiler::Parser::location *plocation);
+
  private:
   std::unordered_map<std::string, SymbolPtr> symbol_table_;
+
+  HaveFunCompiler::Parser::location *plocation_;
 
   // //储存text的表
   // std::unordered_map<std::string, SymbolPtr> text_tab_;

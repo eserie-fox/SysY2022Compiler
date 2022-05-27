@@ -763,5 +763,7 @@ void TACRebuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }
 
 TACListPtr TACRebuilder::GetTACList() { return tac_list_; }
 
+void TACRebuilder::SetLocation(HaveFunCompiler::Parser::location *plocation) { plocation_ = plocation; }
+
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler

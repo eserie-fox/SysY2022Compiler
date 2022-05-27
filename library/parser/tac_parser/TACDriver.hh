@@ -22,14 +22,14 @@ class TACDriver {
 
   std::ostream &print(std::ostream &stream);
 
-  std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACBuilder> get_tacbuilder() const { return tacbuilder; }
+  std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACRebuilder> get_tacbuilder() const { return tacbuilder; }
 
  private:
   bool parse_helper(std::istream &stream);
 
   HaveFunCompiler::Parser::TACParser *parser = nullptr;
   HaveFunCompiler::Parser::TACScanner *scanner = nullptr;
-  std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACBuilder> tacbuilder = nullptr;
+  std::shared_ptr<HaveFunCompiler::ThreeAddressCode::TACRebuilder> tacbuilder = nullptr;
 
   // const std::string red = "\033[1;31m";
   // const std::string blue = "\033[1;36m";

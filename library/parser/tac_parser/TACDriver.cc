@@ -30,7 +30,7 @@ bool HaveFunCompiler::Parser::TACDriver::parse(std::istream &stream) {
 
 bool HaveFunCompiler::Parser::TACDriver::parse_helper(std::istream &stream) {
   try {
-    tacbuilder = std::make_shared<HaveFunCompiler::ThreeAddressCode::TACBuilder>();
+    tacbuilder = std::make_shared<HaveFunCompiler::ThreeAddressCode::TACRebuilder>();
   } catch (std::bad_alloc &ba) {
     std::cerr << "Failed to allocate tacbuilder: (" << ba.what() << "), exiting!\n";
     exit(EXIT_FAILURE);
@@ -51,8 +51,6 @@ bool HaveFunCompiler::Parser::TACDriver::parse_helper(std::istream &stream) {
     std::cerr << "Failed to allocate parser: (" << ba.what() << "), exiting!\n";
     exit(EXIT_FAILURE);
   }
-
-
 
   const int accept(0);
   if (parser->parse() != accept) {
