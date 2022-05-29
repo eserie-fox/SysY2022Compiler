@@ -178,6 +178,14 @@ using token = HaveFunCompiler::Parser::Parser::token;
   loc->step();
 }
 
+[/][/].*[\n] {
+
+}
+
+("/*")(.|\n)*("*/") {
+
+}
+
 <<EOF>> return token::END;
 
 %%
