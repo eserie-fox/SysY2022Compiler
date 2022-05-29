@@ -147,10 +147,27 @@ TACListPtr TACFactory::MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACL
 
 TACListPtr TACFactory::MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt) {
   auto new_stmt = NewTACList();
-  (*new_stmt) += stmt;
+  (*new_stmt) += stmt; 
   (*new_stmt) += NewTAC(TACOperationType::Goto, label_cont);
   auto tac_list = NewTACList(NewTAC(TACOperationType::Label, label_cont));
   (*tac_list) += MakeIf(cond, label_brk, new_stmt);
+  return tac_list;
+}
+
+TACListPtr TACFactory::MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
+                                 TACListPtr stmt) {
+  auto tac_list = NewTACList(NewTAC(TACOperationType::Goto, label_cont));
+  (*tac_list) += MakeDoWhile(cond, label_cont, label_brk, label_loop, stmt);
+  return tac_list;
+}
+
+TACListPtr TACFactory::MakeDoWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
+                                   TACListPtr stmt) {
+  auto tac_list = NewTACList();
+  (*tac_list) += NewTAC(TACOperationType::Label, label_loop);
+  (*tac_list) += stmt;
+  (*tac_list) += NewTAC(TACOperationType::Label, label_cont);
+  (*tac_list) += MakeIf(cond, label_brk, NewTACList(NewTAC(TACOperationType::Goto, label_loop)));
   return tac_list;
 }
 TACListPtr TACFactory::MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont,
@@ -493,8 +510,18 @@ TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TA
   }
   return TACFactory::Instance()->MakeIfElse(cond, label_true, stmt_true, label_false, stmt_false);
 }
-TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
+
+//if型
+TACListPtr TACBuilder::CreateWhileIfModel(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
   return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, stmt);
+}
+
+TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
+  return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, CreateTempLabel(), stmt);
+}
+
+TACListPtr TACBuilder::CreateDoWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
+  return TACFactory::Instance()->MakeDoWhile(cond, label_cont, label_brk, CreateTempLabel(), stmt);
 }
 TACListPtr TACBuilder::CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt,
                                  SymbolPtr label_cont, SymbolPtr label_brk) {

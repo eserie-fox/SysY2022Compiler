@@ -60,16 +60,34 @@ class TACFactory {
 
   // TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
   TACListPtr MakeCallWithRet(const location *plocation_, SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
-  // if(cond_zero==zero)
+  // if(cond) goto label
   //  stmt
+  // label
   TACListPtr MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt);
-  // if(cond_zero==zero)
+  // if(cond)
   //  stmt_true
   // else
   //  stmt_false
   TACListPtr MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
                         TACListPtr stmt_false);
+  
+  // if型
   TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt);
+  /*goto cont;
+    loop:
+    stmt;
+    cont:
+    if (cond) goto loop;
+    brk:
+  */
+  TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
+                       TACListPtr stmt);
+
+  // do{ stmt }
+  // while(cond);
+  TACListPtr MakeDoWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
+                         TACListPtr stmt);
+
   TACListPtr MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont, SymbolPtr label_brk,
                      TACListPtr stmt);
 
@@ -190,7 +208,12 @@ class TACBuilder {
   //  stmt_false
   TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false,
                           SymbolPtr *out_label_true = nullptr, SymbolPtr *out_label_false = nullptr);
+  // if型
+  TACListPtr CreateWhileIfModel(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);
+  // jump middle dowhile
   TACListPtr CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);
+
+  TACListPtr CreateDoWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);
   TACListPtr CreateFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, TACListPtr stmt, SymbolPtr label_cont,
                        SymbolPtr label_brk);
 
