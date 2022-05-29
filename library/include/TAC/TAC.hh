@@ -75,17 +75,22 @@ class TACFactory {
   TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt);
   /*goto cont;
     loop:
-    stmt;
+    stmt
     cont:
-    if (cond) goto loop;
+    ifz cond_not goto loop
     brk:
   */
-  TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
+  TACListPtr MakeWhile(ExpressionPtr cond_not, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
                        TACListPtr stmt);
 
-  // do{ stmt }
-  // while(cond);
-  TACListPtr MakeDoWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
+  /*
+    loop:
+    stmt
+    cont:
+    ifz cond_not goto loop
+    brk:
+   */
+  TACListPtr MakeDoWhile(ExpressionPtr cond_not, SymbolPtr label_cont, SymbolPtr label_brk, SymbolPtr label_loop,
                          TACListPtr stmt);
 
   TACListPtr MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont, SymbolPtr label_brk,
