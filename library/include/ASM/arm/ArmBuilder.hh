@@ -1,7 +1,7 @@
 #pragma once
 #include "ASM/AssemblyBuilder.hh"
 #include "ASM/Common.hh"
-#include "MacroUtil.hh"
+#include "TAC/ThreeAddressCode.hh"
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
