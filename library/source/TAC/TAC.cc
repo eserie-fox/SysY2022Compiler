@@ -157,7 +157,7 @@ TACListPtr TACFactory::MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACL
 
 TACListPtr TACFactory::MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt) {
   auto new_stmt = NewTACList();
-  (*new_stmt) += stmt; 
+  (*new_stmt) += stmt;
   (*new_stmt) += NewTAC(TACOperationType::Goto, label_cont);
   auto tac_list = NewTACList(NewTAC(TACOperationType::Label, label_cont));
   (*tac_list) += MakeIf(cond, label_brk, new_stmt);
@@ -188,7 +188,7 @@ TACListPtr TACFactory::MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr m
 }
 
 std::string TACFactory::ToFuncLabelName(const std::string name) { return "U_" + name; }
-std::string TACFactory::ToCustomerLabelName(const std::string name) { return "UL_" + name; }
+std::string TACFactory::ToCustomerLabelName(const std::string name) { return "U_" + name; }
 std::string TACFactory::ToTempLabelName(uint64_t id) { return "SL_" + std::to_string(id); }
 std::string TACFactory::ToVariableOrConstantName(const std::string name) { return "U_" + name; }
 std::string TACFactory::ToTempVariableName(uint64_t id) { return "SV_" + std::to_string(id); }
@@ -530,8 +530,9 @@ TACListPtr TACBuilder::CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TA
   return TACFactory::Instance()->MakeIfElse(cond, label_true, stmt_true, label_false, stmt_false);
 }
 
-//if型
-TACListPtr TACBuilder::CreateWhileIfModel(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
+// if型
+TACListPtr TACBuilder::CreateWhileIfModel(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont,
+                                          SymbolPtr label_brk) {
   return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, stmt);
 }
 
