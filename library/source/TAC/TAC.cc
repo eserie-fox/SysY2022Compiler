@@ -122,6 +122,16 @@ TACListPtr TACFactory::MakeCallWithRet(const location *plocation_, SymbolPtr fun
   (*tac_list) += NewTAC(TACOperationType::Call, ret_sym, func_label);
   return tac_list;
 }
+
+bool TACFactory::CheckConditionType(ExpressionPtr cond, bool *out_const_result) {
+  if (cond->ret->type_ != SymbolType::Constant) {
+    return false;
+  }
+  if (out_const_result) {
+    *out_const_result = static_cast<bool>(cond->ret);
+  }
+  return true;
+}
 TACListPtr TACFactory::MakeIf(ExpressionPtr cond, SymbolPtr label, TACListPtr stmt) {
   auto tac_list = NewTACList();
   (*tac_list) += cond->tac;

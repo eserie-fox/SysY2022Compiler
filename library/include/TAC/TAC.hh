@@ -103,6 +103,9 @@ class TACFactory {
   std::string ToTempVariableName(uint64_t id);
 
  private:
+  //如果是能翻译成常量bool的表达式，会返回true，out_const_result传递相应值
+  bool CheckConditionType(ExpressionPtr cond, bool *out_const_result);
+  
   TACFactory() = default;
 };
 
@@ -236,6 +239,7 @@ class TACBuilder {
   void SetLocation(HaveFunCompiler::Parser::location *plocation);
 
  private:
+
   using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
   HaveFunCompiler::Parser::location *plocation_;
   void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);

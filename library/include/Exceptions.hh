@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdexcept>
 #include <string>
 #include "HFParser.hh"

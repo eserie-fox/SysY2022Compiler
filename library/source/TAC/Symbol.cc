@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include "MagicEnum.hh"
+#include "TAC/Expression.hh"
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
@@ -482,22 +483,30 @@ std::string SymbolValue::TypeToTACString() const {
   return ret;
 }
 SymbolValue::operator bool() const {
-  if (type == ValueType::Void) {
-    throw std::runtime_error("Void type can't be converted to bool!");
+  switch (Type()) {
+    case ValueType::Void:
+      throw std::runtime_error("Void type can't be converted to bool!");
+    case ValueType::Int:
+      return GetInt() != 0;
+    case ValueType::Float:
+      return GetFloat() != 0;
+    case ValueType::Parameters:
+      return GetParameters() != nullptr;
+    case ValueType::Str:
+      return GetStr() != nullptr;
+    case ValueType::Array: {
+      auto arrayDescriptor = GetArrayDescriptor();
+      if (!arrayDescriptor->dimensions.empty()) {
+        throw std::runtime_error("Array can't be converted to bool!");
+      }
+      if (arrayDescriptor->subarray->empty()) {
+        throw std::runtime_error("Null array");
+      }
+      return static_cast<bool>(arrayDescriptor->subarray->at(0)->ret->value_);
+    }
+     default:
+       throw std::logic_error("Unknown ValueType " + std::string(magic_enum::enum_name<ValueType>(Type())));
   }
-  if (type == ValueType::Int) {
-    return GetInt() != 0;
-  }
-  if (type == ValueType::Float) {
-    return GetFloat() != 0;
-  }
-  if (type == ValueType::Parameters) {
-    return GetParameters() != nullptr;
-  }
-  if (type == ValueType::Str) {
-    return GetStr() != nullptr;
-  }
-  return false;
 }
 
 std::string Symbol::get_name() const {
