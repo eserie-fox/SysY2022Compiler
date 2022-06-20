@@ -122,26 +122,86 @@ CompUnit_list
   ;
 
 CompUnit
-  : CONST INT LM INT RM ARITHIDENT
+  : CONST INT LM INT RM IDENTIFIER
   {
-
+    SymbolPtr sym;
+    sym = tacbuilder->CreateArray(SymbolValue::ValueType::Int, $4, true, $6);
+    tacbuilder->InsertSymbol($6, sym);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Constant, sym));
   }
-  | CONST INT LM FLOAT RM ARITHIDENT
-  | INT ARITHIDENT
-  | FLOAT ARITHIDENT
-  | INT LM INT RM ARITHIDENT
-  | FLOAT LM INT RM ARITHIDENT
+  | CONST INT LM FLOAT RM IDENTIFIER
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->CreateArray(SymbolValue::ValueType::Float, $4, true, $6);
+    tacbuilder->InsertSymbol($6, sym);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Constant, sym));
+  }
+  | INT IDENTIFIER
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->CreateVariable($2, SymbolValue::ValueType::Int);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,sym));
+  }
+  | FLOAT IDENTIFIER
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->CreateVariable($2, SymbolValue::ValueType::Float);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,sym));
+  }
+  | INT LM INT RM IDENTIFIER
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->CreateArray(SymbolValue::ValueType::Int, $4, false, $6);
+    tacbuilder->InsertSymbol($6, sym);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable, sym));
+  }
+  | FLOAT LM INT RM IDENTIFIER 
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->CreateArray(SymbolValue::ValueType::Float, $4, false, $6);
+    tacbuilder->InsertSymbol($6, sym);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable, sym));
+  }
   | STRING ARITHIDENT
   | FBEGIN
   | FEND
-  | LABEL ARITHIDENT
+  | LABEL IDENTIFIER
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->NewSymbol(SymbolType::Label, $2);
+    tacbuilder->InsertSymbol($2, sym);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Label, sym));
+  }
   | ARG ARITHIDENT
-  | ARG ARITHIDENT LM INT RM
-  | ARG AND ARITHIDENT LM INT RM
-  | PARAM INT ARITHIDENT
-  | PARAM INT LM RM ARITHIDENT
+  {
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Argument, $2));
+  }
+  | ARG IDENTIFIER LM IntConst RM
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->FindSymbol($2);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Argument, 
+                                tacbuilder->AccessArray(sym, tacbuilder->CreateConstSym($4)));
+  }
+  | ARG AND IDENTIFIER LM IntConst RM
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->FindSymbol($2);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::ArgumentAddress, 
+                                tacbuilder->AccessArray(sym, tacbuilder->CreateConstSym($4)));
+  }
+  | PARAM INT IDENTIFIER
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->CreateVariable($3, SymbolValue::ValueType::Int);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Parameter, sym));
+  }
+  | PARAM INT LM RM IDENTIFIER
+  {
+
+  }
   | PARAM FLOAT ARITHIDENT
-  | PARAM FLOAT LM RM ARITHIDENT
+  | PARAM FLOAT LM RM IDENTIFIER
   | ARITHIDENT LEQ ARITHIDENT ADD ARITHIDENT
   | ARITHIDENT LEQ ARITHIDENT SUB ARITHIDENT
   | ARITHIDENT LEQ ARITHIDENT MUL ARITHIDENT
@@ -162,18 +222,22 @@ CompUnit
   | ARITHIDENT LEQ ARITHIDENT
   | ARITHIDENT LM INT RM LEQ ARITHIDENT
   | ARITHIDENT LEQ ARITHIDENT LM INT RM
-  | CALL ARITHIDENT
-  | ARITHIDENT LEQ CALL ARITHIDENT
+  | CALL IDENTIFIER
+  | ARITHIDENT LEQ CALL IDENTIFIER
   | RET 
   | RET ARITHIDENT
-  | GOTO ARITHIDENT
-  | IFZ ARITHIDENT GOTO ARITHIDENT
+  | GOTO IDENTIFIER
+  | IFZ ARITHIDENT GOTO IDENTIFIER
   ;
 
 ARITHIDENT
-  : IDENTIFIER
+  : IDENTIFIER LM ARITHIDENT RM
   {
-    
+
+  }
+  | IDENTIFIER
+  {
+    $$ = tacbuilder->
   }
   | IntConst
   {

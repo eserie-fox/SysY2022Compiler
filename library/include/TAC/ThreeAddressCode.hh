@@ -37,14 +37,14 @@ enum class TACOperationType {
   Parameter,
   // actual
   Argument,
+  // 传该实参的地址
+  ArgumentAddress,
   Call,
   Return,
   FloatToInt,
   IntToFloat,
   BlockBegin,
   BlockEnd,
-  //Address不会从前端生成
-  Address, /* TAC:Address ret_sym array_sym null */
 };
 
 struct ThreeAddressCode {

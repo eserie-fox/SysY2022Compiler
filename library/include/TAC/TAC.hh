@@ -280,6 +280,8 @@ class TACRebuilder {
   SymbolPtr CreateConstSym(ValueType value) {
     return NewSymbol(SymbolType::Constant, std::nullopt, SymbolValue(value));
   }
+  
+  SymbolPtr CreateVariable(const std::string &name, SymbolValue::ValueType type);
 
   //插入符号表，如果已经存在该名字会覆盖
   void InsertSymbol(std::string name, SymbolPtr sym);

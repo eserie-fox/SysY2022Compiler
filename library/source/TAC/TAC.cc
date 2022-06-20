@@ -460,6 +460,13 @@ SymbolPtr TACBuilder::CreateVariable(const std::string &name, SymbolValue::Value
   symbol_stack_.back()[var_name] = sym;
   return sym;
 }
+
+SymbolPtr TACRebuilder::CreateVariable(const std::string &name, SymbolValue::ValueType type) {
+  auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, name);
+  sym->value_.SetType(type);
+  InsertSymbol(name, sym);
+  return sym;
+}
 SymbolPtr TACBuilder::CreateTempVariable(SymbolValue::ValueType type) {
   std::string var_name = AppendScopePrefix(TACFactory::Instance()->ToTempVariableName(cur_temp_var_++));
   auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, var_name);

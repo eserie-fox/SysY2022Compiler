@@ -31,6 +31,14 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 %}
 
 
+[/][/].*[\n] {
+
+}
+
+("/*")(.|\n)*("*/") {
+
+}
+
 "int"  {  return token::INT;  }
 
 "float" { return token::FLOAT; }
@@ -174,6 +182,7 @@ using token = HaveFunCompiler::Parser::TACParser::token;
   loc->lines(yyleng);
   loc->step();
 }
+
 
 <<EOF>> return token::END;
 
