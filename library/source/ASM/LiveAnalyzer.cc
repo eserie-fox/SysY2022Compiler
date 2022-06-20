@@ -1,4 +1,5 @@
 #include "ASM/LiveAnalyzer.hh"
+#include <stdexcept>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
