@@ -16,6 +16,7 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 %}
 
+%option prefix="tacyy"
 %option noinput nounput
 %option debug
 %option noyywrap
