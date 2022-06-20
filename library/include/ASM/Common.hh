@@ -6,6 +6,7 @@ namespace HaveFunCompiler {
 namespace ThreeAddressCode {
 class ThreeAddressCodeList;
 struct ThreeAddressCode;
+struct Symbol;
 }
 }  // namespace HaveFunCompiler
 

@@ -10,6 +10,16 @@ namespace AssemblyBuilder{
 
 class ControlFlowGraph
 {
+public:
+    NONCOPYABLE(ControlFlowGraph)
+
+    // 传入一个函数的三地址码列表，生成函数的控制流图
+    ControlFlowGraph(TACListPtr FuncTACList);
+    ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend);
+
+    // 测试用
+    void print();
+
 private:
     
     using TACPtr = std::shared_ptr<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>;
@@ -18,6 +28,8 @@ private:
     {
         TACPtr tac;
         std::vector<size_t> inNodeList, outNodeList;
+
+        size_t dfn;  // 结点的dfs序
 
         Node() {}
         Node(TACPtr it) : tac(it) {} 
@@ -36,15 +48,8 @@ private:
 
     std::string getJmpLabel(TACPtr tac);
 
-public:
-    NONCOPYABLE(ControlFlowGraph)
-
-    // 传入一个函数的三地址码列表，生成函数的控制流图
-    ControlFlowGraph(TACListPtr FuncTACList);
-    ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend);
-
-    // 测试用
-    void print();
+    void getDfn();
+    void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
 };
 
 }  // namespace AssemblyBuilder

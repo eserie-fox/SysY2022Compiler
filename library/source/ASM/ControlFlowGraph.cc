@@ -59,6 +59,8 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
 
     for (auto e : jmpReloc)
         link(e, labelMap[getJmpLabel(nodes[e].tac)]);
+    
+    getDfn();
 }
 
 void ControlFlowGraph::link(size_t n1, size_t n2)
@@ -83,6 +85,24 @@ size_t ControlFlowGraph::newNode(TACPtr tac)
 inline std::string ControlFlowGraph::getJmpLabel(TACPtr tac)
 {
     return tac->a_->get_name();
+}
+
+
+void ControlFlowGraph::doDfn(size_t &cnt, std::vector<bool> &vis, size_t u)
+{
+    if (vis[u])
+        return;
+    nodes[u].dfn = ++cnt;
+    vis[u] = 1;
+    for (auto v : nodes[u].outNodeList)
+        doDfn(cnt, vis, v);
+}
+
+void ControlFlowGraph::getDfn()
+{
+    size_t cnt = 0;
+    std::vector<bool> vis(nodes.size(), 0);
+    doDfn(cnt, vis, startNode);
 }
 
 void ControlFlowGraph::print()
