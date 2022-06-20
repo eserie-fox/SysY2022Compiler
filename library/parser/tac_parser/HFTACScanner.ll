@@ -16,10 +16,11 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 %}
 
+%option noinput nounput
 %option debug
+%option noyywrap
 %option nodefault
 %option yyclass="HaveFunCompiler::Parser::TACScanner"
-%option noyywrap
 %option c++
 
 %%
