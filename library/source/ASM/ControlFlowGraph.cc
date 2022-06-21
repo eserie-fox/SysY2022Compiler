@@ -9,7 +9,7 @@ namespace AssemblyBuilder{
 
 ControlFlowGraph::ControlFlowGraph(TACListPtr FuncTACList) : ControlFlowGraph(FuncTACList->begin(), FuncTACList->end()) { }
 
-ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend)
+ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend) : f_begin(fbegin), f_end(fend)
 {
     using namespace HaveFunCompiler::ThreeAddressCode;
 

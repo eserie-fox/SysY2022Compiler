@@ -54,6 +54,9 @@ struct ThreeAddressCode {
   std::shared_ptr<Symbol> c_;
 
   std::string ToString() const;
+
+  std::shared_ptr<Symbol> getDefineSym();
+  std::list<std::shared_ptr<Symbol>> getUseSym();
 };
 
 class ThreeAddressCodeList {
