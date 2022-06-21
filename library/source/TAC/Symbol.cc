@@ -26,6 +26,15 @@ SymbolValue::SymbolValue(std::shared_ptr<ParameterList> v) : type(ValueType::Par
 SymbolValue::SymbolValue(std::shared_ptr<ArrayDescriptor> v) : type(ValueType::Array), value(v) {}
 float SymbolValue::GetFloat() const {
   if (type != ValueType::Float) {
+    if (type == ValueType::Array) {
+      if (auto ad = GetArrayDescriptor(); ad->value_type == ValueType::Float) {
+        if (ad->subarray->size() == 1) {
+          if (auto it = ad->subarray->find(0); it != ad->subarray->end()) {
+            return it->second->ret->value_.GetFloat();
+          }
+        }
+      }
+    }
     throw std::runtime_error("SymbolValue::GetFloat (Actually " + std::string(magic_enum::enum_name<ValueType>(type)) +
                              ")");
   }
@@ -33,6 +42,15 @@ float SymbolValue::GetFloat() const {
 }
 int SymbolValue::GetInt() const {
   if (type != ValueType::Int) {
+    if (type == ValueType::Array) {
+      if (auto ad = GetArrayDescriptor(); ad->value_type == ValueType::Int) {
+        if (ad->subarray->size() == 1) {
+          if (auto it = ad->subarray->find(0); it != ad->subarray->end()) {
+            return it->second->ret->value_.GetInt();
+          }
+        }
+      }
+    }
     throw std::runtime_error("Type mismatch in SymbolValue::GetInt (Actually " +
                              std::string(magic_enum::enum_name<ValueType>(type)) + ")");
   }
@@ -504,8 +522,8 @@ SymbolValue::operator bool() const {
       }
       return static_cast<bool>(arrayDescriptor->subarray->at(0)->ret->value_);
     }
-     default:
-       throw std::logic_error("Unknown ValueType " + std::string(magic_enum::enum_name<ValueType>(Type())));
+    default:
+      throw std::logic_error("Unknown ValueType " + std::string(magic_enum::enum_name<ValueType>(Type())));
   }
 }
 
