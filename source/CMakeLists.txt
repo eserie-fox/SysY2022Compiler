@@ -14,5 +14,7 @@ target_include_directories(hfb
 
 target_link_libraries(hfb 
     PRIVATE
-    HaveFunLib)
+    HaveFunLib
+    HaveFunParser
+    HaveFunTACParser)
 
