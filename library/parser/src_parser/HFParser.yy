@@ -946,6 +946,8 @@ LAndExp
       TACListPtr tac4 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(0))->tac;
       TACListPtr tac5 = tacbuilder->CreateIfElse(exp1,tac4,tac3);
       ExpressionPtr exp2 = tacbuilder->NewExp(tacbuilder->CreateIfElse(exp,tac2,tac5), ret);
+      (*tac1) += exp2->tac;
+      exp2->tac = tac1;
       $$ = exp2;
     }
   }
@@ -970,6 +972,8 @@ LOrExp
       TACListPtr tac4 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(1))->tac;
       TACListPtr tac5 = tacbuilder->CreateIfElse($3,tac4,tac3);
       ExpressionPtr exp2 = tacbuilder->NewExp(tacbuilder->CreateIfElse($1,tac2,tac5), ret);
+      (*tac1) += exp2->tac;
+      exp2->tac = tac1;
       $$ = exp2;
     }
   }  

@@ -54,7 +54,7 @@ std::string ThreeAddressCode::ToString() const {
       bool is_array = a_->value_.Type() == SymbolValue::ValueType::Array;
       if (is_array) {
         if (!a_->value_.GetArrayDescriptor()->dimensions.empty()) {
-          ret += "&";
+          ret += "& ";
         }
       }
       ret += a_->get_tac_name();
@@ -83,12 +83,15 @@ std::string ThreeAddressCode::ToString() const {
       // return a_->get_name() + ":";
     }
     case TACOperationType::Parameter: {
-      std::string ret = "param " + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) + " ";
+      std::string ret = "param ";
+      if (a_->value_.Type() == SymbolValue::ValueType::Array) {
+        ret += std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.GetArrayDescriptor()->value_type)) +
+               "[] ";
+      } else {
+        ret += std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) + " ";
+      }
       std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
       ret += a_->get_tac_name(true);
-      if (a_->value_.Type() == SymbolValue::ValueType::Array) {
-        ret += "[]";
-      }
       return ret;
       // return "Parameter(" + std::string(magic_enum::enum_name<SymbolValue::ValueType>(a_->value_.Type())) +
       //        "): " + a_->get_name();
@@ -105,7 +108,7 @@ std::string ThreeAddressCode::ToString() const {
     case TACOperationType::BlockEnd:
       return "bend";
     case TACOperationType::ArgumentAddress:
-      return "arg &" + a_->get_tac_name();
+      return "arg & " + a_->get_tac_name();
     default:
       return "Undefined";
   }
