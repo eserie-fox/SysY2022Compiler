@@ -198,5 +198,115 @@ std::string ThreeAddressCodeList::ToString() const {
   }
   return ret;
 }
+
+std::shared_ptr<Symbol> ThreeAddressCode::getDefineSym()
+{
+  auto isArith = [](TACOperationType op)
+  {
+    if (op < TACOperationType::Assign)  return true;
+    return false;
+  };
+
+  auto isDecl = [](TACOperationType op)
+  {
+    switch (op)
+    {
+    case TACOperationType::Variable:
+    case TACOperationType::Constant:
+    case TACOperationType::Parameter:
+      return true;
+      break;
+    
+    default:
+      return false;
+      break;
+    }
+  };
+
+  std::shared_ptr<Symbol> res;
+
+  if (isArith(operation_) || isDecl(operation_))
+    res = a_;
+  else
+  {
+    switch (operation_)
+    {
+    case TACOperationType::FloatToInt:
+    case TACOperationType::IntToFloat:
+      res = a_;
+      break;
+
+    case TACOperationType::Call:
+      if (a_)
+        res = a_;
+      break;
+
+    case TACOperationType::Assign:
+      if(a_->value_.IsNumericType())
+        res = a_;
+      break;
+
+    default:
+      break;
+    }
+  }
+  return res;
+}
+
+std::list<std::shared_ptr<Symbol>> ThreeAddressCode::getUseSym()
+{
+  auto isBinaryArith = [](TACOperationType op)
+  {
+    if (op <= TACOperationType::LogicOr)  return true;
+    return false;
+  };
+
+  auto isUnaryArith = [](TACOperationType op)
+  {
+    if (op > TACOperationType::LogicOr && op <= TACOperationType::UnaryPositive)  return true;
+    return false;
+  };
+
+  if (isBinaryArith(operation_))
+    return {b_, c_};
+  else if (isUnaryArith(operation_))
+    return {b_};
+  else
+  {
+    switch (operation_)
+    {
+    case TACOperationType::Argument:
+    case TACOperationType::ArgumentAddress:
+      if (a_->value_.Type() == SymbolValue::ValueType::Array)
+        return {a_->value_.GetArrayDescriptor()->base_addr.lock(), a_->value_.GetArrayDescriptor()->base_offset};
+      else
+        return {a_};
+      break;
+
+    case TACOperationType::FloatToInt:
+    case TACOperationType::IntToFloat:
+      return {b_};
+      break;
+    
+    case TACOperationType::Assign:
+      if (b_->value_.IsNumericType())
+        return {b_};
+      else
+        return {};
+      break;
+    
+    case TACOperationType::Return:
+      if (a_)
+        return {a_};
+      else
+        return {};
+
+    default:
+      return {};
+      break;
+    }
+  }
+}
+
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler
