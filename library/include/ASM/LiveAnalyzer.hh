@@ -84,7 +84,7 @@ public:
     NONCOPYABLE(LiveAnalyzer)
     LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
 
-
+    
 
 private:
 
