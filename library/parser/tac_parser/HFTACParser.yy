@@ -139,12 +139,14 @@ CompUnit
   {
     SymbolPtr sym;
     sym = tacbuilder->CreateVariable($2, SymbolValue::ValueType::Int);
+    tacbuilder->InsertSymbol($2, sym);
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,sym));
   }
   | FLOAT IDENTIFIER
   {
     SymbolPtr sym;
     sym = tacbuilder->CreateVariable($2, SymbolValue::ValueType::Float);
+    tacbuilder->InsertSymbol($2, sym);
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable,sym));
   }
   | INT LM IntConst RM IDENTIFIER
@@ -193,12 +195,30 @@ CompUnit
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Argument, 
                                 tacbuilder->AccessArray(sym, tacbuilder->CreateConstSym($4))));
   }
+  | ARG IDENTIFIER LM IDENTIFIER RM
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->FindSymbol($2);
+    SymbolPtr sym2;
+    sym2 = tacbuilder->FindSymbol($4);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Argument, 
+                                tacbuilder->AccessArray(sym, sym2)));
+  }
   | ARG AND IDENTIFIER LM IntConst RM
   {
     SymbolPtr sym;
     sym = tacbuilder->FindSymbol($3);
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::ArgumentAddress, 
                                 tacbuilder->AccessArray(sym, tacbuilder->CreateConstSym($5))));
+  }
+  | ARG AND IDENTIFIER LM IDENTIFIER RM
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->FindSymbol($3);
+    SymbolPtr sym2;
+    sym2 = tacbuilder->FindSymbol($5);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::ArgumentAddress, 
+                                tacbuilder->AccessArray(sym, sym2)));
   }
   | PARAM INT IDENTIFIER
   {
@@ -290,15 +310,27 @@ CompUnit
   }
   | ARITHIDENT LEQ ARITHIDENT
   {
-    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::UnaryPositive,$1, $3));
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Assign,$1, $3));
   }
   | ARITHIDENT LM IntConst RM LEQ ARITHIDENT
   {
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::UnaryPositive, tacbuilder->AccessArray($1, tacbuilder->CreateConstSym($3)), $6));
   }
+  | ARITHIDENT LM IDENTIFIER RM LEQ ARITHIDENT
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->FindSymbol($3);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::UnaryPositive, tacbuilder->AccessArray($1, sym), $6));
+  }
   | ARITHIDENT LEQ ARITHIDENT LM IntConst RM
   {
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::UnaryPositive, $1, tacbuilder->AccessArray($1, tacbuilder->CreateConstSym($5))));
+  }
+  | ARITHIDENT LEQ ARITHIDENT LM IDENTIFIER RM
+  {
+    SymbolPtr sym;
+    sym = tacbuilder->FindSymbol($5);
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::UnaryPositive, $1, tacbuilder->AccessArray($1, sym)));
   }
   | CALL IDENTIFIER
   {

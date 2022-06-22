@@ -37,8 +37,16 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 }
 
-("/*")(.|\n)*("*/") {
+("/*")([.\n]*?)("*/") {
 
+}
+
+"bend" {
+
+}
+
+"bbegin" {
+  
 }
 
 "int"  {  return token::INT;  }

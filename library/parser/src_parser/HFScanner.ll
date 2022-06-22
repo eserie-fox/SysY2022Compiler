@@ -16,19 +16,28 @@ using token = HaveFunCompiler::Parser::Parser::token;
 
 %}
 
+
 %option debug
 %option nodefault
 %option yyclass="HaveFunCompiler::Parser::Scanner"
 %option noyywrap
 %option c++
 
+
+
 %%
+
 
 %{
   yylval = lval;
   loc = location;
   builder_->SetLocation(location);
 %}
+
+START	("/*")
+END	("*/")
+SIMPLE	([^*])
+COMPLEX	("*"/[^/])
 
 
 "int"  {  return token::INT;  }
@@ -182,7 +191,7 @@ using token = HaveFunCompiler::Parser::Parser::token;
 
 }
 
-("/*")(.|\n)*("*/") {
+{START} ( {SIMPLE} | {COMPLEX} ) * {END} {
 
 }
 
