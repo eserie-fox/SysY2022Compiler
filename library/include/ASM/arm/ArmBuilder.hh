@@ -7,6 +7,9 @@
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
+
+class RegAllocator;
+
 class ArmBuilder : public AssemblyBuilder {
   NONCOPYABLE(ArmBuilder)
  public:
@@ -23,7 +26,10 @@ class ArmBuilder : public AssemblyBuilder {
   //处理全局（函数之外）
   bool TranslateGlobal();
 
-  //处理函数（全局之外）
+  //处理所有函数（全局之外）
+  bool TranslateFunctions();
+
+  //处理单独一个函数
   bool TranslateFunction();
 
   std::string DeclareDataToASMString(TACPtr tac);
@@ -31,8 +37,6 @@ class ArmBuilder : public AssemblyBuilder {
   std::string AddDataRefToASMString(TACPtr tac);
 
   std::string GlobalTACToASMString(TACPtr tac);
-
-  void CreateNewFunc(std::string func_name);
 
   std::string FuncTACToASMString(TACPtr tac);
 
@@ -48,11 +52,16 @@ class ArmBuilder : public AssemblyBuilder {
   std::string text_section_back_;
 
   struct FuncASM {
-    std::string name;
-    std::string body;
+    std::string name_;
+    std::string body_;
+    FuncASM(const std::string &name, const std::string &body) : name_(name), body_(body) {}
+    FuncASM(const std::string &name) : name_(name), body_() {}
   };
   //各个函数被分类放置，pair.first为函数名，pair.second为函数的具体内容
   std::vector<FuncASM> func_sections_;
+
+  //当前函数的reg allocator
+  std::unique_ptr<RegAllocator> reg_alloc_;
 
   TACListPtr tac_list_;
   TACList::iterator current_;
