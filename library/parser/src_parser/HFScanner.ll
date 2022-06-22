@@ -23,7 +23,7 @@ using token = HaveFunCompiler::Parser::Parser::token;
 %option noyywrap
 %option c++
 
-
+ENDWORD "*/"
 
 %%
 
@@ -34,10 +34,6 @@ using token = HaveFunCompiler::Parser::Parser::token;
   builder_->SetLocation(location);
 %}
 
-START	("/*")
-END	("*/")
-SIMPLE	([^*])
-COMPLEX	("*"/[^/])
 
 
 "int"  {  return token::INT;  }
@@ -191,7 +187,7 @@ COMPLEX	("*"/[^/])
 
 }
 
-{START} ( {SIMPLE} | {COMPLEX} ) * {END} {
+"/*"([^\*]|(\*)*[^\*/])*(\*)*"*/" {
 
 }
 
