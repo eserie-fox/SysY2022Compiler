@@ -12,6 +12,11 @@ class RegAllocator;
 
 class ArmBuilder : public AssemblyBuilder {
   NONCOPYABLE(ArmBuilder)
+  //特殊寄存器编号
+  static const int SP_REGID = 13;
+  static const int LR_REGID = 14;
+  static const int PC_REGID = 15;
+
  public:
   ArmBuilder(TACListPtr tac_list);
   bool Translate(std::string *output) override;
@@ -31,6 +36,9 @@ class ArmBuilder : public AssemblyBuilder {
 
   //处理单独一个函数
   bool TranslateFunction();
+
+  //通用寄存器id转名字
+  static std::string IntRegIDToName(int regid);
 
   std::string DeclareDataToASMString(TACPtr tac);
 

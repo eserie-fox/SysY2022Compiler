@@ -1,8 +1,10 @@
 #include "ASM/arm/ArmBuilder.hh"
 #include <iostream>
+#include <vector>
 #include "ASM/ControlFlowGraph.hh"
 #include "ASM/LiveAnalyzer.hh"
 #include "ASM/arm/RegAllocator.hh"
+#include "MacroUtil.hh"
 #include "MagicEnum.hh"
 #include "TAC/TAC.hh"
 
@@ -95,9 +97,25 @@ bool ArmBuilder::TranslateFunction() {
   emitln(".global " + func_name);
   emitln(func_name + ":");
   //将要用到的寄存器保存起来
-  [[maybe_unused]] auto func_attr = reg_alloc_->get_SymAttribute(func_label);
-  //
-  for (int i = 4; i < 16; i++) {
+  auto func_attr = reg_alloc_->get_SymAttribute(func_label);
+  std::vector<uint32_t> saveintregs;
+  //保存会修改的通用寄存器
+  for (int i = 4; i < 13; i++) {
+    //如果第i号通用寄存器要用
+    if (ISSET_UINT(func_attr.attr.used_regs.intRegs, i)) {
+      //那么保存它
+      saveintregs.push_back(i);
+    }
+  }
+  //如果lr会被用也保存
+  if (ISSET_UINT(func_attr.attr.used_regs.intRegs, LR_REGID)) {
+    saveintregs.push_back(LR_REGID);
+  }
+  //保存刚才确定好的通用寄存器
+  {
+    for (auto regid : saveintregs) {
+      emitln("push " + IntRegIDToName(regid));
+    }
   }
 
   reg_alloc_.release();
@@ -184,7 +202,25 @@ std::string ArmBuilder::DeclareDataToASMString(TACPtr tac) {
 
 std::string ArmBuilder::AddDataRefToASMString(TACPtr tac) {
   std::string name = tac->a_->get_name();
-  return "_ref_" + name + ": .word " + name + "\n";
+  std::string ret = "// add reference to data '" + name + "'\n";
+  ret += "_ref_" + name + ": .word " + name + "\n";
+  return ret;
+}
+
+std::string ArmBuilder::IntRegIDToName(int regid)  {
+  if (0 <= regid && regid < 13) {
+    return std::string("r") + std::to_string(regid);
+  }
+  if (regid == SP_REGID) {
+    return "sp";
+  }
+  if (regid == LR_REGID) {
+    return "lr";
+  }
+  if (regid == PC_REGID) {
+    return "pc";
+  }
+  throw std::runtime_error("Unexpected regid " + std::to_string(regid));
 }
 
 }  // namespace AssemblyBuilder
