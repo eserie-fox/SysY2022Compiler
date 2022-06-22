@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include "ASM/Common.hh"
+#include "MacroUtil.hh"
 /*
  * 需要信息：
  * 活跃区间到变量的映射
@@ -38,6 +39,7 @@ public:
         } attr;
     };
 
+    NONCOPYABLE(RegAllocator)
     RegAllocator(const LiveAnalyzer&);
 
     SymAttribute get_SymAttribute(SymPtr sym);

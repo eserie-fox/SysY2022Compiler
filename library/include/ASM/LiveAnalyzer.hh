@@ -84,7 +84,7 @@ public:
     NONCOPYABLE(LiveAnalyzer)
     LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
 
-    
+
 
 private:
 
@@ -92,17 +92,13 @@ private:
 
     // 所有变量对应的活跃信息
     std::unordered_map<SymPtr, SymLiveInfo> symLiveMap;
-    // 变量的定值点和使用点集合
+    // 变量的定值点和使用点集合（集合元素是流图中结点下标）
     std::unordered_map<SymPtr, std::unordered_set<size_t>> symDefMap, symUseMap;
     // 所有出现的变量的集合
     std::unordered_set<SymPtr> symSet;  
-    // 局部变量集合
-    std::unordered_set<SymPtr> localSym;
     // 控制流图
     std::shared_ptr<ControlFlowGraph> cfg;
 
-    
-    bool isDecl(TACOperationType op);
 
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合
     void dfs(size_t n, std::vector<bool> &vis);

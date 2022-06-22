@@ -2,6 +2,7 @@
 #include "ASM/ControlFlowGraph.hh"
 #include "TAC/ThreeAddressCode.hh"
 #include <stdexcept>
+#include <queue>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -84,7 +85,6 @@ void LiveAnalyzer::SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
 
 LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
 {
-
     std::vector<bool> vis(cfg->get_nodes_number(), false);
 
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合，局部变量的集合
@@ -93,8 +93,63 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     // 对每个变量，求出它的活跃区间集合
     for (auto sym : symSet)
     {
+        std::unordered_set<size_t> &useSet = symUseMap[sym], &defSet = symDefMap[sym];
+        for (size_t i = 0; i < vis.size(); ++i)
+            vis[i] = false;
+        
+        // 队列中存放所有可能作为活跃区间终点的结点下标
+        std::queue<size_t> startQueue;
+        for (auto n : useSet)
+        {
+            startQueue.push(n);
+            vis[n] = true;
+        }
 
+        // 一次循环，由一个终点(endDfn)，求出一个连续的活跃区间[startDfn, endDfn]
+        while (!startQueue.empty())
+        {
+            // 从一个活跃点开始逆dfs序遍历
+            // 遇到已经处理过的结点则停止（处理过说明该结点已经包含在其他活跃区间）
+            // 遇到定值结点，更新interval的first为该定值结点后停止
+            // 对于dfn不连续的前驱结点（该前驱结点存在多个后继时会出现），将该结点加入队列，但不从该结点继续向上遍历
+            size_t cur = startQueue.front();
+            startQueue.pop();
+
+            LiveInterval interval(cfg->get_node_dfn(cur), cfg->get_node_dfn(cur));
+            bool flag;
+
+            do
+            {
+                flag = false;
+                auto inNodeLs = cfg->get_inNodeList(cur);
+                for (auto u : inNodeLs)
+                {
+                    if (cfg->get_node_dfn(u) + 1 == cfg->get_node_dfn(cur))  // u是dfn连续的前驱
+                    {
+                        if (!vis[u])
+                        {
+                            vis[u] = true;  
+                            interval.first = cfg->get_node_dfn(u);  // 更新interval的first为dfn(u)
+                            cur = u;
+
+                            if (defSet.find(u) == defSet.end())
+                                flag = true;  // 只有存在一个u没有被访问，且u不是定值点时，才继续向前遍历
+                        }
+                    }
+                    else if (!vis[u])  // u不是dfn连续的前驱，而sym必在u活跃，所以u加入队列
+                    {
+                        vis[u] = true;
+                        startQueue.push(u);
+                    }
+                }
+            } while (flag);
+
+            // 将本次求得的活跃区间合并进该变量的活跃区间集合
+            symLiveMap[sym].addUncoveredLiveInterval(interval);
+        }
     }
+
+    
 }
 
 void LiveAnalyzer::dfs(size_t n, std::vector<bool> &vis)
@@ -103,17 +158,14 @@ void LiveAnalyzer::dfs(size_t n, std::vector<bool> &vis)
         return;
     vis[n] = true;
 
-    size_t dfn = cfg->get_node_dfn(n);
     auto tac = cfg->get_node_tac(n);
 
     // 定值变量处理：加入函数中出现的变量集合，加入该变量的定值集合，如果是声明，则加入局部变量集合
     auto defSym = tac->getDefineSym(); 
     if (defSym)
     {
-        if (isDecl(tac->operation_))
-            localSym.insert(defSym);
         symSet.insert(defSym);
-        symDefMap[defSym].insert(dfn);
+        symDefMap[defSym].insert(n);
     }
 
     // 使用变量列表处理：对列表中每个使用变量，加入函数中出现的变量集合，加入该变量的使用集合
@@ -121,28 +173,12 @@ void LiveAnalyzer::dfs(size_t n, std::vector<bool> &vis)
     for (auto s : useSymLs)
     {
         symSet.insert(s);
-        symUseMap[s].insert(dfn);
+        symUseMap[s].insert(n);
     }
 
     auto outLs = cfg->get_outNodeList(n);
     for (auto u : outLs)
         dfs(u, vis);
-}
-
-bool LiveAnalyzer::isDecl(TACOperationType op)
-{
-    switch (op)
-    {
-    case TACOperationType::Variable:
-    case TACOperationType::Constant:
-    case TACOperationType::Parameter:
-        return true;
-        break;
-    
-    default:
-        return false;
-        break;
-    }
 }
 
 }
