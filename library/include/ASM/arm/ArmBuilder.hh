@@ -13,6 +13,8 @@ class RegAllocator;
 class ArmBuilder : public AssemblyBuilder {
   NONCOPYABLE(ArmBuilder)
   //特殊寄存器编号
+  static const int FP_REGID = 11;
+  static const int IP_REGID = 12;
   static const int SP_REGID = 13;
   static const int LR_REGID = 14;
   static const int PC_REGID = 15;
@@ -67,6 +69,9 @@ class ArmBuilder : public AssemblyBuilder {
   };
   //各个函数被分类放置，pair.first为函数名，pair.second为函数的具体内容
   std::vector<FuncASM> func_sections_;
+
+  //为寄存器保存用的栈空间
+  uint32_t stksz4regsave_;
 
   //当前函数的reg allocator
   std::unique_ptr<RegAllocator> reg_alloc_;

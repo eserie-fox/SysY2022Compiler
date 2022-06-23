@@ -79,8 +79,13 @@ bool ArmBuilder::TranslateGlobal() {
 
 bool ArmBuilder::TranslateFunction() {
   //[current_,end_)区间内为即将处理的函数
-  auto cfg = std::make_shared<ControlFlowGraph>(current_, end_);
-  reg_alloc_ = std::make_unique<RegAllocator>(LiveAnalyzer(cfg));
+  {
+    auto inclusiveend = end_;
+    --inclusiveend;
+    auto cfg = std::make_shared<ControlFlowGraph>(current_, inclusiveend);
+    reg_alloc_ = std::make_unique<RegAllocator>(LiveAnalyzer(cfg));
+  }
+
   //开头label包含了函数名
   auto func_label = (*current_)->a_;
   std::string func_name = func_label->get_name();
@@ -98,23 +103,40 @@ bool ArmBuilder::TranslateFunction() {
   emitln(func_name + ":");
   //将要用到的寄存器保存起来
   auto func_attr = reg_alloc_->get_SymAttribute(func_label);
-  std::vector<uint32_t> saveintregs;
+  std::vector<uint32_t> saveintregs, savefloatregs;
+  //通用寄存器存了多少个
+  stksz4regsave_ = 0;
   //保存会修改的通用寄存器
   for (int i = 4; i < 13; i++) {
     //如果第i号通用寄存器要用
     if (ISSET_UINT(func_attr.attr.used_regs.intRegs, i)) {
       //那么保存它
       saveintregs.push_back(i);
+      stksz4regsave_ += 4;
     }
   }
   //如果lr会被用也保存
   if (ISSET_UINT(func_attr.attr.used_regs.intRegs, LR_REGID)) {
     saveintregs.push_back(LR_REGID);
+    stksz4regsave_ += 4;
   }
   //保存刚才确定好的通用寄存器
   {
     for (auto regid : saveintregs) {
-      emitln("push " + IntRegIDToName(regid));
+      emitln("push { " + IntRegIDToName(regid) + " }");
+    }
+  }
+  //保存浮点寄存器
+  for (int i = 16; i < 32; i++) {
+    if (ISSET_UINT(func_attr.attr.used_regs.floatRegs, i)) {
+      savefloatregs.push_back(i);
+      stksz4regsave_ += 4;
+    }
+  }
+  //保存刚才确定好的浮点寄存器
+  {
+    for (auto regid : savefloatregs) {
+      emitln("vpush { s" + std::to_string(regid) + " }");
     }
   }
 
@@ -207,9 +229,15 @@ std::string ArmBuilder::AddDataRefToASMString(TACPtr tac) {
   return ret;
 }
 
-std::string ArmBuilder::IntRegIDToName(int regid)  {
-  if (0 <= regid && regid < 13) {
+std::string ArmBuilder::IntRegIDToName(int regid) {
+  if (0 <= regid && regid < 11) {
     return std::string("r") + std::to_string(regid);
+  }
+  if (regid == FP_REGID) {
+    return "fp";
+  }
+  if (regid == IP_REGID) {
+    return "ip";
   }
   if (regid == SP_REGID) {
     return "sp";
