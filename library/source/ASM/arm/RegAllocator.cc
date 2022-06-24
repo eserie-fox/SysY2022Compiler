@@ -57,8 +57,16 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
     }
 }
 
-void RegAllocator::LinearScan(std::vector<LiveinfoWithSym> &liveSymLs)
+RegAllocator::SymAttribute RegAllocator::LinearScan(std::vector<LiveinfoWithSym> &liveSymLs)
 {
+    // 为函数参数分配寄存器和栈空间
+
+    
+
+    auto allocRegToParams = [&](ParamType paramType){
+        
+    };
+
     // 活跃区间列表，按照起点升序排序
     std::sort(liveSymLs.begin(), liveSymLs.end(), [](const LiveinfoWithSym &x,const LiveinfoWithSym &y){
         return x.liveInfo->endPoints < y.liveInfo->endPoints;

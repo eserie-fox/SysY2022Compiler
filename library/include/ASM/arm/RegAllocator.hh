@@ -41,10 +41,10 @@ public:
         int value;
         union
         {
-            enum {INT_REG, FLOAT_REG, STACK_VAR, STACK_PARAM, NOT_USED} store_type;  // 变量的存储类型
+            enum {INT_REG, FLOAT_REG, STACK, NOT_USED} store_type;  // 变量的存储类型
             struct {
                 uint32_t intRegs, floatRegs;
-            } used_regs;  // 函数中已分配的寄存器集
+            } used_regs;  // 函数中已分配的寄存器集（包括保留的2个寄存器）
         } attr;
     };
 
@@ -75,8 +75,11 @@ private:
     // 根据指针Sym，取得数组地址属性
     std::unordered_map<SymPtr, SymAttribute> ptrToArrayOnStack;
 
+
+    enum ParamType {INT, FLOAT};
+
     static const int intRegPoolSize = 13, floatRegPoolSize = 32;
-    static const int intRegParamUseNumber = 4, floatRegParamUseNumber = 16;
+    static const int intRegParamUsableNumber = 4, floatRegParamUsableNumber = 16;
     // static const int intRegPool[intRegPoolSize], floatRegPoolSize[floatRegPoolSize];
 
 private:
@@ -84,7 +87,8 @@ private:
     void ContextInit(const LiveAnalyzer&);
 
     // 线性扫描，分配寄存器与栈空间
-    void LinearScan(std::vector<LiveinfoWithSym>& liveSymLs);
+    // 返回函数属性
+    SymAttribute LinearScan(std::vector<LiveinfoWithSym>& liveSymLs);
 };
 
 
