@@ -1,6 +1,5 @@
 #include "ASM/LiveAnalyzer.hh"
 #include "ASM/ControlFlowGraph.hh"
-#include "TAC/ThreeAddressCode.hh"
 #include <stdexcept>
 #include <queue>
 
@@ -36,7 +35,7 @@ std::optional<SymIdxMapping::SymPtr> SymIdxMapping::getSymPtr(size_t idx) const
         return i2s[idx];
 }
 
-void LiveAnalyzer::SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
+void SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
 {
     using itr = std::set<LiveInterval>::iterator;
 
@@ -79,6 +78,18 @@ void LiveAnalyzer::SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
         if (tmp->first <= cur->second)
             throw std::runtime_error("LiveInterval cover fault");
         merge(cur, tmp);
+    }
+}
+
+void SymLiveInfo::updateIntervalEndPoint()
+{
+    // dfn从1开始，用0标识该变量不活跃
+    if (liveIntervalSet.empty())
+        endPoints.first = endPoints.second = 0;
+    else
+    {
+        endPoints.first = liveIntervalSet.begin()->first;
+        endPoints.second = liveIntervalSet.end()->second;
     }
 }
 
@@ -147,9 +158,10 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
             // 将本次求得的活跃区间合并进该变量的活跃区间集合
             symLiveMap[sym].addUncoveredLiveInterval(interval);
         }
-    }
 
-    
+        // 更新该变量的活跃区间端点(寄存器分配排序使用)
+        symLiveMap[sym].updateIntervalEndPoint();
+    }
 }
 
 void LiveAnalyzer::dfs(size_t n, std::vector<bool> &vis)
@@ -179,6 +191,16 @@ void LiveAnalyzer::dfs(size_t n, std::vector<bool> &vis)
     auto outLs = cfg->get_outNodeList(n);
     for (auto u : outLs)
         dfs(u, vis);
+}
+
+LiveAnalyzer::iterator LiveAnalyzer::get_fbegin() const
+{
+    return cfg->get_fbegin();
+}
+
+LiveAnalyzer::iterator LiveAnalyzer::get_fend() const
+{
+    return cfg->get_fend();
 }
 
 }

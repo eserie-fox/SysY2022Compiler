@@ -21,12 +21,12 @@ public:
     ControlFlowGraph(TACListPtr FuncTACList);
     ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend);
 
-    const TACList::iterator get_fbegin()
+    const TACList::iterator get_fbegin() const
     {
         return f_begin;
     }
 
-    const TACList::iterator get_fend()
+    const TACList::iterator get_fend() const
     {
         return f_end;
     }
@@ -55,7 +55,7 @@ public:
         return endNode;
     }
 
-    size_t get_nodes_number()
+    size_t get_nodes_number() const
     {
         return nodes.size();
     }

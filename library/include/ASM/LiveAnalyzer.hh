@@ -8,6 +8,7 @@
 #include <optional>
 #include "ASM/Common.hh"
 #include "MacroUtil.hh"
+
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
 enum class TACOperationType;
@@ -16,8 +17,6 @@ enum class TACOperationType;
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
-
-using namespace HaveFunCompiler::ThreeAddressCode;
 
 class ControlFlowGraph;
 
@@ -37,13 +36,41 @@ public:
     std::optional<SymPtr> getSymPtr(size_t idx) const;
 };
 
+using LiveInterval = std::pair<size_t, size_t>;
+
+// 变量的活跃信息
+struct SymLiveInfo
+{
+    // 活跃区间集合
+    // 保证集合中活跃区间之间一定有断点
+    std::set<LiveInterval> liveIntervalSet;
+
+    // 活跃区间端点的最小值和最大值
+    std::pair<size_t, size_t> endPoints;
+
+    // bool operator<(const SymLiveInfo &o) const
+    // {
+    //     if (high > o.high)  return true;
+    //     else if (high == o.high && low < o.low)  return true;
+    //     else  return false;
+    // }
+
+    // 加入一个不与现有活跃区间存在覆盖范围的区间
+    // 理论上由活跃分析器保证不覆盖
+    // 若存在覆盖，抛出异常
+    void addUncoveredLiveInterval(LiveInterval &interval);
+
+    // 更新区间端点信息(low,high)
+    void updateIntervalEndPoint();
+};
 
 class LiveAnalyzer
 {
 public:
 
     using SymPtr = std::shared_ptr<HaveFunCompiler::ThreeAddressCode::Symbol>;
-    using LiveInterval = std::pair<size_t, size_t>;
+    using iterator = std::list<std::shared_ptr<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>>::iterator;
+    using const_iterator = std::list<std::shared_ptr<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>>::const_iterator;
 
     // 控制流图中每个结点的活跃信息
     struct NodeLiveInfo
@@ -56,35 +83,20 @@ public:
         std::vector<SymPtr> kill;
     };
 
-    // 变量的活跃信息
-    struct SymLiveInfo
-    {
-        // 活跃区间集合
-        // 保证集合中活跃区间之间一定有断点
-        std::set<LiveInterval> liveIntervalSet;
-
-        // 活跃区间端点的最小值和最大值
-        size_t low, high;
-
-        // bool operator<(const SymLiveInfo &o) const
-        // {
-        //     if (high > o.high)  return true;
-        //     else if (high == o.high && low < o.low)  return true;
-        //     else  return false;
-        // }
-
-        // 加入一个不与现有活跃区间存在覆盖范围的区间
-        // 理论上由活跃分析器保证不覆盖
-        // 若存在覆盖，抛出异常
-        void addUncoveredLiveInterval(LiveInterval &interval);
-    };
-
 public:
 
     NONCOPYABLE(LiveAnalyzer)
     LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
 
+    iterator get_fbegin() const;
+    iterator get_fend() const;
 
+    const SymLiveInfo* get_symLiveInfo(SymPtr sym) const
+    {
+        if (symLiveMap.find(sym) == symLiveMap.end())
+            return nullptr;
+        return &symLiveMap.at(sym);
+    }
 
 private:
 

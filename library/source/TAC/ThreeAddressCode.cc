@@ -226,14 +226,18 @@ std::shared_ptr<Symbol> ThreeAddressCode::getDefineSym()
   std::shared_ptr<Symbol> res;
 
   if (isArith(operation_) || isDecl(operation_))
-    res = a_;
+  {
+    if (a_)
+      res = a_;
+  }
   else
   {
     switch (operation_)
     {
     case TACOperationType::FloatToInt:
     case TACOperationType::IntToFloat:
-      res = a_;
+      if (a_)
+        res = a_;
       break;
 
     case TACOperationType::Call:
@@ -242,7 +246,7 @@ std::shared_ptr<Symbol> ThreeAddressCode::getDefineSym()
       break;
 
     case TACOperationType::Assign:
-      if(a_->value_.IsNumericType())
+      if(a_ && a_->value_.IsNumericType())
         res = a_;
       break;
 
