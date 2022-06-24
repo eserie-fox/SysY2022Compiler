@@ -16,7 +16,6 @@ int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
     std::cout << tss << std::endl;
     tacdriver.parse(ss);
     tacdriver.print(std::cout) << std::endl;
-    
   }
   return 0;
 }

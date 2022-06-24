@@ -210,6 +210,13 @@ ParamListPtr TACBuilder::NewParamList() { return TACFactory::Instance()->NewPara
 ArrayDescriptorPtr TACBuilder::NewArrayDescriptor() { return TACFactory::Instance()->NewArrayDescriptor(); }
 
 ExpressionPtr TACBuilder::CreateAssign(SymbolPtr var, ExpressionPtr exp) {
+  // 如果两者都是Array
+  if (exp->ret->value_.Type() == SymbolValue::ValueType::Array && var->value_.Type() == SymbolValue::ValueType::Array) {
+    exp = NewExp(exp->tac->MakeCopy(), exp->ret);
+    auto tmpSym = CreateTempVariable(exp->ret->value_.UnderlyingType());
+    (*exp->tac) += NewTAC(TACOperationType::Assign, tmpSym, exp->ret);
+    exp->ret = tmpSym;
+  }
   return TACFactory::Instance()->MakeAssign(plocation_, var, exp);
 }
 
@@ -614,7 +621,7 @@ ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
     return CreateConstExp(static_cast<int>(expF->ret->value_.GetFloat()));
   }
   if (expF->ret->type_ == SymbolType::Variable) {
-    if (expF->ret->value_.Type() != SymbolValue::ValueType::Float) {
+    if (expF->ret->value_.UnderlyingType() != SymbolValue::ValueType::Float) {
       throw TYPEMISMATCH_EXCEPTION(expF->ret->value_.TypeToString(), "Float", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
@@ -631,7 +638,7 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
     return CreateConstExp(static_cast<float>(expI->ret->value_.GetInt()));
   }
   if (expI->ret->type_ == SymbolType::Variable) {
-    if (expI->ret->value_.Type() != SymbolValue::ValueType::Int) {
+    if (expI->ret->value_.UnderlyingType() != SymbolValue::ValueType::Int) {
       throw TYPEMISMATCH_EXCEPTION(expI->ret->value_.TypeToString(), "Int", "Cast fail");
     }
     auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
@@ -699,9 +706,16 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
   switch (arith_op) {
     case TACOperationType::UnaryPositive:
     case TACOperationType::UnaryMinus: {
-      auto tmpSym = CreateTempVariable(exp1->ret->value_.Type());
+      auto tmpSym = CreateTempVariable(exp1->ret->value_.UnderlyingType());
       auto tac_list = TACFactory::Instance()->NewTACList();
       (*tac_list) += exp1->tac;
+      //如果是Array的话要单独抽出来
+      if (exp1->ret->value_.Type() == SymbolValue::ValueType::Array) {
+        auto tmpExpSym = CreateTempVariable(exp1->ret->value_.UnderlyingType());
+        (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpExpSym);
+        (*tac_list) += CreateAssign(tmpExpSym, exp1)->tac;
+        exp1->ret = tmpExpSym;
+      }
       (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
       (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret);
       return TACFactory::Instance()->NewExp(tac_list, tmpSym);
@@ -709,7 +723,15 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
     case TACOperationType::UnaryNot: {
       auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
       auto tac_list = TACFactory::Instance()->NewTACList();
-      (*tac_list) += exp1->tac;
+      //如果是Array的话要单独抽出来
+      if (exp1->ret->value_.Type() == SymbolValue::ValueType::Array) {
+        auto tmpExpSym = CreateTempVariable(exp1->ret->value_.UnderlyingType());
+        (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpExpSym);
+        (*tac_list) += CreateAssign(tmpExpSym, exp1)->tac;
+        exp1->ret = tmpExpSym;
+      } else {
+        (*tac_list) += exp1->tac;
+      }
       (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
       (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::UnaryNot, tmpSym, exp1->ret);
       return TACFactory::Instance()->NewExp(tac_list, tmpSym);
@@ -728,26 +750,56 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
     case TACOperationType::LogicAnd:
     case TACOperationType::LogicOr: {
       auto tac_list = TACFactory::Instance()->NewTACList();
-      if (exp1->ret->value_.Type() == SymbolValue::ValueType::Float ||
-          exp2->ret->value_.Type() == SymbolValue::ValueType::Float) {
+      if (exp1->ret->value_.UnderlyingType() == SymbolValue::ValueType::Float ||
+          exp2->ret->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
         auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
         (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
         auto fexp1 = exp1;
         auto fexp2 = exp2;
-        if (fexp1->ret->value_.Type() != SymbolValue::ValueType::Float) {
+        if (fexp1->ret->value_.UnderlyingType() != SymbolValue::ValueType::Float) {
           fexp1 = CastIntToFloat(fexp1);
         }
-        if (fexp2->ret->value_.Type() != SymbolValue::ValueType::Float) {
+        if (fexp2->ret->value_.UnderlyingType() != SymbolValue::ValueType::Float) {
           fexp2 = CastIntToFloat(fexp2);
         }
-        (*tac_list) += fexp1->tac;
-        (*tac_list) += fexp2->tac;
+        //如果是Array的话要单独抽出来
+        if (fexp1->ret->value_.Type() == SymbolValue::ValueType::Array) {
+          auto tmpExpSym = CreateTempVariable(fexp1->ret->value_.UnderlyingType());
+          (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpExpSym);
+          (*tac_list) += CreateAssign(tmpExpSym, fexp1)->tac;
+          fexp1->ret = tmpExpSym;
+        } else {
+          (*tac_list) += fexp1->tac;
+        }
+        if (fexp2->ret->value_.Type() == SymbolValue::ValueType::Array) {
+          auto tmpExpSym = CreateTempVariable(fexp2->ret->value_.UnderlyingType());
+          (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpExpSym);
+          (*tac_list) += CreateAssign(tmpExpSym, fexp2)->tac;
+          fexp2->ret = tmpExpSym;
+        } else {
+          (*tac_list) += fexp2->tac;
+        }
         (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, fexp1->ret, fexp2->ret);
         return TACFactory::Instance()->NewExp(tac_list, tmpSym);
       } else {
         auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
-        (*tac_list) += exp1->tac;
-        (*tac_list) += exp2->tac;
+        //如果是Array的话要单独抽出来
+        if (exp1->ret->value_.Type() == SymbolValue::ValueType::Array) {
+          auto tmpExpSym = CreateTempVariable(exp1->ret->value_.UnderlyingType());
+          (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpExpSym);
+          (*tac_list) += CreateAssign(tmpExpSym, exp1)->tac;
+          exp1->ret = tmpExpSym;
+        } else {
+          (*tac_list) += exp1->tac;
+        }
+        if (exp2->ret->value_.Type() == SymbolValue::ValueType::Array) {
+          auto tmpExpSym = CreateTempVariable(exp2->ret->value_.UnderlyingType());
+          (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpExpSym);
+          (*tac_list) += CreateAssign(tmpExpSym, exp2)->tac;
+          exp2->ret = tmpExpSym;
+        } else {
+          (*tac_list) += exp2->tac;
+        }
         (*tac_list) += TACFactory::Instance()->NewTAC(TACOperationType::Variable, tmpSym);
         (*tac_list) += TACFactory::Instance()->NewTAC(arith_op, tmpSym, exp1->ret, exp2->ret);
         return TACFactory::Instance()->NewExp(tac_list, tmpSym);

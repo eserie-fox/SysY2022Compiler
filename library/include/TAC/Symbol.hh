@@ -9,6 +9,9 @@
 #include <vector>
 
 namespace HaveFunCompiler {
+namespace Parser {
+class location;
+}
 namespace ThreeAddressCode {
 enum class SymbolType {
   Undefined,
@@ -47,7 +50,13 @@ struct SymbolValue {
   std::string ToString() const;
 
   void SetType(ValueType type) { this->type = type; }
+
+  //检查可操作性，即要么为int要么为float，（或数组访问到最后一维），失败会抛出异常
+  void CheckOperatablity(const HaveFunCompiler::Parser::location &loc);
+
   ValueType Type() const { return type; }
+  ValueType UnderlyingType() const;
+
   //是否是数值类型
   bool IsNumericType() const;
 

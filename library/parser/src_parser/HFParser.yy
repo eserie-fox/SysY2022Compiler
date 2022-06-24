@@ -210,7 +210,7 @@ ConstDef
         SymbolPtr sym = $3->ret;
         sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
         int value;
-        if($3->ret->value_.Type()==ValueType::Int)
+        if($3->ret->value_.UnderlyingType()==ValueType::Int)
         {
           value = $3->ret->value_.GetInt();
         }else{
@@ -225,7 +225,7 @@ ConstDef
         SymbolPtr sym = $3->ret;
         sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
         float value;
-        if($3->ret->value_.Type()==ValueType::Int)
+        if($3->ret->value_.UnderlyingType()==ValueType::Int)
         {
           value = static_cast<float>($3->ret->value_.GetInt());
         }else{
@@ -259,6 +259,7 @@ ConstDef
 ConstExp_list
   : LM ConstExp RM
   {
+    $2->ret->value_.CheckOperatablity(scanner.get_location());
     auto array = tacbuilder->NewArrayDescriptor();
     int dim = $2->ret->value_.GetInt();
     array->dimensions.push_back(dim);
@@ -266,6 +267,7 @@ ConstExp_list
   }
   | ConstExp_list LM ConstExp RM
   {
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     int dim = $3->ret->value_.GetInt();
     $1->dimensions.push_back(dim);
     $$ = $1;
@@ -656,9 +658,11 @@ Stmt
     {
       throw RuntimeException(scanner.get_location(), "Cant assign to constant");
     }
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     ExpressionPtr exp;
-    if($3->ret->value_.Type()!=$1->ret->value_.Type()){
-      if($1->ret->value_.Type() == ValueType::Int){
+    if($3->ret->value_.UnderlyingType()!=$1->ret->value_.UnderlyingType()){
+      if($1->ret->value_.UnderlyingType() == ValueType::Int){
         exp = tacbuilder->CastFloatToInt($3);
       }else{
         exp = tacbuilder->CastIntToFloat($3);
@@ -680,14 +684,17 @@ Stmt
   | Block
   | IF LS Cond RS Stmt %prec LOWER_THAN_ELSE
   {
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateIf($3, $5, nullptr);
   }
   | IF LS Cond RS Stmt ELSE Stmt
   {
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateIfElse($3,$5,$7,nullptr, nullptr);
   }
   | WHILEUP LS Cond RS Stmt
   {
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     SymbolPtr label_con;
     SymbolPtr label_brk;
     tacbuilder->TopLoop(&label_con, &label_brk);
@@ -719,13 +726,14 @@ Stmt
   }
   | RETURN Exp SEMI
   {
+    $2->ret->value_.CheckOperatablity(scanner.get_location());
     int type;
     tacbuilder->Top(&type);
     if((ValueType)type==ValueType::Void){
       throw RuntimeException(scanner.get_location(), "Cant return the value for Void function");
     }
     ExpressionPtr exp;
-    if($2->ret->value_.Type()!=(ValueType)type){
+    if($2->ret->value_.UnderlyingType()!=(ValueType)type){
       if((ValueType)type == ValueType::Int){
         exp = tacbuilder->CastFloatToInt($2);
       }else{
@@ -832,6 +840,7 @@ UnaryExp
   }
   | UnaryOp UnaryExp
   {
+    $2->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation($1, $2);
   }
   ;
@@ -869,14 +878,20 @@ MulExp
   : UnaryExp
   | MulExp MUL UnaryExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Mul, $1, $3);
   }
   | MulExp DIV UnaryExp
-  {
+  {    
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Div, $1, $3);
   }
   | MulExp MOD UnaryExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Mod, $1, $3);
   }
   ;
@@ -884,11 +899,15 @@ MulExp
 AddExp
   : MulExp
   | AddExp ADD MulExp
-  {
+  {    
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Add, $1, $3);
   }
   | AddExp SUB MulExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Sub, $1, $3);
   }
   ;
@@ -897,18 +916,26 @@ RelExp
   : AddExp
   | RelExp LT AddExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LessThan, $1, $3);
   }
   | RelExp GT AddExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::GreaterThan, $1, $3);
   }
   | RelExp LE AddExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::LessOrEqual, $1, $3);
   }
   | RelExp GE AddExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::GreaterOrEqual, $1, $3);
   }
   ;
@@ -917,10 +944,14 @@ EqExp
   : RelExp
   | EqExp EQ RelExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::Equal, $1, $3);
   }
   | EqExp NE RelExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateArithmeticOperation(TACOperationType::NotEqual, $1, $3);
   }
   ;
@@ -929,6 +960,8 @@ LAndExp
   :EqExp
   |LAndExp LA EqExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     if($1->ret->type_==SymbolType::Constant){
       if(!(bool)$1->ret->value_){
         $$=tacbuilder->CreateConstExp(0);
@@ -957,6 +990,8 @@ LOrExp
   : LAndExp
   | LOrExp LO LAndExp
   {
+    $1->ret->value_.CheckOperatablity(scanner.get_location());
+    $3->ret->value_.CheckOperatablity(scanner.get_location());
     if($1->ret->type_==SymbolType::Constant){
       if((bool)$1->ret->value_){
         $$=tacbuilder->CreateConstExp(1);

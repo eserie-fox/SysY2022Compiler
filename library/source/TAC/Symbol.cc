@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include "Exceptions.hh"
 #include "MagicEnum.hh"
 #include "TAC/Expression.hh"
 
@@ -462,6 +463,33 @@ std::string SymbolValue::TypeToString() const {
   }
 
   return ret;
+}
+
+void SymbolValue::CheckOperatablity(const HaveFunCompiler::Parser::Parser::location_type &loc) {
+  if (Type() == ValueType::Array) {
+    auto ad = GetArrayDescriptor();
+    if (!ad->dimensions.empty()) {
+      goto fail;
+    }
+    return;
+  }
+  if (Type() != ValueType::Int && Type() != ValueType::Float) {
+    goto fail;
+  }
+  return;
+fail:
+  throw TypeMismatchException(loc, TypeToString(), "int/float", "Underlying type should be int/float");
+}
+
+SymbolValue::ValueType SymbolValue::UnderlyingType() const {
+  if (Type() == ValueType::Array) {
+    auto ad = GetArrayDescriptor();
+    if (!ad->dimensions.empty()) {
+      throw std::runtime_error("Can't access array " + TypeToString());
+    }
+    return GetArrayDescriptor()->value_type;
+  }
+  return type;
 }
 
 std::string SymbolValue::TypeToTACString() const {
