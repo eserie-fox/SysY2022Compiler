@@ -3,12 +3,11 @@
 #include <vector>
 #include "ASM/AssemblyBuilder.hh"
 #include "ASM/Common.hh"
+#include "ASM/arm/FunctionContext.hh"
 #include "TAC/ThreeAddressCode.hh"
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
-
-class RegAllocator;
 
 class ArmBuilder : public AssemblyBuilder {
   NONCOPYABLE(ArmBuilder)
@@ -70,11 +69,8 @@ class ArmBuilder : public AssemblyBuilder {
   //各个函数被分类放置，pair.first为函数名，pair.second为函数的具体内容
   std::vector<FuncASM> func_sections_;
 
-  //为寄存器保存用的栈空间
-  uint32_t stksz4regsave_;
+  ArmUtil::FunctionContext func_context_;
 
-  //当前函数的reg allocator
-  std::unique_ptr<RegAllocator> reg_alloc_;
 
   TACListPtr tac_list_;
   TACList::iterator current_;

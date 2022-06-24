@@ -1,4 +1,5 @@
 #include "ASM/arm/ArmBuilder.hh"
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include "ASM/ControlFlowGraph.hh"
@@ -79,13 +80,15 @@ bool ArmBuilder::TranslateGlobal() {
 
 bool ArmBuilder::TranslateFunction() {
   //[current_,end_)区间内为即将处理的函数
+  //拿到func_context_guard确保func_context拥有正确初始化和析构行为
+  auto func_context_guard = ArmUtil::FunctionContextGuard(func_context_);
+  //跳过fend
+  --end_;
   {
-    auto inclusiveend = end_;
-    --inclusiveend;
-    auto cfg = std::make_shared<ControlFlowGraph>(current_, inclusiveend);
-    reg_alloc_ = std::make_unique<RegAllocator>(LiveAnalyzer(cfg));
+    //解析寄存器分配
+    auto cfg = std::make_shared<ControlFlowGraph>(current_, end_);
+    func_context_.reg_alloc_ = new RegAllocator(LiveAnalyzer(cfg));
   }
-
   //开头label包含了函数名
   auto func_label = (*current_)->a_;
   std::string func_name = func_label->get_name();
@@ -93,7 +96,7 @@ bool ArmBuilder::TranslateFunction() {
   func_sections_.emplace_back(func_name);
   //绑定到body，后面简写
   auto *pfunc_section = &func_sections_.back().body_;
-  [[maybe_unused]] auto emit = [pfunc_section](const std::string &inst) -> void { (*pfunc_section) += inst; };
+  auto emit = [pfunc_section](const std::string &inst) -> void { (*pfunc_section) += inst; };
   auto emitln = [pfunc_section](const std::string &inst) -> void {
     pfunc_section->append(inst);
     pfunc_section->append("\n");
@@ -102,23 +105,23 @@ bool ArmBuilder::TranslateFunction() {
   emitln(".global " + func_name);
   emitln(func_name + ":");
   //将要用到的寄存器保存起来
-  auto func_attr = reg_alloc_->get_SymAttribute(func_label);
+  auto func_attr = func_context_.reg_alloc_->get_SymAttribute(func_label);
+  //保存了的寄存器列表
   std::vector<uint32_t> saveintregs, savefloatregs;
-  //通用寄存器存了多少个
-  stksz4regsave_ = 0;
+
+  //如果lr会被用到单独保存一下
+  if (ISSET_UINT(func_attr.attr.used_regs.intRegs, LR_REGID)) {
+    saveintregs.push_back(LR_REGID);
+    func_context_.stack_size_for_regsave_ += 4;
+  }
   //保存会修改的通用寄存器
   for (int i = 4; i < 13; i++) {
     //如果第i号通用寄存器要用
     if (ISSET_UINT(func_attr.attr.used_regs.intRegs, i)) {
       //那么保存它
       saveintregs.push_back(i);
-      stksz4regsave_ += 4;
+      func_context_.stack_size_for_regsave_ += 4;
     }
-  }
-  //如果lr会被用也保存
-  if (ISSET_UINT(func_attr.attr.used_regs.intRegs, LR_REGID)) {
-    saveintregs.push_back(LR_REGID);
-    stksz4regsave_ += 4;
   }
   //保存刚才确定好的通用寄存器
   {
@@ -130,7 +133,7 @@ bool ArmBuilder::TranslateFunction() {
   for (int i = 16; i < 32; i++) {
     if (ISSET_UINT(func_attr.attr.used_regs.floatRegs, i)) {
       savefloatregs.push_back(i);
-      stksz4regsave_ += 4;
+      func_context_.stack_size_for_regsave_ += 4;
     }
   }
   //保存刚才确定好的浮点寄存器
@@ -140,7 +143,33 @@ bool ArmBuilder::TranslateFunction() {
     }
   }
 
-  reg_alloc_.release();
+  //函数体翻译
+  //跳过label和fbegin
+  ++current_;
+  ++current_;
+  for (; current_ != end_; ++current_) {
+    emit(FuncTACToASMString(*current_));
+  }
+
+  //还原寄存器
+  //因栈的原因，还需要reverse一下
+  //还原浮点寄存器
+  {
+    std::reverse(savefloatregs.begin(), savefloatregs.end());
+    for (auto regid : savefloatregs) {
+      emitln("vpop { s" + std::to_string(regid) + " }");
+    }
+  }
+  //还原通用寄存器
+  {
+    std::reverse(saveintregs.begin(), saveintregs.end());
+    for (auto regid : saveintregs) {
+      emitln("pop { " + IntRegIDToName(regid) + " }");
+    }
+  }
+  //这里没有用栈来pop lr到sp位置
+  emitln("bx lr");
+
   return true;
 }
 
