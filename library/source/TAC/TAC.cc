@@ -61,19 +61,6 @@ TACListPtr TACFactory::MakeFunction(const location *plocation_, SymbolPtr func_h
   return tac_list;
 }
 
-ExpressionPtr TACFactory::MakeAssign(const location *plocation_, SymbolPtr var, ExpressionPtr exp) {
-  if (exp->tac == nullptr) {
-    throw NULL_EXCEPTION(__FILE__, __LINE__, "'tac' is null");
-  }
-  if (!exp->ret->value_.IsAssignableTo(var->value_)) {
-    throw TYPEMISMATCH_EXCEPTION(var->value_.TypeToString(), exp->ret->value_.TypeToString(),
-                                 " Can't assign this actual type to expected type");
-  }
-  auto tac_list = exp->tac->MakeCopy();
-  (*tac_list) += NewTAC(TACOperationType::Assign, var, exp->ret);
-  return NewExp(tac_list, var);
-}
-
 // TACListPtr TACFactory::MakeCall(SymbolPtr func_label, ArgListPtr args) {
 //   auto tac_list = NewTACList();
 //   for (auto exp : *args) {
@@ -210,14 +197,26 @@ ParamListPtr TACBuilder::NewParamList() { return TACFactory::Instance()->NewPara
 ArrayDescriptorPtr TACBuilder::NewArrayDescriptor() { return TACFactory::Instance()->NewArrayDescriptor(); }
 
 ExpressionPtr TACBuilder::CreateAssign(SymbolPtr var, ExpressionPtr exp) {
+  if (exp->tac == nullptr) {
+    throw NULL_EXCEPTION(__FILE__, __LINE__, "'tac' is null");
+  }
+  if (!exp->ret->value_.IsAssignableTo(var->value_)) {
+    throw TYPEMISMATCH_EXCEPTION(var->value_.TypeToString(), exp->ret->value_.TypeToString(),
+                                 " Can't assign this actual type to expected type");
+  }
+
   // 如果两者都是Array
+  auto tac_list = NewTACList();
   if (exp->ret->value_.Type() == SymbolValue::ValueType::Array && var->value_.Type() == SymbolValue::ValueType::Array) {
     exp = NewExp(exp->tac->MakeCopy(), exp->ret);
     auto tmpSym = CreateTempVariable(exp->ret->value_.UnderlyingType());
+    (*exp->tac) += NewTAC(TACOperationType::Variable, tmpSym);
     (*exp->tac) += NewTAC(TACOperationType::Assign, tmpSym, exp->ret);
     exp->ret = tmpSym;
   }
-  return TACFactory::Instance()->MakeAssign(plocation_, var, exp);
+  (*tac_list) += exp->tac;
+  (*tac_list) += NewTAC(TACOperationType::Assign, var, exp->ret);
+  return NewExp(tac_list, var);
 }
 
 void TACBuilder::FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array) {

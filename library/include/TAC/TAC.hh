@@ -56,7 +56,6 @@ class TACFactory {
   ArrayDescriptorPtr NewArrayDescriptor();
 
   TACListPtr MakeFunction(const location *plocation_, SymbolPtr func_head, TACListPtr body);
-  ExpressionPtr MakeAssign(const location *plocation_, SymbolPtr var, ExpressionPtr exp);
 
   // TACListPtr MakeCall(SymbolPtr func_label, ArgListPtr args);
   TACListPtr MakeCallWithRet(const location *plocation_, SymbolPtr func_label, ArgListPtr args, SymbolPtr ret_sym);
@@ -70,7 +69,7 @@ class TACFactory {
   //  stmt_false
   TACListPtr MakeIfElse(ExpressionPtr cond, SymbolPtr label_true, TACListPtr stmt_true, SymbolPtr label_false,
                         TACListPtr stmt_false);
-  
+
   // if型
   TACListPtr MakeWhile(ExpressionPtr cond, SymbolPtr label_cont, SymbolPtr label_brk, TACListPtr stmt);
   /*goto cont;
@@ -105,7 +104,7 @@ class TACFactory {
  private:
   //如果是能翻译成常量bool的表达式，会返回true，out_const_result传递相应值
   bool CheckConditionType(ExpressionPtr cond, bool *out_const_result);
-  
+
   TACFactory() = default;
 };
 
@@ -239,7 +238,6 @@ class TACBuilder {
   void SetLocation(HaveFunCompiler::Parser::location *plocation);
 
  private:
-
   using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
   HaveFunCompiler::Parser::location *plocation_;
   void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);
@@ -284,7 +282,7 @@ class TACRebuilder {
   SymbolPtr CreateConstSym(ValueType value) {
     return NewSymbol(SymbolType::Constant, std::nullopt, SymbolValue(value));
   }
-  
+
   SymbolPtr CreateVariable(const std::string &name, SymbolValue::ValueType type);
 
   //插入符号表，如果已经存在该名字会覆盖
