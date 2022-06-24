@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
+#include <list>
 #include <memory>
 #include <optional>
 #include "ASM/Common.hh"

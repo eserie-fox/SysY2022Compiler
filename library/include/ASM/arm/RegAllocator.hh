@@ -2,9 +2,16 @@
 
 #include <cstdint>
 #include <vector>
+#include <list>
 #include <unordered_map>
 #include "ASM/Common.hh"
 #include "MacroUtil.hh"
+
+namespace HaveFunCompiler {
+namespace ThreeAddressCode {
+enum class TACOperationType;
+}
+}  // namespace HaveFunCompiler
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -32,20 +39,30 @@ public:
     using const_iterator = std::list<std::shared_ptr<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>>::const_iterator;
     using TACOperationType = HaveFunCompiler::ThreeAddressCode::TACOperationType;
 
-    // stack_param的偏移(value)，正数，第一个为0
-    // stack_var的偏移，负数，基于栈基址
+
     struct SymAttribute
     {
-        // 对于函数，代表栈帧大小
+        enum StoreType {INT_REG, FLOAT_REG, STACK, NOT_USED};
+
+        // 对于函数，代表局部变量消耗的栈帧大小(保证8字节对齐)
         // 对于变量，代表寄存器编号或栈基址偏移
+        // 分配在栈上的函数参数的偏移，正数，按地址增长方向的偏移，从右往左压栈，即第一个为0，第二个为4
+        // stack_var的偏移，负数，基于栈基址
         int value;
+
         union
         {
-            enum {INT_REG, FLOAT_REG, STACK, NOT_USED} store_type;  // 变量的存储类型
+            StoreType store_type;  // 变量的存储类型
             struct {
                 uint32_t intRegs, floatRegs;
             } used_regs;  // 函数中已分配的寄存器集（包括保留的2个寄存器）
         } attr;
+
+        SymAttribute()
+        {
+            value = 0;
+            attr.used_regs = {0, 0};
+        }
     };
 
     struct LiveinfoWithSym
@@ -68,15 +85,15 @@ private:
     // 根据函数或变量Sym，取得它们的属性
     std::unordered_map<SymPtr, SymAttribute> symAttrMap;
 
-    // 函数内的局部变量，整型参数，浮点型参数的列表
-    std::vector<SymPtr> localSym, intParam, floatParam;
+    // 函数内的局部变量，参数的列表
+    std::vector<SymPtr> localSym, paramLs;
 
     // 栈上数组(栈上数组由数组指针Sym指向)
     // 根据指针Sym，取得数组地址属性
     std::unordered_map<SymPtr, SymAttribute> ptrToArrayOnStack;
 
 
-    enum ParamType {INT, FLOAT};
+    enum ParamType {INT_PARAM, FLOAT_PARAM};
 
     static const int intRegPoolSize = 13, floatRegPoolSize = 32;
     static const int intRegParamUsableNumber = 4, floatRegParamUsableNumber = 16;
