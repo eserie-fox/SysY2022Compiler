@@ -3,7 +3,6 @@
 #include "TAC/ThreeAddressCode.hh"
 #include "TAC/Symbol.hh"
 #include <vector>
-#include <queue>
 #include <stdexcept>
 #include <algorithm>
 
@@ -22,6 +21,9 @@ using namespace HaveFunCompiler::ThreeAddressCode;
 
 void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
 {
+    if (intRegParamUsableNumber + 2 >= intRegPoolSize || floatRegParamUsableNumber + 2 >= floatRegPoolSize) 
+        throw std::runtime_error("RegAllocator: Register config error");
+
     for (auto it = liveAnalyzer.get_fbegin(); it != liveAnalyzer.get_fend(); ++it)
     {
         auto &tac = *it;
@@ -43,10 +45,20 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
     }
 }
 
-RegAllocator::SymAttribute RegAllocator::LinearScan(std::vector<LiveinfoWithSym> &liveSymLs)
+RegAllocator::SymAttribute RegAllocator::LinearScan(std::vector<SymPtr>& localSym, const LiveAnalyzer& liveAnalyzer)
 {
     SymAttribute funcAttr;
-    int intRegUsedNumber = 0, floatRegUsedNumber = 0;  // 值为已使用的寄存器个数，也是下一个要使用的寄存器编号
+    
+    // 活跃区间端点[begin, end]，按end排序，end相同时begin小的对象偏序更大
+    auto _cmp = [](const LiveinfoWithSym &x, const LiveinfoWithSym &y)
+    {
+        if (x.liveInfo->endPoints.second < y.liveInfo->endPoints.second)
+            return true;
+        else if (x.liveInfo->endPoints.second == y.liveInfo->endPoints.second)
+            return x.liveInfo->endPoints.first > y.liveInfo->endPoints.first;
+        else
+            return false;
+    };
 
     auto getParamType = [](SymPtr param)
     {
@@ -61,7 +73,11 @@ RegAllocator::SymAttribute RegAllocator::LinearScan(std::vector<LiveinfoWithSym>
         }
     };
 
+    // 当前已分配在寄存器中的变量(包括参数和局部变量)
+    std::set<LiveinfoWithSym, decltype(_cmp)> symInReg(_cmp);
+
     /* 为函数参数分配寄存器和栈空间  */
+    int intRegUsedNumber = 0, floatRegUsedNumber = 0;  // 值为已使用的寄存器个数，也是下一个要使用的寄存器编号
     int paramStackOffset = 0;
     for (auto param : paramLs)
     {
@@ -106,38 +122,70 @@ RegAllocator::SymAttribute RegAllocator::LinearScan(std::vector<LiveinfoWithSym>
                 SET_UINT(funcAttr.attr.used_regs.floatRegs, floatRegUsedNumber);
                 ++floatRegUsedNumber;
             }
+
+            auto liveInfo = liveAnalyzer.get_symLiveInfo(param);
+            if (!liveInfo)
+                throw std::runtime_error("LiveAnalyzer fault: there are parameters that are not analyzed.");
+            // 对于分配在寄存器中的函数参数，在线性扫描时不允许溢出操作
+            symInReg.emplace(liveInfo, param, false);
         }
     }
     /*  函数参数分配寄存器和栈空间 完成  */
 
     // 此时intRegUsedNumber, floatRegUsedNumber中的值为参数使用的寄存器个数
-    // 为函数保留2个通用和浮点寄存器做临时运算用
+    // 为函数再保留1个通用和浮点寄存器做临时运算用
+    SET_UINT(funcAttr.attr.used_regs.intRegs, intRegUsedNumber);
+    funcAttr.attr.used_regs.intReservedReg = intRegUsedNumber;
+    SET_UINT(funcAttr.attr.used_regs.floatRegs, floatRegUsedNumber);
+    funcAttr.attr.used_regs.floatReservedReg = floatRegUsedNumber;
+    ++intRegUsedNumber, ++floatRegUsedNumber;
     
 
-    // 局部变量活跃区间列表，按照起点升序排序
-    std::sort(liveSymLs.begin(), liveSymLs.end(), [](const LiveinfoWithSym &x,const LiveinfoWithSym &y){
+    /* 开始为局部变量(虚拟寄存器)分配寄存器和栈空间 */
+
+    // 初始化可分配的寄存器
+    std::vector<int> intRegPool, floatRegPool;
+    for (int i = intRegPoolSize - 1; i >= intRegUsedNumber; --i)
+        intRegPool.push_back(i);
+    for (int i = floatRegPoolSize - 1; i >= floatRegUsedNumber; --i)
+        floatRegPool.push_back(i);
+
+    // 构建局部变量活跃区间的列表
+    std::vector<LiveinfoWithSym> localSymLiveInfo;
+    for (auto sym : localSym)
+    {
+        auto liveInfo = liveAnalyzer.get_symLiveInfo(sym);
+        if (!liveInfo)
+            throw std::runtime_error("LiveAnalyzer fault: there are local variables that are not analyzed.");
+        localSymLiveInfo.emplace_back(liveInfo, sym);
+    }
+
+    // 局部变量的活跃区间列表按照起点进行升序排序
+    std::sort(localSymLiveInfo.begin(), localSymLiveInfo.end(), [](const LiveinfoWithSym &x,const LiveinfoWithSym &y){
         return x.liveInfo->endPoints < y.liveInfo->endPoints;
     });
+
+    
 
     return funcAttr;
 }
 
 RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
 {
-    // 得到函数中的局部变量、整型参数和浮点型参数
+    // 得到函数中的局部变量、参数列表
     ContextInit(liveAnalyzer);
 
-    // 将局部变量与其活跃区间绑定
-    std::vector<LiveinfoWithSym> liveSymLs;
-    for (auto sym : localSym)
-    {
-        auto liveInfoPtr = liveAnalyzer.get_symLiveInfo(sym);
-        if (!liveInfoPtr)
-            throw std::runtime_error("LiveAnalyzer fault: there are local variables that are not analyzed.");
-        liveSymLs.emplace_back(liveInfoPtr, sym);
-    }
+    // // 将局部变量与其活跃区间绑定
+    // std::vector<LiveinfoWithSym> liveSymLs;
+    // for (auto sym : localSym)
+    // {
+    //     auto liveInfoPtr = liveAnalyzer.get_symLiveInfo(sym);
+    //     if (!liveInfoPtr)
+    //         throw std::runtime_error("LiveAnalyzer fault: there are local variables that are not analyzed.");
+    //     liveSymLs.emplace_back(liveInfoPtr, sym);
+    // }
 
-    LinearScan(liveSymLs);
+    LinearScan(localSym, liveAnalyzer);
 }
 
 RegAllocator::SymAttribute RegAllocator::get_SymAttribute([[maybe_unused]] SymPtr sym) 

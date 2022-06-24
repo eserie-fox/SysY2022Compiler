@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <list>
+#include <set>
 #include <unordered_map>
 #include "ASM/Common.hh"
 #include "MacroUtil.hh"
@@ -27,9 +28,21 @@ struct SymLiveInfo;
  * 浮点寄存器可用的:s0-s31
  * 
  * 通用和浮点寄存器各保留2个不分配，用作计算的临时存储
- * 规则：参数传递所用的最大寄存器的后2个保留。如参数使用r0, r1传递，则保留r2, r3不分配
+ * 规则：保留r0，以及参数传递所用的最大寄存器的后1个寄存器。如参数使用r0, r1传递，则保留r0, r2不分配
+ * 浮点寄存器保留规则同理
 */
 
+/* 
+ * 一个活跃区间由一个或多个dfn连续的range组成 
+ * 不同的range，虽然dfn不连续，但控制流可能是连续的
+ * 例如：分支出两条路径，其中一条路径p的dfn肯定不与父路径连续，但控制流可能直接跳转到p
+ * 
+ * 也就是说，range的起点不一定是def，终点不一定是use。
+ * 如果不同的range分配不同的地址/寄存器，控制流在range之间直接跳转时就发生了地址冲突。
+ * 即使是不同的range分配相同的地址，也会发生冲突。
+ * 
+ * 这里 由LiveAnalyzer保证，同一变量的活跃区间内的每一个range，起点一定是def，终点一定是use。
+*/
 class RegAllocator
 {
 public:
@@ -42,7 +55,8 @@ public:
 
     struct SymAttribute
     {
-        enum StoreType {INT_REG, FLOAT_REG, STACK, NOT_USED};
+        // 更改：移除NOT_USED类型
+        enum StoreType {INT_REG, FLOAT_REG, STACK};
 
         // 对于函数，代表局部变量消耗的栈帧大小(保证8字节对齐)
         // 对于变量，代表寄存器编号或栈基址偏移
@@ -54,14 +68,15 @@ public:
         {
             StoreType store_type;  // 变量的存储类型
             struct {
-                uint32_t intRegs, floatRegs;
-            } used_regs;  // 函数中已分配的寄存器集（包括保留的2个寄存器）
+                uint32_t intRegs, floatRegs;  // 函数中已分配的寄存器集
+                int intReservedReg, floatReservedReg;  // 额外保留的一个寄存器号(即除了r0/s0的另一个)
+            } used_regs; 
         } attr;
 
         SymAttribute()
         {
             value = 0;
-            attr.used_regs = {0, 0};
+            attr.used_regs = {0, 0, 0, 0};
         }
     };
 
@@ -69,8 +84,9 @@ public:
     {
         const SymLiveInfo *liveInfo;
         SymPtr sym;
+        bool canSpill;  // 是否能够进行溢出
 
-        LiveinfoWithSym(const SymLiveInfo *liveInfoPtr, SymPtr symPtr) : liveInfo(liveInfoPtr), sym(symPtr) {};
+        LiveinfoWithSym(const SymLiveInfo *liveInfoPtr, SymPtr symPtr, bool can_spill = true) : liveInfo(liveInfoPtr), sym(symPtr), canSpill(can_spill) {};
     };
 
     NONCOPYABLE(RegAllocator)
@@ -105,7 +121,9 @@ private:
 
     // 线性扫描，分配寄存器与栈空间
     // 返回函数属性
-    SymAttribute LinearScan(std::vector<LiveinfoWithSym>& liveSymLs);
+    SymAttribute LinearScan(std::vector<SymPtr>& localSym, const LiveAnalyzer& liveAnalyzer);
+
+
 };
 
 
