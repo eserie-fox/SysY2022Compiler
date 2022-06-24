@@ -732,7 +732,11 @@ Stmt
     if((ValueType)type==ValueType::Void){
       throw RuntimeException(scanner.get_location(), "Cant return the value for Void function");
     }
+    if($2->ret->value_.Type()==SymbolValue::ValueType::Array && !$2->ret->value_.HasOperatablity()){
+      throw RuntimeException(scanner.get_location(), "Cant return array from function");
+    }
     ExpressionPtr exp;
+    
     if($2->ret->value_.UnderlyingType()!=(ValueType)type){
       if((ValueType)type == ValueType::Int){
         exp = tacbuilder->CastFloatToInt($2);
@@ -741,9 +745,16 @@ Stmt
       }
       $$ = tacbuilder->NewTACList(*exp->tac + tacbuilder->NewTAC(TACOperationType::Return, exp->ret));
     }
-    else
+    else if($2->ret->value_.Type()==SymbolValue::ValueType::Array){
+      auto tmpSym = tacbuilder->CreateTempVariable($2->ret->value_.UnderlyingType());
+      $$ = tacbuilder->NewTACList(*$2->tac 
+        + tacbuilder->NewTAC(TACOperationType::Variable, tmpSym)
+        + tacbuilder->NewTAC(TACOperationType::Assign, tmpSym ,$2->ret) 
+        + tacbuilder->NewTAC(TACOperationType::Return, tmpSym));
+    }else{
       $$ = tacbuilder->NewTACList(*$2->tac + tacbuilder->NewTAC(TACOperationType::Return, $2->ret));
-  }
+    }
+   }
   ;
 
 WHILEUP : WHILE
