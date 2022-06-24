@@ -99,14 +99,19 @@ TACListPtr TACFactory::MakeCallWithRet(const location *plocation_, SymbolPtr fun
     }
   }
   auto tac_list = NewTACList();
-  (*tac_list) += NewTAC(TACOperationType::Variable, ret_sym);
+  if (ret_sym->value_.Type() != SymbolValue::ValueType::Void)
+    (*tac_list) += NewTAC(TACOperationType::Variable, ret_sym);
   for (auto exp : *args) {
     (*tac_list) += exp->tac;
   }
   for (auto exp : *args) {
     (*tac_list) += NewTAC(TACOperationType::Argument, exp->ret);
   }
-  (*tac_list) += NewTAC(TACOperationType::Call, ret_sym, func_label);
+  if (ret_sym->value_.Type() != SymbolValue::ValueType::Void) {
+    (*tac_list) += NewTAC(TACOperationType::Call, ret_sym, func_label);
+  } else {
+    (*tac_list) += NewTAC(TACOperationType::Call, nullptr, func_label);
+  }
   return tac_list;
 }
 

@@ -465,20 +465,22 @@ std::string SymbolValue::TypeToString() const {
   return ret;
 }
 
-void SymbolValue::CheckOperatablity(const HaveFunCompiler::Parser::Parser::location_type &loc) {
+bool SymbolValue::HasOperatablity() {
   if (Type() == ValueType::Array) {
     auto ad = GetArrayDescriptor();
     if (!ad->dimensions.empty()) {
-      goto fail;
+      return false;
     }
-    return;
+    return true;
   }
   if (Type() != ValueType::Int && Type() != ValueType::Float) {
-    goto fail;
+    return false;
   }
-  return;
-fail:
-  throw TypeMismatchException(loc, TypeToString(), "int/float", "Underlying type should be int/float");
+  return true;
+}
+void SymbolValue::CheckOperatablity(const HaveFunCompiler::Parser::Parser::location_type &loc) {
+  if (!HasOperatablity())
+    throw TypeMismatchException(loc, TypeToString(), "int/float", "Underlying type should be int/float");
 }
 
 SymbolValue::ValueType SymbolValue::UnderlyingType() const {

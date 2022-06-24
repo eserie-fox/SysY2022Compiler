@@ -54,6 +54,8 @@ struct SymbolValue {
   //检查可操作性，即要么为int要么为float，（或数组访问到最后一维），失败会抛出异常
   void CheckOperatablity(const HaveFunCompiler::Parser::location &loc);
 
+  bool HasOperatablity();
+
   ValueType Type() const { return type; }
   ValueType UnderlyingType() const;
 
