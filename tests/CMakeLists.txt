@@ -16,7 +16,7 @@ FILE(GLOB Sources "*.cc")
 add_executable(Tests ${Sources})
 target_link_libraries(Tests gtest_main HaveFunLib)
 
-target_include_directories(Tests PRIVATE "../source/include")
+target_include_directories(Tests PRIVATE "../source/include" "../library/include")
 
 include(GoogleTest)
 gtest_discover_tests(Tests)

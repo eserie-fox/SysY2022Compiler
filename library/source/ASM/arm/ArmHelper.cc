@@ -1,5 +1,6 @@
 #include "ASM/arm/ArmHelper.hh"
 #include <algorithm>
+#include <stdexcept>
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
@@ -28,6 +29,35 @@ bool ArmHelper::IsImmediateValue(uint32_t value) {
     tmp++;
   }
   return std::max(mZeros, lZeros + rZeros) >= 24;
+}
+
+std::vector<uint32_t> ArmHelper::DivideIntoImmediateValues(uint32_t value) {
+  if (value == 0) {
+    return {0};
+  }
+  std::vector<uint32_t> ret;
+  while (value) {
+    int start;
+    for (start = 31; start >= 0; start--) {
+      uint32_t bit = 1U << start;
+      if (value & bit) {
+        break;
+      }
+    }
+    if (start == -1) {
+      throw std::logic_error("DivideIntoImmediateValues Unknown situation");
+    }
+    uint32_t nval = 0;
+    for (int i = start; i >= std::max(i - 7, 0); i--) {
+      uint32_t bit = 1U << start;
+      if (value & bit) {
+        value &= ~bit;
+        nval |= bit;
+      }
+    }
+    ret.push_back(nval);
+  }
+  return ret;
 }
 
 }  // namespace AssemblyBuilder

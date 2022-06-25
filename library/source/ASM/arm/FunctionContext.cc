@@ -8,6 +8,7 @@ namespace ArmUtil {
 void FunctionContext::SetUp() {
   stack_size_for_regsave_ = 0;
   stack_size_for_args_ = 0;
+  stack_size_for_vars_ = 0;
   intregs_ = 0;
   nparam_ = 0;
   floatregs_ = 0;
