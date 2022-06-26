@@ -49,6 +49,9 @@ struct SymLiveInfo
     // 活跃区间端点的最小值和最大值
     std::pair<size_t, size_t> endPoints;
 
+    // 定值计数，使用计数
+    size_t defCnt, useCnt;
+
     // bool operator<(const SymLiveInfo &o) const
     // {
     //     if (high > o.high)  return true;

@@ -2,7 +2,7 @@
 #include "ASM/LiveAnalyzer.hh"
 #include "TAC/ThreeAddressCode.hh"
 #include "TAC/Symbol.hh"
-#include <vector>
+#include <queue>
 #include <stdexcept>
 #include <algorithm>
 
@@ -45,46 +45,30 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
     }
 }
 
-RegAllocator::SymAttribute RegAllocator::LinearScan(std::vector<SymPtr>& localSym, const LiveAnalyzer& liveAnalyzer)
+RegAllocator::SymValueType RegAllocator::fetchSymValueType(SymPtr sym)
 {
-    SymAttribute funcAttr;
-    
-    // 活跃区间端点[begin, end]，按end排序，end相同时begin小的对象偏序更大
-    auto _cmp = [](const LiveinfoWithSym &x, const LiveinfoWithSym &y)
+    if (sym->value_.Type() == SymbolValue::ValueType::Int || sym->value_.Type() == SymbolValue::ValueType::Array)
+        return INT;
+    else if (sym->value_.Type() == SymbolValue::ValueType::Float)
+        return FLOAT;
+    else
     {
-        if (x.liveInfo->endPoints.second < y.liveInfo->endPoints.second)
-            return true;
-        else if (x.liveInfo->endPoints.second == y.liveInfo->endPoints.second)
-            return x.liveInfo->endPoints.first > y.liveInfo->endPoints.first;
-        else
-            return false;
-    };
+        throw std::runtime_error("RegAllocator: Unrecognized sym value type!");
+        return INT;
+    }
+}
 
-    auto getParamType = [](SymPtr param)
-    {
-        if (param->value_.Type() == SymbolValue::ValueType::Int || param->value_.Type() == SymbolValue::ValueType::Array)
-            return INT_PARAM;
-        else if (param->value_.Type() == SymbolValue::ValueType::Float)
-            return FLOAT_PARAM;
-        else
-        {
-            throw std::runtime_error("RegAllocator: Unrecognized parameter type!");
-            return INT_PARAM;
-        }
-    };
-
-    // 当前已分配在寄存器中的变量(包括参数和局部变量)
-    std::set<LiveinfoWithSym, decltype(_cmp)> symInReg(_cmp);
-
-    /* 为函数参数分配寄存器和栈空间  */
+void RegAllocator::getParamAddr()
+{
+    /* 计算函数参数传入时使用的寄存器和栈空间，记录在对应的SymAttribute中  */
     int intRegUsedNumber = 0, floatRegUsedNumber = 0;  // 值为已使用的寄存器个数，也是下一个要使用的寄存器编号
     int paramStackOffset = 0;
     for (auto param : paramLs)
     {
         int regUsedNumber, regParamUsableNumber;  // 使用这两个变量，对int和float类型参数统一处理
-        ParamType paramType = getParamType(param);
+        SymValueType paramType = fetchSymValueType(param);
         
-        if (paramType == INT_PARAM)
+        if (paramType == INT)
         {
             regUsedNumber = intRegUsedNumber;
             regParamUsableNumber = intRegParamUsableNumber;
@@ -102,72 +86,247 @@ RegAllocator::SymAttribute RegAllocator::LinearScan(std::vector<SymPtr>& localSy
         // 能够被用于传递参数的寄存器已经用完了，参数应使用栈传递
         if (regUsedNumber >= regParamUsableNumber)
         {
-            paramAttribute.attr.store_type = SymAttribute::StoreType::STACK;
+            paramAttribute.attr.store_type = SymAttribute::StoreType::STACK_PARAM;
             paramAttribute.value = paramStackOffset;
             paramStackOffset += 4;   // 一个参数，占用4字节
         }
 
-        // 否则，分配在寄存器中
+        // 否则，参数应在寄存器中
         else
         {
-            paramAttribute.attr.store_type = paramType == INT_PARAM ? SymAttribute::StoreType::INT_REG : SymAttribute::StoreType::FLOAT_REG;
+            paramAttribute.attr.store_type = paramType == INT ? SymAttribute::StoreType::INT_REG : SymAttribute::StoreType::FLOAT_REG;
             paramAttribute.value = regUsedNumber;
-            if (paramType == INT_PARAM)
-            {
-                SET_UINT(funcAttr.attr.used_regs.intRegs, intRegUsedNumber);
+            if (paramType == INT)
                 ++intRegUsedNumber;
-            }
             else
-            {
-                SET_UINT(funcAttr.attr.used_regs.floatRegs, floatRegUsedNumber);
                 ++floatRegUsedNumber;
-            }
-
-            auto liveInfo = liveAnalyzer.get_symLiveInfo(param);
-            if (!liveInfo)
-                throw std::runtime_error("LiveAnalyzer fault: there are parameters that are not analyzed.");
-            // 对于分配在寄存器中的函数参数，在线性扫描时不允许溢出操作
-            symInReg.emplace(liveInfo, param, false);
         }
     }
-    /*  函数参数分配寄存器和栈空间 完成  */
+}
 
-    // 此时intRegUsedNumber, floatRegUsedNumber中的值为参数使用的寄存器个数
-    // 为函数再保留1个通用和浮点寄存器做临时运算用
-    SET_UINT(funcAttr.attr.used_regs.intRegs, intRegUsedNumber);
-    funcAttr.attr.used_regs.intReservedReg = intRegUsedNumber;
-    SET_UINT(funcAttr.attr.used_regs.floatRegs, floatRegUsedNumber);
-    funcAttr.attr.used_regs.floatReservedReg = floatRegUsedNumber;
-    ++intRegUsedNumber, ++floatRegUsedNumber;
-    
-
-    /* 开始为局部变量(虚拟寄存器)分配寄存器和栈空间 */
-
-    // 初始化可分配的寄存器
-    std::vector<int> intRegPool, floatRegPool;
-    for (int i = intRegPoolSize - 1; i >= intRegUsedNumber; --i)
-        intRegPool.push_back(i);
-    for (int i = floatRegPoolSize - 1; i >= floatRegUsedNumber; --i)
-        floatRegPool.push_back(i);
-
-    // 构建局部变量活跃区间的列表
-    std::vector<LiveinfoWithSym> localSymLiveInfo;
-    for (auto sym : localSym)
+SymAttribute& RegAllocator::fetchSymAttr(const SymInfo &symInfo)
+{
+    // 程序debug完成后，可以去掉这些异常处理(运行逻辑正确，则无论输入如何都不会进入异常分支)
+    if (symInfo.symType == PARAM)
     {
-        auto liveInfo = liveAnalyzer.get_symLiveInfo(sym);
+        if (symAttrMap.find(symInfo.symPtr) == symAttrMap.end())
+            throw std::runtime_error("getParamAttr error: param didn't be inserted into symAttrMap");
+        else
+            return symAttrMap[symInfo.symPtr];
+    }
+    else
+    {
+        if (symAttrMap.emplace(symInfo.symPtr, SymAttribute()).second == false)
+            throw std::runtime_error("getLocalVarAttr error: local var has been inserted into symAttrMap which shouldn't happen");
+        return symAttrMap[symInfo.symPtr];
+    }
+}
+
+SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
+{
+    SymAttribute funcAttr;
+    
+    // 得到参数传入时占用的地址，同时为每个参数创建了Attribute对象，保存在symAttrMap中
+    getParamAddr();
+
+    // 构建待分配的变量表
+    // 使用优先队列，溢出权重大的优先分配
+    std::priority_queue<SymInfo> syms;
+    for (auto var : localSym)
+    {
+        auto liveInfo = liveAnalyzer.get_symLiveInfo(var);
         if (!liveInfo)
             throw std::runtime_error("LiveAnalyzer fault: there are local variables that are not analyzed.");
-        localSymLiveInfo.emplace_back(liveInfo, sym);
+        syms.emplace(var, LOCAL_VAR, fetchSymValueType(var), &liveInfo->liveIntervalSet, SymInfo::calculateSpillCost(liveInfo->defCnt, liveInfo->useCnt));
+    }
+    
+    for (auto param : paramLs)
+    {
+        auto liveInfo = liveAnalyzer.get_symLiveInfo(param);
+        if (!liveInfo)
+            throw std::runtime_error("LiveAnalyzer fault: there are parameters that are not analyzed.");
+        syms.emplace(param, PARAM, fetchSymValueType(param), &liveInfo->liveIntervalSet, SymInfo::calculateSpillCost(liveInfo->defCnt, liveInfo->useCnt));
     }
 
-    // 局部变量的活跃区间列表按照起点进行升序排序
-    std::sort(localSymLiveInfo.begin(), localSymLiveInfo.end(), [](const LiveinfoWithSym &x,const LiveinfoWithSym &y){
-        return x.liveInfo->endPoints < y.liveInfo->endPoints;
-    });
 
+    // 构造可分配物理寄存器表
+    // 保留r0, r4, s0, s16
+    // 分配时从下标0开始向后检查reg是否可用
+    // 保存函数参数的reg分配优先级低，为了尽量保证分配在寄存器内的参数不需移动到栈中
+    // 对参数的特殊处理：通过寄存器传递的参数，要么在原来的寄存器中，要么在变量的栈上分配一块空间
+    // 通过栈传递的参数，要么保持在原来的栈位置，要么被分配在一个寄存器中
+    std::vector<RegInfo> intRegs, floatRegs;
+
+    // Index: 快速由寄存器号索引到保存该寄存器信息的下标
+    int intRegsIndex[intRegPoolSize], floatRegsIndex[floatRegPoolSize];
+
+    // 便于int类型和float类型统一处理
+    std::unordered_map<SymValueType, std::vector<RegInfo>*> typeRegMap = {
+        {INT, &intRegs}, {FLOAT, &floatRegs}
+    };  // 不能map引用(引用不可变)，指针代替
+    std::unordered_map<SymValueType, int*> typeRegIndexMap = {
+        {INT, intRegsIndex}, {FLOAT, floatRegsIndex}
+    };
+
+    for (int i = 5, j = 0; i < intRegPoolSize; ++i, ++j)
+    {
+        intRegs.emplace_back(i);
+        intRegsIndex[i] = j;
+    }
+    for (int i = 3, j = intRegs.size(); i >= 1; --i, ++j)
+    {
+        intRegs.emplace_back(i);
+        intRegsIndex[i] = j;
+    }
+    for (int i = 17, j = 0; i < floatRegPoolSize; ++i, ++j)
+    {
+        floatRegs.emplace_back(i);
+        floatRegsIndex[i] = j;
+    }
+    for (int i = 15, j = floatRegs.size(); i >= 1; --i, ++j)
+    {
+        floatRegs.emplace_back(i);
+        floatRegsIndex[i] = j;
+    }
+
+    funcAttr.attr.used_regs.intReservedReg = 4;
+    funcAttr.attr.used_regs.floatReservedReg = 16;
     
 
+    // 开始为每个变量分配物理寄存器或栈空间
+    int varStackOffset = 0;
+
+    // 将分配到栈的信息存储到symAttr并更新栈顶
+    auto AllocOnStackMark = [&varStackOffset](SymAttribute &symAttr, int size)
+    {
+        if (INT_MIN + size > varStackOffset)
+            throw std::runtime_error("RegAllocator: variable stack overflow");
+        varStackOffset -= size;
+        symAttr.attr.store_type = SymAttribute::STACK_VAR;
+        symAttr.value = varStackOffset;
+    };
+
+    // 将寄存器regId加入到函数使用的type类寄存器集
+    auto funcUsedRegadd = [&funcAttr](SymValueType type, int regId)
+    {
+        if (type == INT)
+            SET_UINT(funcAttr.attr.used_regs.intRegs, regId);
+        else
+            SET_UINT(funcAttr.attr.used_regs.floatRegs, regId);
+    };
+
+    // 为symAttr记录信息：分配到type类型的寄存器regId，并更新函数使用的寄存器集
+    auto AllocOnRegMark = [&funcUsedRegadd](SymAttribute &symAttr, SymValueType type, int regId)
+    {
+        if (type == INT)
+            symAttr.attr.store_type = SymAttribute::INT_REG;
+        else
+            symAttr.attr.store_type = SymAttribute::FLOAT_REG;
+        symAttr.value = regId;
+        funcUsedRegadd(type, regId);
+    };
+
+    while (!syms.empty())
+    {
+        auto symInfo = syms.top();
+        syms.pop();
+
+        // 得到适合于这个变量的寄存器集(INT使用通用寄存器，FLOAT使用浮点寄存器)
+        auto &regs = *(typeRegMap[symInfo.symValueType]);
+        auto regIndex = typeRegIndexMap[symInfo.symValueType];
+
+        auto &attribute = fetchSymAttr(symInfo);
+
+        // 如果sym是通过寄存器传递的参数
+        if (symInfo.symType == PARAM)
+        {
+            if (attribute.attr.store_type != SymAttribute::STACK_PARAM)  // 判断为true代表在寄存器中
+            {  
+                auto regId = attribute.value;
+                auto &reg = regs[regIndex[regId]];
+
+                // 尝试将该参数分配给regId
+                // 成功，则分配完成，不需要更改attribute信息，只更新函数使用的寄存器
+                if (reg.AllocToSym(*(symInfo.liveRanges)) == true)
+                {
+                    funcUsedRegadd(symInfo.symValueType, regId);
+                    continue;
+                }
+                // 失败，溢出到栈
+                else
+                {
+                    AllocOnStackMark(attribute, 4);  // 参数始终是4字节
+                    continue;
+                }
+            }    
+        }
+
+        // 否则，sym是通过栈传递的参数或局部变量
+        bool allocInReg = false;
+        for (auto &reg : regs)
+        {
+            // 如果能找到一个不冲突的寄存器reg，则分配到reg
+            if (reg.AllocToSym(*(symInfo.liveRanges)) == true)
+            {
+                AllocOnRegMark(attribute, symInfo.symValueType, reg.id);
+                allocInReg = true;
+                break;
+            }
+        }
+
+        // 如果所有寄存器都冲突，由于是按溢出代价从高到低分配，将当前sym溢出代价最小
+        if (allocInReg == false)
+        {
+            // 如果sym是通过栈传递的参数，则不需移动
+            // 局部变量则溢出到栈
+            if (symInfo.symType == LOCAL_VAR)
+                AllocOnStackMark(attribute, 4);  // 局部变量始终是4字节
+        }
+    }
+
+
+    // 接下来为通过局部变量指针引用的，存放在栈上的变量分配空间
+    // 目前即数组
+    for (auto& [sym, attr] : ptrToArrayOnStack)
+    {
+        // 得到数组的大小
+        // AllocOnStackMark
+    }
+
+    // 将栈的使用情况记录到函数属性
+    auto &varStackSize = funcAttr.value;
+    varStackSize = abs(varStackOffset);
+    if (varStackSize % 8 != 0)   // 保证8字节对齐
+        varStackSize += (8 - varStackSize % 8);
+
     return funcAttr;
+}
+
+bool RegAllocator::RegInfo::IsConflict(const std::set<LiveInterval>& symRanges)
+{
+    auto regIt = occupyRanges.begin(), symIt = symRanges.begin();
+    for (; symIt != symRanges.end() && regIt != occupyRanges.end(); )
+    {
+        if (regIt->second < symIt->first)  ++regIt;
+        else if (symIt->second < regIt->first)  ++symIt;
+        else  break;
+    }
+    if (symIt == symRanges.end() || regIt == occupyRanges.end())  return false;
+    else  return true;
+}
+
+void RegAllocator::RegInfo::AddRanges(const std::set<LiveInterval>& src)
+{
+    for (auto &e : src)
+        occupyRanges.insert(e);
+}
+
+bool RegAllocator::RegInfo::AllocToSym(const std::set<LiveInterval> &symRanges)
+{
+    if (IsConflict(symRanges))
+        return false;
+    AddRanges(symRanges);
+    return true;
 }
 
 RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
@@ -185,10 +344,10 @@ RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
     //     liveSymLs.emplace_back(liveInfoPtr, sym);
     // }
 
-    LinearScan(localSym, liveAnalyzer);
+    LinearScan(liveAnalyzer);
 }
 
-RegAllocator::SymAttribute RegAllocator::get_SymAttribute([[maybe_unused]] SymPtr sym) 
+SymAttribute RegAllocator::get_SymAttribute([[maybe_unused]] SymPtr sym) 
 { 
     return {}; 
 }
