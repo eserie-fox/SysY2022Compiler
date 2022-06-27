@@ -289,15 +289,13 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     // 目前即数组
     for (auto& [sym, attr] : ptrToArrayOnStack)
     {
-        // 得到数组的大小
-        // AllocOnStackMark
+        auto siz = sym->value_.GetArrayDescriptor()->GetSizeInByte();
+        AllocOnStackMark(attr, siz);
     }
 
     // 将栈的使用情况记录到函数属性
     auto &varStackSize = funcAttr.value;
     varStackSize = abs(varStackOffset);
-    if (varStackSize % 8 != 0)   // 保证8字节对齐
-        varStackSize += (8 - varStackSize % 8);
 
     return funcAttr;
 }
@@ -333,23 +331,26 @@ RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
 {
     // 得到函数中的局部变量、参数列表
     ContextInit(liveAnalyzer);
-
-    // // 将局部变量与其活跃区间绑定
-    // std::vector<LiveinfoWithSym> liveSymLs;
-    // for (auto sym : localSym)
-    // {
-    //     auto liveInfoPtr = liveAnalyzer.get_symLiveInfo(sym);
-    //     if (!liveInfoPtr)
-    //         throw std::runtime_error("LiveAnalyzer fault: there are local variables that are not analyzed.");
-    //     liveSymLs.emplace_back(liveInfoPtr, sym);
-    // }
-
+    // 线性扫描
     LinearScan(liveAnalyzer);
 }
 
-SymAttribute RegAllocator::get_SymAttribute([[maybe_unused]] SymPtr sym) 
+SymAttribute RegAllocator::get_SymAttribute(SymPtr sym) 
 { 
-    return {}; 
+    return fetchAttr(sym, symAttrMap);
+}
+
+SymAttribute RegAllocator::get_ArrayAttribute(SymPtr arrPtr)
+{
+    return fetchAttr(arrPtr, ptrToArrayOnStack);
+}
+
+SymAttribute RegAllocator::fetchAttr(SymPtr sym, std::unordered_map<SymPtr, SymAttribute>& attrMap)
+{
+    auto res = attrMap.find(sym);
+    if (res == attrMap.end())
+        throw std::runtime_error("Sym attribute not found");
+    return res->second;
 }
 
 }  // namespace AssemblyBuilder

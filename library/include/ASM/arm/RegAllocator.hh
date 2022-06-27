@@ -121,6 +121,7 @@ public:
     RegAllocator(const LiveAnalyzer&);
 
     SymAttribute get_SymAttribute(SymPtr sym);
+    SymAttribute get_ArrayAttribute(SymPtr arrPtr);
 
 private:
 
@@ -218,6 +219,8 @@ private:
     SymAttribute& fetchSymAttr(const SymInfo &symInfo);
 
     static SymValueType fetchSymValueType(SymPtr sym);
+
+    SymAttribute fetchAttr(SymPtr, std::unordered_map<SymPtr, SymAttribute>&);
 };
 
 
