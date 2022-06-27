@@ -92,14 +92,24 @@ void RegAllocator::getParamAddr()
         }
 
         // 否则，参数应在寄存器中
+        // 由于第一个参数通过r0，s0传递，而r0, r4, s0, s16不能分配给变量
+        // 所以对第一个参数特殊处理，记录它在PoolSize - 1中
         else
         {
             paramAttribute.attr.store_type = paramType == INT ? SymAttribute::StoreType::INT_REG : SymAttribute::StoreType::FLOAT_REG;
-            paramAttribute.value = regUsedNumber;
             if (paramType == INT)
+            {
+                if (regUsedNumber == 0)
+                    regUsedNumber = intRegPoolSize - 1;
                 ++intRegUsedNumber;
+            }
             else
+            {
+                if (regUsedNumber == 0)
+                    regUsedNumber = floatRegPoolSize - 1;
                 ++floatRegUsedNumber;
+            }
+            paramAttribute.value = regUsedNumber;
         }
     }
 }
@@ -199,11 +209,11 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     // 将分配到栈的信息存储到symAttr并更新栈顶
     auto AllocOnStackMark = [&varStackOffset](SymAttribute &symAttr, int size)
     {
-        if (INT_MIN + size > varStackOffset)
+        if (INT_MAX - size < varStackOffset)
             throw std::runtime_error("RegAllocator: variable stack overflow");
-        varStackOffset -= size;
         symAttr.attr.store_type = SymAttribute::STACK_VAR;
         symAttr.value = varStackOffset;
+        varStackOffset += size;
     };
 
     // 将寄存器regId加入到函数使用的type类寄存器集
