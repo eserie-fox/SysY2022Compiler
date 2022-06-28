@@ -18,6 +18,9 @@ public:
     NONCOPYABLE(ControlFlowGraph)
 
     // 传入一个函数的三地址码列表，生成函数的控制流图
+    // [fbegin, fend)
+    // fbegin-> label funcName
+    // fend-> fend的后一条
     ControlFlowGraph(TACListPtr FuncTACList);
     ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend);
 

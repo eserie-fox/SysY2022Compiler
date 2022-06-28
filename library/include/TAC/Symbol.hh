@@ -101,6 +101,7 @@ struct Symbol {
   SymbolValue value_;
   std::string get_name() const;
   std::string get_tac_name(bool name_only = false) const;
+  bool is_var() const;
 };
 
 class Expression;

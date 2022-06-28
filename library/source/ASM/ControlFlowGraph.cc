@@ -8,9 +8,19 @@ namespace AssemblyBuilder{
 
 ControlFlowGraph::ControlFlowGraph(TACListPtr FuncTACList) : ControlFlowGraph(FuncTACList->begin(), FuncTACList->end()) { }
 
-ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend) : f_begin(fbegin), f_end(fend)
+ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend)
 {
     using namespace HaveFunCompiler::ThreeAddressCode;
+
+    // 合法性检查
+    if (fbegin == fend)
+        throw std::runtime_error("ControlFlowGraph error: empty tac list");
+    --fend;
+    if ((*fbegin)->operation_ != TACOperationType::Label || (*fend)->operation_ != TACOperationType::FunctionEnd)
+        throw std::runtime_error("ControlFLowGraph error: unrecognized function TAClist");
+
+    f_begin = fbegin;
+    f_end = fend;
 
     std::unordered_map<std::string, size_t> labelMap;  // 映射jmp目标对应节点下标
     std::vector<size_t> jmpReloc;  // 第一次扫描时保存需要jmp的指令

@@ -102,6 +102,12 @@ public:
         return &symLiveMap.at(sym);
     }
 
+    // 得到函数中出现的所有变量的集合
+    const std::unordered_set<SymPtr>& get_allSymSet() const
+    {
+        return symSet;
+    }
+
 private:
 
     // 暂时不记录流图的活跃信息

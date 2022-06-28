@@ -613,6 +613,10 @@ std::string Symbol::get_tac_name(bool name_only) const {
   return value_.ToString();
 }
 
+bool Symbol::is_var() const {
+  
+}
+
 size_t ArrayDescriptor::GetSizeInByte() const {
   size_t ret = 1;
   for (auto sz : dimensions) {
