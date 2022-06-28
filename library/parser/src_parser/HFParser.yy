@@ -732,7 +732,11 @@ Stmt
     if((ValueType)type==ValueType::Void){
       throw RuntimeException(scanner.get_location(), "Cant return the value for Void function");
     }
+    if($2->ret->value_.Type()==SymbolValue::ValueType::Array && !$2->ret->value_.HasOperatablity()){
+      throw RuntimeException(scanner.get_location(), "Cant return array from function");
+    }
     ExpressionPtr exp;
+    
     if($2->ret->value_.UnderlyingType()!=(ValueType)type){
       if((ValueType)type == ValueType::Int){
         exp = tacbuilder->CastFloatToInt($2);
@@ -741,9 +745,16 @@ Stmt
       }
       $$ = tacbuilder->NewTACList(*exp->tac + tacbuilder->NewTAC(TACOperationType::Return, exp->ret));
     }
-    else
+    else if($2->ret->value_.Type()==SymbolValue::ValueType::Array){
+      auto tmpSym = tacbuilder->CreateTempVariable($2->ret->value_.UnderlyingType());
+      $$ = tacbuilder->NewTACList(*$2->tac 
+        + tacbuilder->NewTAC(TACOperationType::Variable, tmpSym)
+        + tacbuilder->NewTAC(TACOperationType::Assign, tmpSym ,$2->ret) 
+        + tacbuilder->NewTAC(TACOperationType::Return, tmpSym));
+    }else{
       $$ = tacbuilder->NewTACList(*$2->tac + tacbuilder->NewTAC(TACOperationType::Return, $2->ret));
-  }
+    }
+   }
   ;
 
 WHILEUP : WHILE
@@ -816,17 +827,26 @@ UnaryExp
       ExpressionPtr exp;
       ArgListPtr ansArg = tacbuilder->NewArgList();
       while(argPtr != $3->end()){
-        if((*paramsPtr)->value_.Type()!=(*argPtr)->ret->value_.Type()){
-          if((*paramsPtr)->value_.Type() == ValueType::Int){
-            exp = tacbuilder->CastFloatToInt((*argPtr));
+        exp = *argPtr;
+        if((*paramsPtr)->value_.HasOperatablity() && exp->ret->value_.HasOperatablity()){
+          if((*paramsPtr)->value_.UnderlyingType() != exp->ret->value_.UnderlyingType()){
+            if((*paramsPtr)->value_.UnderlyingType() == ValueType::Int){
+              exp = tacbuilder->CastFloatToInt(exp);
+            }
+            else{
+              exp = tacbuilder->CastIntToFloat(exp);
+            }
+          }else{
+            if(exp->ret->value_.Type() == SymbolValue::ValueType::Array){
+              auto tmpSym = tacbuilder->CreateTempVariable(exp->ret->value_.UnderlyingType());
+              (*exp->tac)+=tacbuilder->NewTAC(TACOperationType::Variable, tmpSym);
+              (*exp->tac)+=tacbuilder->NewTAC(TACOperationType::Assign, tmpSym, exp->ret);
+              exp->ret = tmpSym;
+            }
           }
-          else{
-            exp = tacbuilder->CastIntToFloat((*argPtr));
-          }
-          ansArg->push_back_argument(exp);
-        }else{
-          ansArg->push_back_argument((*argPtr));
         }
+        ansArg->push_back_argument(exp);
+
         argPtr++;
         paramsPtr++;
       }

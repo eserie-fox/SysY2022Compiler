@@ -27,6 +27,8 @@ struct FunctionContext {
   //为额外参数分配的栈大小
   uint32_t stack_size_for_args_;
 
+  uint32_t stack_size_for_vars_;
+
   //当前函数形参数量
   uint32_t nparam_;
 

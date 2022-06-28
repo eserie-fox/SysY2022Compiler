@@ -83,9 +83,8 @@ void SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
 
 void SymLiveInfo::updateIntervalEndPoint()
 {
-    // dfn从1开始，用0标识该变量不活跃
     if (liveIntervalSet.empty())
-        endPoints.first = endPoints.second = 0;
+        throw std::runtime_error("LiveAnalyzer logic error: liveIntervalSet of sym is empty");
     else
     {
         endPoints.first = liveIntervalSet.begin()->first;
@@ -105,6 +104,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     for (auto sym : symSet)
     {
         std::unordered_set<size_t> &useSet = symUseMap[sym], &defSet = symDefMap[sym];
+        auto &symLiveInfo = symLiveMap[sym];
         for (size_t i = 0; i < vis.size(); ++i)
             vis[i] = false;
         
@@ -156,11 +156,27 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
             } while (flag);
 
             // 将本次求得的活跃区间合并进该变量的活跃区间集合
-            symLiveMap[sym].addUncoveredLiveInterval(interval);
+            symLiveInfo.addUncoveredLiveInterval(interval);
         }
 
-        // 更新该变量的活跃区间端点(寄存器分配排序使用)
-        symLiveMap[sym].updateIntervalEndPoint();
+        // 目前先将单独的定值点(定值后没有使用的定值)作为一个活跃区间处理（优化后就不存在了）
+        for (auto n : defSet)
+        {
+            if (!vis[n])  
+            {
+                vis[n] = true;
+                auto dfn = cfg->get_node_dfn(n);
+                LiveInterval intv(dfn, dfn);
+               symLiveInfo.addUncoveredLiveInterval(intv);
+            }
+        }
+
+        // 更新该变量的活跃区间端点(寄存器分配优先级可能使用)
+        symLiveInfo.updateIntervalEndPoint();
+
+        // 保存该变量的定值和引用计数(寄存器分配优先级可能使用)
+        symLiveInfo.defCnt = defSet.size();
+        symLiveInfo.useCnt = useSet.size();
     }
 }
 

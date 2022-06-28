@@ -4,6 +4,7 @@
 #include <vector>
 #include "ASM/ControlFlowGraph.hh"
 #include "ASM/LiveAnalyzer.hh"
+#include "ASM/arm/ArmHelper.hh"
 #include "ASM/arm/RegAllocator.hh"
 #include "MacroUtil.hh"
 #include "MagicEnum.hh"
@@ -142,6 +143,13 @@ bool ArmBuilder::TranslateFunction() {
       emitln("vpush { s" + std::to_string(regid) + " }");
     }
   }
+  //为变量分配栈空间
+  func_context_.stack_size_for_vars_ = func_attr.value;
+  //可能用很大的栈空间，立即数存不下，保险起见Divide一下
+  auto var_stack_immvals = ArmHelper::DivideIntoImmediateValues(func_context_.stack_size_for_vars_);
+  for (auto immval : var_stack_immvals) {
+    emitln("sub sp, sp, #" + std::to_string(immval));
+  }
 
   //函数体翻译
   //跳过label和fbegin
@@ -149,6 +157,12 @@ bool ArmBuilder::TranslateFunction() {
   ++current_;
   for (; current_ != end_; ++current_) {
     emit(FuncTACToASMString(*current_));
+  }
+
+  //释放变量栈空间
+  std::reverse(var_stack_immvals.begin(), var_stack_immvals.end());
+  for (auto immval : var_stack_immvals) {
+    emitln("add sp, sp, #" + std::to_string(immval));
   }
 
   //还原寄存器
