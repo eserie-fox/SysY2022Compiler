@@ -18,6 +18,199 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
     ret.append("\n");
   };
 
+  //获得相对于当前sp的地址
+  auto getrealoffset = [&, this](SymAttribute &attr) -> int32_t {
+    if (attr.attr.store_type == attr.STACK_VAR) {
+      //定位到变量区
+      return attr.value + func_context_.stack_size_for_args_;
+    } else {
+      //定位到形参区
+      return attr.value + func_context_.stack_size_for_args_ + func_context_.stack_size_for_vars_ +
+             func_context_.stack_size_for_regsave_;
+    }
+  };
+
+  // reg_id为0时驱逐int_freereg1，否则驱逐int_freereg2。
+  auto evit_int_reg = [&, this](int reg_id) -> void {
+    SymbolPtr *target_sym;
+    if (reg_id) {
+      target_sym = &func_context_.int_freereg2_;
+      reg_id = func_context_.func_attr_.attr.used_regs.intReservedReg;
+    }
+    target_sym = &func_context_.int_freereg1_;
+    if (*target_sym == nullptr) {
+      //不需要驱逐
+      return;
+    }
+    auto attr = func_context_.reg_alloc_->get_SymAttribute(*target_sym);
+    if (attr.attr.store_type == attr.INT_REG || attr.attr.store_type == attr.FLOAT_REG) {
+      throw std::logic_error("Cannot evit register variable");
+    }
+
+    int32_t realoffset = getrealoffset(attr);
+
+    if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
+      emitln("str " + IntRegIDToName(reg_id) + ", [sp, #" + std::to_string(realoffset) + "]");
+    } else {
+      emitln("ldr " + IntRegIDToName(reg_id) + ", =" + std::to_string(realoffset));
+      emitln("ldr " + IntRegIDToName(reg_id) + ", [sp, " + IntRegIDToName(reg_id) + "]");
+    }
+    *target_sym = nullptr;
+  };
+
+  // 自动选择驱逐一个不常用的freereg，并返回其编号
+  auto get_free_int_reg = [&, this]() -> int {
+    if (func_context_.int_freereg1_ == nullptr) {
+      return 0;
+    }
+    if (func_context_.int_freereg2_ == nullptr) {
+      return func_context_.func_attr_.attr.used_regs.intReservedReg;
+    }
+    //如果上一个在用int_freereg1，则驱逐reg2
+    if (func_context_.last_int_freereg_ != 0) {
+      int reg_id = func_context_.func_attr_.attr.used_regs.intReservedReg;
+      evit_int_reg(reg_id);
+      return reg_id;
+    } else {
+      evit_int_reg(0);
+      return 0;
+    }
+  };
+
+  // reg_id为0时驱逐float_freereg1，否则驱逐float_freereg2。
+  auto evit_float_reg = [&, this](int reg_id) -> void {
+    SymbolPtr *target_sym;
+    if (reg_id) {
+      target_sym = &func_context_.float_freereg2_;
+      reg_id = func_context_.func_attr_.attr.used_regs.floatRegs;
+    }
+    target_sym = &func_context_.float_freereg1_;
+    if (*target_sym == nullptr) {
+      //不需要驱逐
+      return;
+    }
+    auto attr = func_context_.reg_alloc_->get_SymAttribute(*target_sym);
+    if (attr.attr.store_type == attr.INT_REG || attr.attr.store_type == attr.FLOAT_REG) {
+      throw std::logic_error("Cannot evit register variable");
+    }
+
+    int32_t realoffset = getrealoffset(attr);
+
+    if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
+      emitln("vstr s" + std::to_string(reg_id) + ", [sp, #" + std::to_string(realoffset) + "]");
+    } else {
+      int freeintreg = get_free_int_reg();
+      emitln("ldr " + IntRegIDToName(freeintreg) + ", =" + std::to_string(realoffset));
+      emitln("add " + IntRegIDToName(freeintreg) + ", " + IntRegIDToName(freeintreg) + ", sp");
+      emitln("vstr s" + std::to_string(reg_id) + ", [" + IntRegIDToName(freeintreg) + "]");
+    }
+    *target_sym = nullptr;
+  };
+
+  // 自动选择驱逐一个不常用的freereg，并返回其编号
+  auto get_free_float_reg = [&, this]() -> int {
+    if (func_context_.float_freereg1_ == nullptr) {
+      return 0;
+    }
+    if (func_context_.float_freereg2_ == nullptr) {
+      return func_context_.func_attr_.attr.used_regs.floatReservedReg;
+    }
+    //如果上一个在用float_freereg1，则驱逐reg2
+    if (func_context_.last_float_freereg_ != 0) {
+      int reg_id = func_context_.func_attr_.attr.used_regs.floatReservedReg;
+      evit_float_reg(reg_id);
+      return reg_id;
+    } else {
+      evit_float_reg(0);
+      return 0;
+    }
+  };
+
+  //分配除了except_reg之外的一个reg。但若reg_alloc有指示，或者已经在寄存器中缓存，则无视except_reg
+  auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1) -> int {
+    auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
+    if (attr.attr.store_type == attr.FLOAT_REG || attr.attr.store_type == attr.INT_REG) {
+      // reg_alloc已经有指示了，直接用就好了。
+      return attr.value;
+    }
+    bool is_float = (sym->value_.Type() == SymbolValue::ValueType::Float);
+
+    //如果有缓存就直接用
+    if (is_float) {
+      if (func_context_.float_freereg1_ == sym) {
+        return 0;
+      }
+      if (func_context_.float_freereg2_ == sym) {
+        return func_context_.func_attr_.attr.used_regs.floatReservedReg;
+      }
+    } else {
+      if (func_context_.int_freereg1_ == sym) {
+        return 0;
+      }
+      if (func_context_.int_freereg2_ == sym) {
+        return func_context_.func_attr_.attr.used_regs.intReservedReg;
+      }
+    }
+
+    //如果没缓存
+    if (is_float) {
+      //尽量选择一个既不是经常被用到，又不是except_reg的reg
+      int target_reg = func_context_.last_float_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
+      SymbolPtr *target_sym =
+          func_context_.last_float_freereg_ ? &func_context_.float_freereg1_ : &func_context_.float_freereg2_;
+      {
+        int other_reg =
+            (!func_context_.last_float_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
+        SymbolPtr *other_sym =
+            (!func_context_.last_float_freereg_) ? &func_context_.float_freereg1_ : &func_context_.float_freereg2_;
+        if (target_reg == except_reg || (other_reg != except_reg && (*other_sym) == nullptr)) {
+          target_reg = other_reg;
+          target_sym = other_sym;
+        }
+      }
+      if (*target_sym != nullptr) {
+        evit_float_reg(target_reg);
+      }
+      int32_t realoffset = getrealoffset(attr);
+      if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
+        emitln("vldr s" + std::to_string(target_reg) + ", [sp, #" + std::to_string(realoffset) + "]");
+      } else {
+        int freeintreg = get_free_int_reg();
+        emitln("ldr " + IntRegIDToName(freeintreg) + ", =" + std::to_string(realoffset));
+        emitln("add " + IntRegIDToName(freeintreg) + ", " + IntRegIDToName(freeintreg) + ", sp");
+        emitln("vldr s" + std::to_string(target_reg) + ", [" + IntRegIDToName(freeintreg) + "]");
+      }
+      //最近使用的是target_reg
+      func_context_.last_float_freereg_ = target_reg;
+    } else {
+      //尽量选择一个既不是经常被用到，又不是except_reg的reg
+      int target_reg = func_context_.last_int_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+      SymbolPtr *target_sym =
+          func_context_.last_int_freereg_ ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
+      {
+        int other_reg = (!func_context_.last_int_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+        SymbolPtr *other_sym =
+            (!func_context_.last_int_freereg_) ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
+        if (target_reg == except_reg || (other_reg != except_reg && (*other_sym) == nullptr)) {
+          target_reg = other_reg;
+          target_sym = other_sym;
+        }
+      }
+      if (*target_sym != nullptr) {
+        evit_int_reg(target_reg);
+      }
+      int32_t realoffset = getrealoffset(attr);
+      if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
+        emitln("ldr " + IntRegIDToName(target_reg) + ", [sp, #" + std::to_string(realoffset) + "]");
+      } else {
+        emitln("ldr " + IntRegIDToName(target_reg) + ", =" + std::to_string(realoffset));
+        emitln("ldr " + IntRegIDToName(target_reg) + ", [sp, " + IntRegIDToName(target_reg) + "]");
+      }
+      //最近使用的是target_reg
+      func_context_.last_int_freereg_ = target_reg;
+    }
+  };
+
   auto binary_operation = [&, this]() -> void {
 
   };
@@ -30,6 +223,7 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
   auto branch = [&, this]() -> void {
 
   };
+
   auto parameter = [&, this]() -> void {
     auto sym = tac->a_;
     auto symAttr = func_context_.reg_alloc_->get_SymAttribute(sym);
@@ -60,6 +254,7 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
         if (is_float) {
           throw std::runtime_error("Store float value into int register");
         }
+        SET_UINT(func_context_.intregs_, symAttr.value);
         if (!on_stack) {
           if (offset == 0) {
             if (symAttr.value != 0) {
@@ -85,6 +280,7 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
         if (!is_float) {
           throw std::runtime_error("Store int value into float register");
         }
+        SET_UINT(func_context_.floatregs_, symAttr.value);
         if (!on_stack) {
           if (offset == 0) {
             if (symAttr.value != 0) {
@@ -152,6 +348,10 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
 
   };
 
+  auto array_declaration = [&, this]() -> void {
+
+  };
+
   switch (tac->operation_) {
     case TACOperationType::Add:
     case TACOperationType::Div:
@@ -195,14 +395,22 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
       func_context_.parameter_head_ = false;
       functionality();
       break;
-    case TACOperationType::Label:
+
     case TACOperationType::Variable:
-    case TACOperationType::Constant:
+    case TACOperationType::Constant: {
+      func_context_.parameter_head_ = false;
+      if (tac->a_->value_.Type() == SymbolValue::ValueType::Array) {
+        array_declaration();
+      }
+      break;
+    }
+    case TACOperationType::Label:
     case TACOperationType::BlockBegin:
-    case TACOperationType::BlockEnd:
+    case TACOperationType::BlockEnd: {
       func_context_.parameter_head_ = false;
       // ignore
       break;
+    }
     default:
       throw std::runtime_error("Unexpected operation: " +
                                std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));

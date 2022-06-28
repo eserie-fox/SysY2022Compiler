@@ -83,8 +83,6 @@ bool ArmBuilder::TranslateFunction() {
   //[current_,end_)区间内为即将处理的函数
   //拿到func_context_guard确保func_context拥有正确初始化和析构行为
   auto func_context_guard = ArmUtil::FunctionContextGuard(func_context_);
-  //跳过fend
-  --end_;
   {
     //解析寄存器分配
     auto cfg = std::make_shared<ControlFlowGraph>(current_, end_);

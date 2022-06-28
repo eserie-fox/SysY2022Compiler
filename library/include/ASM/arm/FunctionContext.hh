@@ -16,9 +16,11 @@ struct FunctionContext {
 
   SymbolPtr int_freereg1_;
   SymbolPtr int_freereg2_;
+  int last_int_freereg_;
 
   SymbolPtr float_freereg1_;
   SymbolPtr float_freereg2_;
+  int last_float_freereg_;
 
   SymAttribute func_attr_;
 

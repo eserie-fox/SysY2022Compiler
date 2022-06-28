@@ -1,5 +1,6 @@
 #include "ASM/arm/FunctionContext.hh"
 #include "ASM/arm/RegAllocator.hh"
+#include "MacroUtil.hh"
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
@@ -10,9 +11,11 @@ void FunctionContext::SetUp() {
   stack_size_for_args_ = 0;
   stack_size_for_vars_ = 0;
   stack_size_for_params_ = 0;
-  intregs_ = 0;
   nparam_ = 0;
-  floatregs_ = 0;
+  CLEAR_UINT(intregs_);
+  CLEAR_UINT(floatregs_);
+  last_int_freereg_ = 0;
+  last_float_freereg_ = 0;
   nint_param_ = 0;
   nfloat_param_ = 0;
   func_attr_ = {};
