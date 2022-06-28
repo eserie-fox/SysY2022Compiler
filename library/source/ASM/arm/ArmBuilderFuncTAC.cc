@@ -108,7 +108,7 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
   };
 
   // 自动选择驱逐一个不常用的freereg，并返回其编号
-  auto get_free_float_reg = [&, this]() -> int {
+  [[maybe_unused]] auto get_free_float_reg = [&, this]() -> int {
     if (func_context_.float_freereg1_ == nullptr) {
       return 0;
     }
@@ -127,7 +127,7 @@ std::string ArmBuilder::FuncTACToASMString([[maybe_unused]] TACPtr tac) {
   };
 
   //分配除了except_reg之外的一个reg。但若reg_alloc有指示，或者已经在寄存器中缓存，则无视except_reg
-  auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1) -> int {
+  [[maybe_unused]] auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1) -> int {
     auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
     if (attr.attr.store_type == attr.FLOAT_REG || attr.attr.store_type == attr.INT_REG) {
       // reg_alloc已经有指示了，直接用就好了。
