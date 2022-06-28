@@ -9,22 +9,27 @@ void FunctionContext::SetUp() {
   stack_size_for_regsave_ = 0;
   stack_size_for_args_ = 0;
   stack_size_for_vars_ = 0;
+  stack_size_for_params_ = 0;
   intregs_ = 0;
   nparam_ = 0;
   floatregs_ = 0;
+  nint_param_ = 0;
+  nfloat_param_ = 0;
+  func_attr_ = {};
+  parameter_head_ = true;
   reg_alloc_ = nullptr;
-  int_freereg1 = nullptr;
-  int_freereg2 = nullptr;
-  float_freereg1 = nullptr;
-  float_freereg2 = nullptr;
+  int_freereg1_ = nullptr;
+  int_freereg2_ = nullptr;
+  float_freereg1_ = nullptr;
+  float_freereg2_ = nullptr;
 }
 
 void FunctionContext::TearDown() {
   delete reg_alloc_;
-  int_freereg1 = nullptr;
-  int_freereg2 = nullptr;
-  float_freereg1 = nullptr;
-  float_freereg2 = nullptr;
+  int_freereg1_ = nullptr;
+  int_freereg2_ = nullptr;
+  float_freereg1_ = nullptr;
+  float_freereg2_ = nullptr;
 }
 
 FunctionContextGuard::~FunctionContextGuard() { func_context_.TearDown(); }

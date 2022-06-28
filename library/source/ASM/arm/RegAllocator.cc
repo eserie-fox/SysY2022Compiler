@@ -92,14 +92,24 @@ void RegAllocator::getParamAddr()
         }
 
         // 否则，参数应在寄存器中
+        // 由于第一个参数通过r0，s0传递，而r0, r4, s0, s16不能分配给变量
+        // 所以对第一个参数特殊处理，记录它在PoolSize - 1中
         else
         {
             paramAttribute.attr.store_type = paramType == INT ? SymAttribute::StoreType::INT_REG : SymAttribute::StoreType::FLOAT_REG;
-            paramAttribute.value = regUsedNumber;
             if (paramType == INT)
+            {
+                if (regUsedNumber == 0)
+                    regUsedNumber = intRegPoolSize - 1;
                 ++intRegUsedNumber;
+            }
             else
+            {
+                if (regUsedNumber == 0)
+                    regUsedNumber = floatRegPoolSize - 1;
                 ++floatRegUsedNumber;
+            }
+            paramAttribute.value = regUsedNumber;
         }
     }
 }
@@ -199,11 +209,11 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     // 将分配到栈的信息存储到symAttr并更新栈顶
     auto AllocOnStackMark = [&varStackOffset](SymAttribute &symAttr, int size)
     {
-        if (INT_MIN + size > varStackOffset)
+        if (INT_MAX - size < varStackOffset)
             throw std::runtime_error("RegAllocator: variable stack overflow");
-        varStackOffset -= size;
         symAttr.attr.store_type = SymAttribute::STACK_VAR;
         symAttr.value = varStackOffset;
+        varStackOffset += size;
     };
 
     // 将寄存器regId加入到函数使用的type类寄存器集
@@ -289,15 +299,13 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     // 目前即数组
     for (auto& [sym, attr] : ptrToArrayOnStack)
     {
-        // 得到数组的大小
-        // AllocOnStackMark
+        auto siz = sym->value_.GetArrayDescriptor()->GetSizeInByte();
+        AllocOnStackMark(attr, siz);
     }
 
     // 将栈的使用情况记录到函数属性
     auto &varStackSize = funcAttr.value;
     varStackSize = abs(varStackOffset);
-    if (varStackSize % 8 != 0)   // 保证8字节对齐
-        varStackSize += (8 - varStackSize % 8);
 
     return funcAttr;
 }
@@ -333,23 +341,26 @@ RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
 {
     // 得到函数中的局部变量、参数列表
     ContextInit(liveAnalyzer);
-
-    // // 将局部变量与其活跃区间绑定
-    // std::vector<LiveinfoWithSym> liveSymLs;
-    // for (auto sym : localSym)
-    // {
-    //     auto liveInfoPtr = liveAnalyzer.get_symLiveInfo(sym);
-    //     if (!liveInfoPtr)
-    //         throw std::runtime_error("LiveAnalyzer fault: there are local variables that are not analyzed.");
-    //     liveSymLs.emplace_back(liveInfoPtr, sym);
-    // }
-
+    // 线性扫描
     LinearScan(liveAnalyzer);
 }
 
-SymAttribute RegAllocator::get_SymAttribute([[maybe_unused]] SymPtr sym) 
+SymAttribute RegAllocator::get_SymAttribute(SymPtr sym) 
 { 
-    return {}; 
+    return fetchAttr(sym, symAttrMap);
+}
+
+SymAttribute RegAllocator::get_ArrayAttribute(SymPtr arrPtr)
+{
+    return fetchAttr(arrPtr, ptrToArrayOnStack);
+}
+
+SymAttribute RegAllocator::fetchAttr(SymPtr sym, std::unordered_map<SymPtr, SymAttribute>& attrMap)
+{
+    auto res = attrMap.find(sym);
+    if (res == attrMap.end())
+        throw std::runtime_error("Sym attribute not found");
+    return res->second;
 }
 
 }  // namespace AssemblyBuilder

@@ -74,8 +74,13 @@ public:
         return nodes[n].dfn;
     }
 
+    const std::vector<TACList::iterator>& get_unreachableTACItrList() const
+    {
+        return unreachableTACItrList;
+    }
+
     // 测试用
-    void print();
+    void print() const;
 
 private:
 
@@ -86,12 +91,13 @@ private:
 
         size_t dfn;  // 结点的dfs序
 
-        Node() {}
-        Node(TACPtr it) : tac(it) {} 
+        Node() { dfn = 0; }
+        Node(TACPtr it) : tac(it) { dfn = 0; } 
     };
 
     std::vector<Node> nodes;
     TACList::iterator f_begin, f_end;
+    std::vector<TACList::iterator> unreachableTACItrList;
 
     static const size_t startNode = 0, endNode = 1;
 
@@ -106,6 +112,8 @@ private:
 
     void getDfn();
     void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
+
+    void WarnUnreachable() const;
 };
 
 }  // namespace AssemblyBuilder

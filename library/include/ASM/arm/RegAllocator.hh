@@ -29,9 +29,9 @@ struct SymAttribute
     enum StoreType {INT_REG, FLOAT_REG, STACK_VAR, STACK_PARAM};
 
     // 对于函数，代表局部变量消耗的栈帧大小(保证8字节对齐)
-    // 对于变量，代表寄存器编号或栈基址偏移
+    // 对于变量，代表寄存器编号或栈上偏移
     // 分配在栈上的函数参数的偏移，正数，按地址增长方向的偏移，从右往左压栈，即第一个为0，第二个为4
-    // stack_var的偏移，负数，基于栈基址
+    // 栈上局部变量的偏移，正数，基于栈顶地址
     int value;
 
     union
@@ -121,6 +121,7 @@ public:
     RegAllocator(const LiveAnalyzer&);
 
     SymAttribute get_SymAttribute(SymPtr sym);
+    SymAttribute get_ArrayAttribute(SymPtr arrPtr);
 
 private:
 
@@ -218,6 +219,8 @@ private:
     SymAttribute& fetchSymAttr(const SymInfo &symInfo);
 
     static SymValueType fetchSymValueType(SymPtr sym);
+
+    SymAttribute fetchAttr(SymPtr, std::unordered_map<SymPtr, SymAttribute>&);
 };
 
 

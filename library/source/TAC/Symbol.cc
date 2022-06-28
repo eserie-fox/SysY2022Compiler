@@ -613,5 +613,13 @@ std::string Symbol::get_tac_name(bool name_only) const {
   return value_.ToString();
 }
 
+size_t ArrayDescriptor::GetSizeInByte() const {
+  size_t ret = 1;
+  for (auto sz : dimensions) {
+    ret *= sz;
+  }
+  return ret;
+}
+
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler

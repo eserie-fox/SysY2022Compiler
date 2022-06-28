@@ -1,8 +1,7 @@
 #include "ASM/ControlFlowGraph.hh"
 #include "TAC/Symbol.hh"
 #include <unordered_map>
-
-#include <cstdio>
+#include <iostream>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -15,19 +14,24 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
 
     std::unordered_map<std::string, size_t> labelMap;  // 映射jmp目标对应节点下标
     std::vector<size_t> jmpReloc;  // 第一次扫描时保存需要jmp的指令
+    std::vector<TACList::iterator> itrMap;  // 保存node下标到itr的映射，扫描不可达点时使用
 
+    // nodes[0]->fbegin(label)
+    // nodes[1]->fend
+    // 接下来nodes[i]依次对应fbegin和fend中间的tac
     nodes.resize(2);
     nodes[startNode].tac = *fbegin;
-    nodes[endNode].tac = *fend;    
+    nodes[endNode].tac = *fend;   
+    itrMap.push_back(fbegin), itrMap.push_back(fend);
 
     size_t cur = 0;
-
     for (auto it = fbegin; it != fend; )
     {
         auto nxtIt = it;
         ++nxtIt;
-        size_t nxtcur = newNode(*nxtIt);
-        
+        size_t nxtcur = nxtIt == fend ? endNode : newNode(*nxtIt);
+        itrMap.push_back(nxtIt);
+
         switch ((*it)->operation_)
         {
         case TACOperationType::Goto:
@@ -61,6 +65,14 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
         link(e, labelMap[getJmpLabel(nodes[e].tac)]);
     
     getDfn();
+
+    // 检查不可达代码并将不可达信息输出
+    for (size_t i = 0; i < nodes.size(); ++i)
+    {
+        if (nodes[i].dfn == 0)
+            unreachableTACItrList.push_back(itrMap[i]);
+    }
+    WarnUnreachable();
 }
 
 void ControlFlowGraph::link(size_t n1, size_t n2)
@@ -105,26 +117,41 @@ void ControlFlowGraph::getDfn()
     doDfn(cnt, vis, startNode);
 }
 
-void ControlFlowGraph::print()
+void ControlFlowGraph::print() const
 {
-    size_t cur = 0;
-    for (auto &e : nodes)
+    for (size_t i = 0; i < nodes.size(); ++i)
     {
-        printf("Node %lu:\n", cur);
-        printf("%s\n", e.tac->ToString().c_str());
+        if (nodes[i].dfn == 0)
+            continue;
+
+        printf("Node %lu:\n", i);
+        printf("%s\n", nodes[i].tac->ToString().c_str());
 
         printf("inNodes: ");
-        for (auto n : e.inNodeList)
+        for (auto n : nodes[i].inNodeList)
             printf("%lu ", n);
         printf("\n");
 
         printf("outNodes: ");
-        for (auto n : e.outNodeList)
+        for (auto n : nodes[i].outNodeList)
             printf("%lu ", n);
         printf("\n");
 
+        printf("dfn: %lu\n", nodes[i].dfn);
+
         printf("\n");
-        ++cur;
+    }
+}
+
+void ControlFlowGraph::WarnUnreachable() const
+{
+    if (!unreachableTACItrList.empty())
+    {
+        std::cerr << "WARNING: function \"" << (*f_begin)->a_->get_name() << 
+            "\" contains unreachable statements:\n";
+        for (auto itr : unreachableTACItrList)
+            std::cerr << (*itr)->ToString() << '\n';
+        std::cerr << '\n';
     }
 }
 

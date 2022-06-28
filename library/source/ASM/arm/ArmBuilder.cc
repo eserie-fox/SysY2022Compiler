@@ -106,19 +106,19 @@ bool ArmBuilder::TranslateFunction() {
   emitln(".global " + func_name);
   emitln(func_name + ":");
   //将要用到的寄存器保存起来
-  auto func_attr = func_context_.reg_alloc_->get_SymAttribute(func_label);
+  func_context_.func_attr_ = func_context_.reg_alloc_->get_SymAttribute(func_label);
   //保存了的寄存器列表
   std::vector<uint32_t> saveintregs, savefloatregs;
 
   //如果lr会被用到单独保存一下
-  if (ISSET_UINT(func_attr.attr.used_regs.intRegs, LR_REGID)) {
+  if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, LR_REGID)) {
     saveintregs.push_back(LR_REGID);
     func_context_.stack_size_for_regsave_ += 4;
   }
   //保存会修改的通用寄存器
   for (int i = 4; i < 13; i++) {
     //如果第i号通用寄存器要用
-    if (ISSET_UINT(func_attr.attr.used_regs.intRegs, i)) {
+    if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, i)) {
       //那么保存它
       saveintregs.push_back(i);
       func_context_.stack_size_for_regsave_ += 4;
@@ -132,7 +132,7 @@ bool ArmBuilder::TranslateFunction() {
   }
   //保存浮点寄存器
   for (int i = 16; i < 32; i++) {
-    if (ISSET_UINT(func_attr.attr.used_regs.floatRegs, i)) {
+    if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.floatRegs, i)) {
       savefloatregs.push_back(i);
       func_context_.stack_size_for_regsave_ += 4;
     }
@@ -144,7 +144,7 @@ bool ArmBuilder::TranslateFunction() {
     }
   }
   //为变量分配栈空间
-  func_context_.stack_size_for_vars_ = func_attr.value;
+  func_context_.stack_size_for_vars_ = func_context_.func_attr_.value;
   //可能用很大的栈空间，立即数存不下，保险起见Divide一下
   auto var_stack_immvals = ArmHelper::DivideIntoImmediateValues(func_context_.stack_size_for_vars_);
   for (auto immval : var_stack_immvals) {

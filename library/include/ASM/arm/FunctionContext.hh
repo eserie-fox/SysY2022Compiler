@@ -1,12 +1,11 @@
 #pragma once
 
 #include "ASM/Common.hh"
+#include "ASM/arm/RegAllocator.hh"
 #include "stdint.h"
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
-
-class RegAllocator;
 
 namespace ArmUtil {
 
@@ -15,11 +14,13 @@ struct FunctionContext {
   uint32_t intregs_;
   uint32_t floatregs_;
 
-  SymbolPtr int_freereg1;
-  SymbolPtr int_freereg2;
+  SymbolPtr int_freereg1_;
+  SymbolPtr int_freereg2_;
 
-  SymbolPtr float_freereg1;
-  SymbolPtr float_freereg2;
+  SymbolPtr float_freereg1_;
+  SymbolPtr float_freereg2_;
+
+  SymAttribute func_attr_;
 
   //为寄存器保存用的栈空间，字节单位
   uint32_t stack_size_for_regsave_;
@@ -29,11 +30,23 @@ struct FunctionContext {
 
   uint32_t stack_size_for_vars_;
 
+  //为形参分配的栈大小
+  uint32_t stack_size_for_params_;
+
+  // int形参数量
+  uint32_t nint_param_;
+
+  // float形参数量
+  uint32_t nfloat_param_;
+
   //当前函数形参数量
   uint32_t nparam_;
 
   //当前函数的reg allocator
   RegAllocator *reg_alloc_;
+
+  //是否处于函数头部位置，用来断言parameter只能出现在函数开头位置。
+  bool parameter_head_;
 
   //新函数开始时SetUp
   void SetUp();

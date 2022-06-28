@@ -113,6 +113,8 @@ class ArrayDescriptor {
   std::vector<size_t> dimensions;
   //初始化用
   std::shared_ptr<std::unordered_map<size_t, std::shared_ptr<Expression>>> subarray;
+  //获取数组占用大小
+  size_t GetSizeInByte() const;
 };
 
 class ParameterList : public std::vector<std::shared_ptr<Symbol>> {
