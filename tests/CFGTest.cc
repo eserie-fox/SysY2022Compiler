@@ -2,6 +2,13 @@
 #include "ASM/ControlFlowGraph.hh"
 #include "TAC/TAC.hh"
 #include <vector>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <sstream>
+
+#include "Driver.hh"
+#include "TACDriver.hh"
 
 using namespace HaveFunCompiler;
 using namespace HaveFunCompiler::ThreeAddressCode;
@@ -83,4 +90,27 @@ TEST_F(CFGTest, ifTest)
 
     ControlFlowGraph cfg(tacList.begin(), --tacList.end());
     cfg.print();
+}
+
+TEST(CFGTestUseParser, test)
+{
+    HaveFunCompiler::Parser::Driver driver;
+    HaveFunCompiler::Parser::TACDriver tacdriver;
+    TACListPtr tac_list;
+
+    ASSERT_EQ(driver.parse("test.txt"), true);
+
+    std::stringstream ss;
+    driver.print(ss) << "\n";
+    auto tss = ss.str();
+    std::cout << tss << std::endl;
+
+    tacdriver.parse(ss);
+    tac_list = tacdriver.get_tacbuilder()->GetTACList();
+
+    ControlFlowGraph cfg(tac_list);
+    cfg.print();
+    std::cout << '\n';
+
+    
 }
