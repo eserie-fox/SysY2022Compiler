@@ -102,6 +102,9 @@ struct Symbol {
   std::string get_name() const;
   std::string get_tac_name(bool name_only = false) const;
   bool is_var() const;
+
+  //是否是字面常量
+  bool IsLiteral() const;
 };
 
 class Expression;

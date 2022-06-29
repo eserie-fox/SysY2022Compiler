@@ -621,5 +621,10 @@ size_t ArrayDescriptor::GetSizeInByte() const {
   return ret;
 }
 
+bool Symbol::IsLiteral() const {
+  //如果不是Array类型并且是常量的话，说明这是一个字面量
+  return type_ == SymbolType::Constant && value_.Type() != SymbolValue::ValueType::Array;
+}
+
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler
