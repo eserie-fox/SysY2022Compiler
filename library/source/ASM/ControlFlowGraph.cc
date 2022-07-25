@@ -1,7 +1,8 @@
 #include "ASM/ControlFlowGraph.hh"
 #include "TAC/Symbol.hh"
 #include <unordered_map>
-#include <iostream>
+#include <string>
+#include <fstream>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -127,32 +128,6 @@ void ControlFlowGraph::getDfn()
     doDfn(cnt, vis, startNode);
 }
 
-void ControlFlowGraph::print() const
-{
-    for (size_t i = 0; i < nodes.size(); ++i)
-    {
-        if (nodes[i].dfn == 0)
-            continue;
-
-        printf("Node %lu:\n", i);
-        printf("%s\n", nodes[i].tac->ToString().c_str());
-
-        printf("inNodes: ");
-        for (auto n : nodes[i].inNodeList)
-            printf("%lu ", n);
-        printf("\n");
-
-        printf("outNodes: ");
-        for (auto n : nodes[i].outNodeList)
-            printf("%lu ", n);
-        printf("\n");
-
-        printf("dfn: %lu\n", nodes[i].dfn);
-
-        printf("\n");
-    }
-}
-
 void ControlFlowGraph::WarnUnreachable() const
 {
     if (!unreachableTACItrList.empty())
@@ -162,6 +137,57 @@ void ControlFlowGraph::WarnUnreachable() const
         for (auto itr : unreachableTACItrList)
             std::cerr << (*itr)->ToString() << '\n';
         std::cerr << '\n';
+    }
+}
+
+void ControlFlowGraph::printToDot() const
+{
+    // for (size_t i = 0; i < nodes.size(); ++i)
+    // {
+    //     if (nodes[i].dfn == 0)
+    //         continue;
+
+    //     printf("Node %lu:\n", i);
+    //     printf("%s\n", nodes[i].tac->ToString().c_str());
+
+    //     printf("inNodes: ");
+    //     for (auto n : nodes[i].inNodeList)
+    //         printf("%lu ", n);
+    //     printf("\n");
+
+    //     printf("outNodes: ");
+    //     for (auto n : nodes[i].outNodeList)
+    //         printf("%lu ", n);
+    //     printf("\n");
+
+    //     printf("dfn: %lu\n", nodes[i].dfn);
+
+    //     printf("\n");
+    // }
+    std::ofstream os("cfg.dot");
+    os << "digraph CFG {\n";
+
+    std::vector<bool> vis(nodes.size(), 0);
+    dfsPrintToDot(startNode, vis, os);
+    os << "}";
+}
+
+void ControlFlowGraph::dfsPrintToDot(size_t n, std::vector<bool> &vis, std::ostream &os) const
+{
+    auto nodeToDotLabel = [](const Node &node)
+    {
+        std::string s = std::to_string(node.dfn);
+        s += "\\n";
+        s += node.tac->ToString();
+        return s;
+    };
+    vis[n] = true;
+    os << nodes[n].dfn << " [label=\"" << nodeToDotLabel(nodes[n]) << "\"];\n";
+    for (auto u : nodes[n].outNodeList)
+    {
+        os << nodes[n].dfn << " -> " << nodes[u].dfn << " ;\n";
+        if (!vis[u])
+            dfsPrintToDot(u, vis, os);
     }
 }
 
