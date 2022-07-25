@@ -1,4 +1,5 @@
 #include <iostream>
+#include <utility>
 #include "ASM/ControlFlowGraph.hh"
 #include "ASM/LiveAnalyzer.hh"
 #include "ASM/arm/ArmBuilder.hh"
@@ -117,6 +118,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     *target_sym = nullptr;
   };
 
+  auto evit_all_freereg = [&,this]() -> void{
+    evit_int_reg(0);
+    evit_int_reg(1);
+    evit_float_reg(0);
+    evit_float_reg(1);
+  };
+
   // 自动选择驱逐一个不常用的freereg，并返回其编号
   [[maybe_unused]] auto get_free_float_reg = [&, this]() -> int {
     if (func_context_.float_freereg1_ == nullptr) {
@@ -157,14 +165,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
     }
 
-    if(!sym->IsLiteral()){
+    if (!sym->IsLiteral()) {
       auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
       if (attr.attr.store_type == attr.FLOAT_REG || attr.attr.store_type == attr.INT_REG) {
         // reg_alloc已经有指示了，直接用就好了。
         return attr.value;
       }
     }
-    
 
     //如果没缓存
     if (is_float) {
@@ -252,8 +259,264 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
   };
 
-  auto binary_operation = [&, this]() -> void {
+  //查看此符号是否被分配永久寄存器
+  auto symbol_reg = [&, this](SymbolPtr sym) -> int {
+      auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
+      //如果被分配的话返回寄存器编号
+      if (attr.attr.store_type == attr.FLOAT_REG || attr.attr.store_type == attr.INT_REG) {
+        return attr.value;
+      }
+      //否则返回-1
+      return -1;
+  };
 
+  //处理三个都是同种寄存器时的情况。返回值为：res寄存器，op1寄存器，op2寄存器，是否需要在运算后将缓存去除(-1,0,1，-1代表不需要，0表示去除第一个自由寄存器，1代表去除第二个)。
+  auto prepare_binary_operation = [&, this](SymbolPtr result, SymbolPtr oprand1,
+                                            SymbolPtr oprand2) -> std::tuple<int, int, int, int> {
+    assert(result->value_.Type() == oprand1->value_.Type());
+    assert(oprand1->value_.Type() == oprand2->value_.Type());
+    assert(oprand1 != oprand2);
+    int resreg = -1;
+    int op1reg = alloc_reg(oprand1);
+    int op2reg = alloc_reg(oprand2, op1reg);
+    int freeregid = -1;
+    bool inres = false;
+    if (result == oprand1) {
+      resreg = op1reg;
+      inres = true;
+    } else if (result == oprand2) {
+      resreg = op2reg;
+      inres = true;
+    }
+    //当result不是两个操作数之一时
+    //如果op1不是寄存器变量
+    // resreg复用op1reg，需要将freeregid正确标记
+    //否则，op1是寄存器变量，给resreg另请高明，但是不需要freeregid了（因为没有复用）
+    if (!inres) {
+      resreg = symbol_reg(result);
+      if (resreg == -1) {
+        //如果res被分配在栈上
+        if (result->value_.Type() == SymbolValue::ValueType::Float) {
+          if (symbol_reg(oprand1) == -1) {
+            resreg = op1reg;
+            freeregid = (op1reg == func_context_.func_attr_.attr.used_regs.floatReservedReg);
+          } else {
+            resreg = alloc_reg(result, op2reg);
+            freeregid = -1;
+          }
+        } else {
+          if (symbol_reg(oprand1) == -1) {
+            resreg = op1reg;
+            freeregid = (op1reg == func_context_.func_attr_.attr.used_regs.intReservedReg);
+          } else {
+            resreg = alloc_reg(result, op2reg);
+            freeregid = -1;
+          }
+        }
+      }
+      //如果res被分配在寄存器，可以直接用，也不需要freeregid
+    }
+    return {resreg, op1reg, op2reg, freeregid};
+  };
+
+
+  //mod很有可能有问题
+  auto binary_operation = [&, this]() -> void {
+    assert(tac->a_->value_.Type() == tac->b_->value_.Type());
+    assert(tac->b_->value_.Type() == tac->c_->value_.Type());
+
+    auto [resreg, op1reg, op2reg, freeregid] = prepare_binary_operation(tac->a_, tac->b_, tac->c_);
+    if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
+      switch (tac->operation_) {
+        case TACOperationType::Add: {
+          emitln("vadd.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
+                 std::to_string(op2reg));
+          break;
+        }
+        case TACOperationType::Div: {
+          emitln("vdiv.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
+                 std::to_string(op2reg));
+          break;
+        }
+        case TACOperationType::LessOrEqual:
+        case TACOperationType::LessThan:
+        case TACOperationType::NotEqual:
+        case TACOperationType::GreaterOrEqual:
+        case TACOperationType::GreaterThan:
+        case TACOperationType::Equal:
+        {
+          emitln("vcmp.f32 s" + std::to_string(op1reg) + ", s" + std::to_string(op2reg));
+          emitln("vmrs APSR_nzcv, FPSCR");
+          int freeintreg = get_free_int_reg();
+          switch (tac->operation_) {
+            case TACOperationType::LessOrEqual:
+              emitln("movle " + IntRegIDToName(freeintreg) + ", #1065353216");
+              emitln("movgt " + IntRegIDToName(freeintreg) + ", #0");
+              break;
+            case TACOperationType::LessThan:
+              emitln("movlt " + IntRegIDToName(freeintreg) + ", #1065353216");
+              emitln("movge " + IntRegIDToName(freeintreg) + ", #0");
+              break;
+            case TACOperationType::NotEqual:
+              emitln("movne " + IntRegIDToName(freeintreg) + ", #1065353216");
+              emitln("moveq " + IntRegIDToName(freeintreg) + ", #0");
+              break;
+            case TACOperationType::GreaterOrEqual:
+              emitln("movge " + IntRegIDToName(freeintreg) + ", #1065353216");
+              emitln("movlt " + IntRegIDToName(freeintreg) + ", #0");
+              break;
+            case TACOperationType::GreaterThan:
+              emitln("movgt " + IntRegIDToName(freeintreg) + ", #1065353216");
+              emitln("movle " + IntRegIDToName(freeintreg) + ", #0");
+              break;
+            case TACOperationType::Equal:
+              emitln("moveq " + IntRegIDToName(freeintreg) + ", #1065353216");
+              emitln("movne " + IntRegIDToName(freeintreg) + ", #0");
+              break;
+            default:
+              throw std::logic_error("Unreachable");
+          }
+          emitln("vmov s" + std::to_string(resreg) + ", " + IntRegIDToName(freeintreg));
+          break;
+        }
+        case TACOperationType::Mod: {
+          emitln("vdiv.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
+                 std::to_string(op2reg));
+          emitln("vmul.f32 s" + std::to_string(resreg) + ", s" + std::to_string(resreg) + ", s" +
+                 std::to_string(op2reg));
+          if (freeregid != -1) {
+            if (freeregid == 0) {
+              func_context_.float_freereg1_ = nullptr;
+            } else {
+              func_context_.float_freereg2_ = nullptr;
+            }
+            op1reg = alloc_reg(tac->b_, resreg);
+          }
+          emitln("vsub.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
+                 std::to_string(resreg));
+          if (freeregid != -1) {
+            if (freeregid == 0) {
+              func_context_.float_freereg1_ = tac->a_;
+            } else {
+              func_context_.float_freereg2_ = tac->a_;
+            }
+          }
+          break;
+        }
+        case TACOperationType::Mul: {
+          emitln("vmul.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
+                 std::to_string(op2reg));
+          break;
+        }
+        case TACOperationType::Sub: {
+          emitln("vsub.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
+                 std::to_string(op2reg));
+          break;
+        }
+
+        default:
+          throw std::logic_error("Unknown binary operation " +
+                                 std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));
+      }
+      if (freeregid != -1 && tac->operation_ != TACOperationType::Mod) {
+        emitln("vmov.f32 s" + std::to_string(alloc_reg(tac->a_, resreg)) + ", s" + std::to_string(resreg));
+        if (freeregid == 0) {
+          func_context_.float_freereg1_ = nullptr;
+        } else {
+          func_context_.float_freereg2_ = nullptr;
+        }
+      }
+    } else {
+      switch (tac->operation_) {
+        case TACOperationType::Add: {
+          emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          break;
+        }
+        case TACOperationType::Div:{
+          emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          break;
+        }
+        case TACOperationType::LessOrEqual:
+        case TACOperationType::LessThan:
+        case TACOperationType::NotEqual:
+        case TACOperationType::GreaterOrEqual:
+        case TACOperationType::GreaterThan:
+        case TACOperationType::Equal:
+        {
+          emitln("cmp " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          switch (tac->operation_) {
+            case TACOperationType::LessOrEqual:
+              emitln("movle " + IntRegIDToName(resreg) + ", #1");
+              emitln("movgt " + IntRegIDToName(resreg) + ", #0");
+              break;
+            case TACOperationType::LessThan:
+              emitln("movlt " + IntRegIDToName(resreg) + ", #1");
+              emitln("movge " + IntRegIDToName(resreg) + ", #0");
+              break;
+            case TACOperationType::NotEqual:
+              emitln("movne " + IntRegIDToName(resreg) + ", #1");
+              emitln("moveq " + IntRegIDToName(resreg) + ", #0");
+              break;
+            case TACOperationType::GreaterOrEqual:
+              emitln("movge " + IntRegIDToName(resreg) + ", #1");
+              emitln("movlt " + IntRegIDToName(resreg) + ", #0");
+              break;
+            case TACOperationType::GreaterThan:
+              emitln("movgt " + IntRegIDToName(resreg) + ", #1");
+              emitln("movle " + IntRegIDToName(resreg) + ", #0");
+              break;
+            case TACOperationType::Equal:
+              emitln("moveq " + IntRegIDToName(resreg) + ", #1");
+              emitln("movne " + IntRegIDToName(resreg) + ", #0");
+              break;
+            default:
+              throw std::logic_error("Unreachable");
+          }
+          break;
+        }
+        case TACOperationType::Mod: {
+          emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          emitln("mul " + IntRegIDToName(resreg) + ", " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg));
+          if (freeregid != -1) {
+            if (freeregid == 0) {
+              func_context_.int_freereg1_ = nullptr;
+            } else {
+              func_context_.int_freereg2_ = nullptr;
+            }
+            op1reg = alloc_reg(tac->b_, resreg);
+          }
+          emitln("sub " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
+          if (freeregid != -1) {
+            if (freeregid == 0) {
+              func_context_.int_freereg1_ = tac->a_;
+            } else {
+              func_context_.int_freereg2_ = tac->a_;
+            }
+          }
+          break;
+        }
+        case TACOperationType::Mul: {
+          emitln("mul " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          break;
+        }
+        case TACOperationType::Sub: {
+          emitln("sub " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          break;
+        }
+
+        default:
+          throw std::logic_error("Unknown binary operation " +
+                                 std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));
+      }
+      if (freeregid != -1 && tac->operation_ != TACOperationType::Mod) {
+        emitln("mov" + IntRegIDToName(alloc_reg(tac->a_, resreg)) + ", " + IntRegIDToName(resreg));
+        if (freeregid == 0) {
+          func_context_.int_freereg1_ = nullptr;
+        } else {
+          func_context_.int_freereg2_ = nullptr;
+        }
+      }
+    }
   };
 
   auto unary_operation = [&, this]() -> void {
@@ -279,6 +542,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int dstreg = alloc_reg(tac->a_, valreg);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
         emitln("vcmp.f32 s" + std::to_string(valreg) + ", #0");
+        emitln("vmrs APSR_nzcv, FPSCR");
       } else {
         emitln("cmp " + std::to_string(valreg) + ", #0");
       }
@@ -301,21 +565,70 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       throw std::logic_error("Cant assign array element to array element");
     }
     if (arrayA) {
-      //TODO: 
-    }
-    if(arrayB){
-      //TODO: 
-    }
-
-    if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-      emitln("vmov.f32 s" + std::to_string(dstreg) + ", s" + std::to_string(valreg));
+      auto arrayDescriptor = tac->a_->value_.GetArrayDescriptor();
+      int basereg = alloc_reg(arrayDescriptor->base_addr.lock());
+      int addrreg;
+      {
+        int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
+        if (symbol_reg(arrayDescriptor->base_addr.lock()) == -1) {
+          if (basereg == 0) {
+            func_context_.int_freereg1_ = nullptr;
+          } else {
+            func_context_.int_freereg2_ = nullptr;
+          }
+          addrreg = basereg;
+        } else {
+          //把offreg的另外一个reg驱逐。
+          evit_int_reg((offreg == 0));
+          addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+        }
+        emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+               " LSL 2");
+      }
+      int valuereg = alloc_reg(tac->b_, addrreg);
+      if (tac->b_->value_.Type() == SymbolValue::ValueType::Float) {
+        emitln("vstr s" + std::to_string(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
+      } else {
+        emitln("str " + IntRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
+      }
+    } else if (arrayB) {
+      auto arrayDescriptor = tac->b_->value_.GetArrayDescriptor();
+      int basereg = alloc_reg(arrayDescriptor->base_addr.lock());
+      int addrreg;
+      {
+        int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
+        if (symbol_reg(arrayDescriptor->base_addr.lock()) == -1) {
+          if (basereg == 0) {
+            func_context_.int_freereg1_ = nullptr;
+          } else {
+            func_context_.int_freereg2_ = nullptr;
+          }
+          addrreg = basereg;
+        } else {
+          //把offreg的另外一个reg驱逐。
+          evit_int_reg((offreg == 0));
+          addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+        }
+        emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+               " LSL 2");
+      }
+      int valuereg = alloc_reg(tac->a_, addrreg);
+      if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
+        emitln("vldr s" + std::to_string(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
+      } else {
+        emitln("ldr " + IntRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
+      }
     } else {
-      emitln("mov " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
+      if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
+        emitln("vmov.f32 s" + std::to_string(dstreg) + ", s" + std::to_string(valreg));
+      } else {
+        emitln("mov " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
+      }
     }
   };
   
   auto branch = [&, this]() -> void {
-    //TODO: 保存寄存器
+    evit_all_freereg();
     if (tac->operation_ == TACOperationType::Goto) {
       if(tac->a_->type_ != SymbolType::Label){
         throw std::logic_error("Must goto a label");
@@ -327,6 +640,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int valreg = alloc_reg(tac->b_);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
         emitln("vcmp.f32 s" + std::to_string(valreg) + ", #0");
+        emitln("vmrs APSR_nzcv, FPSCR");
       } else {
         emitln("cmp " + IntRegIDToName(valreg) + ", #0");
       }
@@ -455,10 +769,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   };
 
   auto functionality = [&, this]() -> void {
-
+    
   };
 
-  auto label_declaration = [&, this]() -> void { emitln(tac->a_->get_tac_name(true) + ":"); };
+  auto label_declaration = [&, this]() -> void {
+    evit_all_freereg();
+    emitln(tac->a_->get_tac_name(true) + ":"); 
+  };
 
   auto array_declaration = [&, this]() -> void {
     auto arrayAttr = func_context_.reg_alloc_->get_ArrayAttribute(tac->a_);
@@ -469,6 +786,27 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     } else {
       emitln("ldr " + IntRegIDToName(reg) + ", =" + std::to_string(realoffset));
       emitln("add " + IntRegIDToName(reg) + ", sp, " + IntRegIDToName(reg));
+    }
+  };
+
+  auto cast_operation = [&, this]() -> void {
+    bool afloat = (tac->a_->value_.Type() == SymbolValue::ValueType::Float);
+    bool bfloat = (tac->b_->value_.Type() == SymbolValue::ValueType::Float);
+    assert(afloat != bfloat);
+    if (tac->operation_ == TACOperationType::FloatToInt) {
+      assert(bfloat && !afloat);
+      int freefloatreg = get_free_float_reg();
+      int breg = alloc_reg(tac->b_, freefloatreg);
+      int areg = alloc_reg(tac->a_);
+      emitln("vcvt.s32.f32 " + FloatRegIDToName(freefloatreg) + ", " + FloatRegIDToName(breg));
+      emitln("vmov " + IntRegIDToName(areg) + ", " + FloatRegIDToName(freefloatreg));
+    } else {
+      assert(!bfloat && afloat);
+      int freefloatreg = get_free_float_reg();
+      int breg = alloc_reg(tac->b_, freefloatreg);
+      int areg = alloc_reg(tac->a_);
+      emitln("vmov " + FloatRegIDToName(freefloatreg) + ", " + IntRegIDToName(breg));
+      emitln("vcvt.f32.s32 " + FloatRegIDToName(areg) + ", " + FloatRegIDToName(freefloatreg));
     }
   };
 
@@ -486,6 +824,11 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     case TACOperationType::Equal:
       func_context_.parameter_head_ = false;
       binary_operation();
+      break;
+    case TACOperationType::IntToFloat:
+    case TACOperationType::FloatToInt:
+      func_context_.parameter_head_ = false;
+      cast_operation();
       break;
     case TACOperationType::UnaryMinus:
     case TACOperationType::UnaryNot:

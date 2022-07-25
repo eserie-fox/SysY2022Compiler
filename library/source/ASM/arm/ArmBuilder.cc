@@ -289,7 +289,14 @@ std::string ArmBuilder::IntRegIDToName(int regid) {
   if (regid == PC_REGID) {
     return "pc";
   }
-  throw std::runtime_error("Unexpected regid " + std::to_string(regid));
+  throw std::runtime_error("Unexpected int regid " + std::to_string(regid));
+}
+
+std::string ArmBuilder::FloatRegIDToName(int regid) {
+  if (0 <= regid && regid < 32) {
+    return std::string("s") + std::to_string(regid);
+  }
+  throw std::runtime_error("Unexpected float regid " + std::to_string(regid));
 }
 
 }  // namespace AssemblyBuilder
