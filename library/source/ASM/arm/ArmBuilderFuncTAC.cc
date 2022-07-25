@@ -178,7 +178,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         SymbolPtr *other_sym =
             (!func_context_.last_float_freereg_) ? &func_context_.float_freereg1_ : &func_context_.float_freereg2_;
         if (target_reg == except_reg ||
-            (other_reg != except_reg && ((*other_sym) == nullptr) || (*other_sym)->IsLiteral())) {
+            (other_reg != except_reg && (((*other_sym) == nullptr) || (*other_sym)->IsLiteral()))) {
           target_reg = other_reg;
           target_sym = other_sym;
         }

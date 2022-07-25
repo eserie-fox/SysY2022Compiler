@@ -201,9 +201,8 @@ std::string ThreeAddressCodeList::ToString() const {
 
 std::shared_ptr<Symbol> ThreeAddressCode::getDefineSym()
 {
-  auto isArith = [](TACOperationType op)
-  {
-    if (op < TACOperationType::Assign)  return true;
+  auto isArith = [](TACOperationType op) {
+    if (op < TACOperationType::Assign && op > TACOperationType::Undefined) return true;
     return false;
   };
 
@@ -259,57 +258,100 @@ std::shared_ptr<Symbol> ThreeAddressCode::getDefineSym()
 
 std::list<std::shared_ptr<Symbol>> ThreeAddressCode::getUseSym()
 {
-  auto isBinaryArith = [](TACOperationType op)
-  {
-    if (op <= TACOperationType::LogicOr)  return true;
+  auto isBinaryArith = [](TACOperationType op) {
+    if (op <= TACOperationType::LogicOr && op > TACOperationType::Undefined) return true;
     return false;
   };
 
-  auto isUnaryArith = [](TACOperationType op)
-  {
-    if (op > TACOperationType::LogicOr && op <= TACOperationType::UnaryPositive)  return true;
+  auto isUnaryArith = [](TACOperationType op) {
+    if (op >= TACOperationType::UnaryMinus && op <= TACOperationType::UnaryPositive)  return true;
     return false;
   };
 
-  if (isBinaryArith(operation_))
-    return {b_, c_};
-  else if (isUnaryArith(operation_))
-    return {b_};
-  else
-  {
-    switch (operation_)
-    {
-    case TACOperationType::Argument:
-    case TACOperationType::ArgumentAddress:
-      if (a_->value_.Type() == SymbolValue::ValueType::Array)
-        return {a_->value_.GetArrayDescriptor()->base_addr.lock(), a_->value_.GetArrayDescriptor()->base_offset};
-      else
-        return {a_};
-      break;
-
-    case TACOperationType::FloatToInt:
-    case TACOperationType::IntToFloat:
+  if (isBinaryArith(operation_)) {
+    std::list<std::shared_ptr<Symbol>> ret;
+    if (!b_->IsLiteral()) {
+      ret.push_back(b_);
+    }
+    if (!c_->IsLiteral()) {
+      ret.push_back(c_);
+    }
+    return ret;
+  } else if (isUnaryArith(operation_)) {
+    if (!b_->IsLiteral()) {
       return {b_};
-      break;
-    
-    case TACOperationType::Assign:
-      if (b_->value_.IsNumericType())
-        return {b_};
-      else
-        return {};
-      break;
-    
-    case TACOperationType::Return:
-      if (a_)
-        return {a_};
-      else
-        return {};
+    }
+    return {};
+  } else {
+    switch (operation_) {
+      case TACOperationType::Argument:
+      case TACOperationType::ArgumentAddress: {
+        if (a_->value_.Type() == SymbolValue::ValueType::Array) {
+          std::list<std::shared_ptr<Symbol>> ret{a_->value_.GetArrayDescriptor()->base_addr.lock()};
+          auto offset_sym = a_->value_.GetArrayDescriptor()->base_addr.lock();
+          if (!offset_sym->IsLiteral()) {
+            ret.push_back(offset_sym);
+          }
+          return ret;
+        } else {
+          if (!a_->IsLiteral()) {
+            return {a_};
+          }
+          return {};
+        }
+      }
 
-    default:
-      return {};
-      break;
+      case TACOperationType::FloatToInt:
+      case TACOperationType::IntToFloat: {
+        if (!b_->IsLiteral()) {
+          return {b_};
+        }
+        assert(false);
+        return {};
+      }
+      case TACOperationType::Assign: {
+        std::list<std::shared_ptr<Symbol>> ret;
+        if (a_->value_.Type() == SymbolValue::ValueType::Array) {
+          ret.push_back(a_->value_.GetArrayDescriptor()->base_addr.lock());
+          auto offset_sym = a_->value_.GetArrayDescriptor()->base_addr.lock();
+          if (!offset_sym->IsLiteral()) {
+            ret.push_back(offset_sym);
+          }
+        }
+        if (b_->value_.Type() == SymbolValue::ValueType::Array) {
+          ret.push_back(b_->value_.GetArrayDescriptor()->base_addr.lock());
+          auto offset_sym = b_->value_.GetArrayDescriptor()->base_addr.lock();
+          if (!offset_sym->IsLiteral()) {
+            ret.push_back(offset_sym);
+          }
+        } else {
+          if (!b_->IsLiteral()) {
+            ret.push_back(b_);
+          }
+        }
+        return ret;
+      } 
+
+      case TACOperationType::Return: {
+        if (a_ && !a_->IsLiteral())
+          return {a_};
+        else
+          return {};
+      }
+
+      case TACOperationType::IfZero: {
+        if (!b_->IsLiteral()) {
+          return {b_};
+        }
+        return {};
+      }
+
+      default:
+        return {};
+        break;
     }
   }
+  return {};
 }
 
 }  // namespace ThreeAddressCode
