@@ -661,15 +661,16 @@ Stmt
     $1->ret->value_.CheckOperatablity(scanner.get_location());
     $3->ret->value_.CheckOperatablity(scanner.get_location());
     ExpressionPtr exp;
+    $$ = $1->tac;
     if($3->ret->value_.UnderlyingType()!=$1->ret->value_.UnderlyingType()){
       if($1->ret->value_.UnderlyingType() == ValueType::Int){
         exp = tacbuilder->CastFloatToInt($3);
       }else{
         exp = tacbuilder->CastIntToFloat($3);
       }
-      $$ = tacbuilder->CreateAssign($1->ret, exp)->tac;
+      (*$$) += tacbuilder->CreateAssign($1->ret, exp)->tac;
     }else{
-      $$ = tacbuilder->CreateAssign($1->ret, $3)->tac;
+      (*$$) += tacbuilder->CreateAssign($1->ret, $3)->tac;
     }
     
   }
