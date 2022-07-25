@@ -44,7 +44,7 @@ TEST(LiveAnalyzerTest, test)
     tac_list = tacdriver.get_tacbuilder()->GetTACList();
 
     std::shared_ptr<ControlFlowGraph> cfg = std::make_shared<ControlFlowGraph>(tac_list);
-    cfg->print();
+    cfg->printToDot();
 
     LiveAnalyzer liveAnalyzer(cfg);
     auto symSet = liveAnalyzer.get_allSymSet();
