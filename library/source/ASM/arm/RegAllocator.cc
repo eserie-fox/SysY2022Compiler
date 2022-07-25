@@ -203,7 +203,7 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     funcAttr.attr.used_regs.floatReservedReg = 16;
     
 
-    // 开始为每个变量分配物理寄存器或栈空间
+    // 记录当前局部变量的栈偏移
     int varStackOffset = 0;
 
     // 将分配到栈的信息存储到symAttr并更新栈顶
@@ -235,7 +235,9 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
         symAttr.value = regId;
         funcUsedRegadd(type, regId);
     };
+    
 
+    // 开始为每个变量分配物理寄存器或栈空间
     while (!syms.empty())
     {
         auto symInfo = syms.top();
@@ -342,7 +344,10 @@ RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
     // 得到函数中的局部变量、参数列表
     ContextInit(liveAnalyzer);
     // 线性扫描
-    LinearScan(liveAnalyzer);
+    auto funcAttr = LinearScan(liveAnalyzer);
+    // 在symAttrMap中添加函数属性
+    if (symAttrMap.emplace((*liveAnalyzer.get_fbegin())->a_, funcAttr).second == false)
+        throw std::runtime_error("RegAllocator error: Unable to insert function attribute");
 }
 
 SymAttribute RegAllocator::get_SymAttribute(SymPtr sym) 

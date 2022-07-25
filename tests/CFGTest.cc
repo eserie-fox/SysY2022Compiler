@@ -43,8 +43,8 @@ TEST_F(CFGTest, serialTest)
     for (int i = 0; i < 3; ++i)
         tacList += tacBuilder.NewTAC(TACOperationType::Add, a, b, c);
     tacList += tacBuilder.NewTAC(TACOperationType::FunctionEnd);
-    ControlFlowGraph cfg(tacList.begin(), --tacList.end());
-    cfg.print();
+    ControlFlowGraph cfg(tacList.begin(), tacList.end());
+    cfg.printToDot();
 }
 
 // 存在从函数入口点不可达的代码
@@ -60,8 +60,8 @@ TEST_F(CFGTest, deadCode)
     tacList += tacBuilder.NewTAC(TACOperationType::Add, a, b, c);
     tacList += tacBuilder.NewTAC(TACOperationType::FunctionEnd);
 
-    ControlFlowGraph cfg(tacList.begin(), --tacList.end());
-    cfg.print();
+    ControlFlowGraph cfg(tacList.begin(), tacList.end());
+    cfg.printToDot();
 }
 
 // 测试if-else
@@ -88,8 +88,8 @@ TEST_F(CFGTest, ifTest)
     tacList += tacBuilder.NewTAC(TACOperationType::Label, labels[1]);
     tacList += tacBuilder.NewTAC(TACOperationType::FunctionEnd);
 
-    ControlFlowGraph cfg(tacList.begin(), --tacList.end());
-    cfg.print();
+    ControlFlowGraph cfg(tacList.begin(), tacList.end());
+    cfg.printToDot();
 }
 
 TEST(CFGTestUseParser, test)
@@ -109,7 +109,7 @@ TEST(CFGTestUseParser, test)
     tac_list = tacdriver.get_tacbuilder()->GetTACList();
 
     ControlFlowGraph cfg(tac_list);
-    cfg.print();
+    cfg.printToDot();
     std::cout << '\n';
 
     

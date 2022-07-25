@@ -4,6 +4,7 @@
 #include "TAC/ThreeAddressCode.hh"
 #include "MacroUtil.hh"
 #include <vector>
+#include <iostream>
 #include <stdexcept>
 
 namespace HaveFunCompiler{
@@ -83,7 +84,7 @@ public:
     }
 
     // 测试用
-    void print() const;
+    void printToDot() const;
 
 private:
 
@@ -117,6 +118,8 @@ private:
     void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
 
     void WarnUnreachable() const;
+
+    void dfsPrintToDot(size_t n, std::vector<bool> &vis, std::ostream &os) const;
 };
 
 }  // namespace AssemblyBuilder
