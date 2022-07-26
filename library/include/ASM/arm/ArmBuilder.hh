@@ -41,6 +41,8 @@ class ArmBuilder : public AssemblyBuilder {
   //通用寄存器id转名字
   static std::string IntRegIDToName(int regid);
 
+  static std::string FloatRegIDToName(int regid);
+
   std::string DeclareDataToASMString(TACPtr tac);
 
   std::string AddDataRefToASMString(TACPtr tac);
