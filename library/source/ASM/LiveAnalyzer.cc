@@ -111,12 +111,12 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
         // 队列中存放所有可能作为活跃区间终点的结点下标
         std::queue<size_t> startQueue;
         for (auto n : useSet)
-        {
             startQueue.push(n);
-            vis[n] = true;
-        }
+        // 目前先将单独的定值点(定值后没有使用的定值)作为一个活跃区间处理（优化后就不存在了）
+        for (auto n : defSet)  
+            startQueue.push(n);
 
-        // 一次循环，由一个终点(endDfn)，求出一个连续的活跃区间[startDfn, endDfn]
+        // 一次循环，从一个终点(endDfn)开始，向上遍历，求出一个连续的活跃区间[startDfn, endDfn]
         while (!startQueue.empty())
         {
             // 从一个活跃点开始逆dfs序遍历
@@ -126,49 +126,47 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
             size_t cur = startQueue.front();
             startQueue.pop();
 
-            LiveInterval interval(cfg->get_node_dfn(cur), cfg->get_node_dfn(cur));
+            if (vis[cur])  continue;
+
+            LiveInterval interval;
+            // 将活跃区间尾更新为当前活跃点，然后开始向上逆dfn序遍历
+            interval.second = cfg->get_node_dfn(cur);
+
             bool flag;
 
             do
             {
                 flag = false;
-                auto inNodeLs = cfg->get_inNodeList(cur);
-                for (auto u : inNodeLs)
-                {
-                    if (cfg->get_node_dfn(u) + 1 == cfg->get_node_dfn(cur))  // u是dfn连续的前驱
-                    {
-                        if (!vis[u])
-                        {
-                            vis[u] = true;  
-                            interval.first = cfg->get_node_dfn(u);  // 更新interval的first为dfn(u)
-                            cur = u;
+                vis[cur] = true;
 
-                            if (defSet.find(u) == defSet.end())
-                                flag = true;  // 只有存在一个u没有被访问，且u不是定值点时，才继续向前遍历
-                        }
-                    }
-                    else if (!vis[u])  // u不是dfn连续的前驱，而sym必在u活跃，所以u加入队列
+                // 将活跃区间头更新成当前结点cur
+                interval.first = cfg->get_node_dfn(cur);
+
+                // 当前结点cur不是定值（如果是，就已经找到连续活跃区间了，退出）
+                if (defSet.find(cur) == defSet.end())
+                {
+                    auto inNodeLs = cfg->get_inNodeList(cur);
+                    for (auto u : inNodeLs)
                     {
-                        vis[u] = true;
-                        startQueue.push(u);
+                        if (cfg->get_node_dfn(u) + 1 == cfg->get_node_dfn(cur))  // 找到dfn连续的前驱u
+                        {
+                            if (!vis[u])  // 如果前驱没有被访问过，继续向上遍历
+                            {
+                                cur = u;
+                                flag = true;
+                            }
+                        }
+                        // u不是dfn连续的前驱，而sym必在u活跃
+                        // 本次循环只求1个连续区间，u不连续
+                        // 所以，当u没访问过时，将其加入活跃点，后续的循环中再求从它开始的活跃区间
+                        else if (!vis[u])
+                            startQueue.push(u);
                     }
                 }
             } while (flag);
 
             // 将本次求得的活跃区间合并进该变量的活跃区间集合
             symLiveInfo.addUncoveredLiveInterval(interval);
-        }
-
-        // 目前先将单独的定值点(定值后没有使用的定值)作为一个活跃区间处理（优化后就不存在了）
-        for (auto n : defSet)
-        {
-            if (!vis[n])  
-            {
-                vis[n] = true;
-                auto dfn = cfg->get_node_dfn(n);
-                LiveInterval intv(dfn, dfn);
-               symLiveInfo.addUncoveredLiveInterval(intv);
-            }
         }
 
         // 更新该变量的活跃区间端点(寄存器分配优先级可能使用)

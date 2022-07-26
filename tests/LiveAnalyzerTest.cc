@@ -19,10 +19,10 @@ std::ostream& operator<<(std::ostream& os, const SymLiveInfo& liveInfo)
 {
     os << "defCnt: " << liveInfo.defCnt;
     os << ", useCnt: " << liveInfo.useCnt << '\n';
-    os << "liveRanges:\n";
+    os << "liveRanges: ";
     for (auto &e : liveInfo.liveIntervalSet)
         os << '[' << e.first << ", " << e.second << "] ";
-    os << "\n\n";
+    os << "\n";
     return os;
 }
 

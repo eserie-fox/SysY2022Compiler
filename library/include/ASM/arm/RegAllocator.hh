@@ -192,6 +192,7 @@ private:
         void AddRanges(const std::set<LiveInterval>& src);
     };
 
+public:
     static const int intRegPoolSize = 13, floatRegPoolSize = 32;
     static const int intRegParamUsableNumber = 4, floatRegParamUsableNumber = 16;
     // static const int intRegPool[intRegPoolSize], floatRegPoolSize[floatRegPoolSize];
