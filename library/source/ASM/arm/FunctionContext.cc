@@ -25,6 +25,10 @@ void FunctionContext::SetUp() {
   int_freereg2_ = nullptr;
   float_freereg1_ = nullptr;
   float_freereg2_ = nullptr;
+  arg_records_.clear();
+  var_stack_immvals_.clear();
+  savefloatregs_.clear();
+  saveintregs_.clear();
 }
 
 void FunctionContext::TearDown() {

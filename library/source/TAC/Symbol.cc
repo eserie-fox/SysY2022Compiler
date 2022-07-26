@@ -626,5 +626,14 @@ bool Symbol::IsLiteral() const {
   return type_ == SymbolType::Constant && value_.Type() != SymbolValue::ValueType::Array;
 }
 
+bool Symbol::IsGlobal() const {
+  if (name_.has_value() && name_.value().length() > 2) {
+    if (name_.value()[0] == 'S' && name_.value()[1] == '0') {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler

@@ -106,7 +106,8 @@ bool ArmBuilder::TranslateFunction() {
   //将要用到的寄存器保存起来
   func_context_.func_attr_ = func_context_.reg_alloc_->get_SymAttribute(func_label);
   //保存了的寄存器列表
-  std::vector<uint32_t> saveintregs, savefloatregs;
+  std::vector<uint32_t> &saveintregs = func_context_.saveintregs_;
+  std::vector<uint32_t> &savefloatregs = func_context_.savefloatregs_;
 
   //如果lr会被用到单独保存一下
   if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, LR_REGID)) {
@@ -144,10 +145,16 @@ bool ArmBuilder::TranslateFunction() {
   //为变量分配栈空间
   func_context_.stack_size_for_vars_ = func_context_.func_attr_.value;
   //可能用很大的栈空间，立即数存不下，保险起见Divide一下
-  auto var_stack_immvals = ArmHelper::DivideIntoImmediateValues(func_context_.stack_size_for_vars_);
+  auto &var_stack_immvals = func_context_.var_stack_immvals_;
+  var_stack_immvals = ArmHelper::DivideIntoImmediateValues(func_context_.stack_size_for_vars_);
   for (auto immval : var_stack_immvals) {
     emitln("sub sp, sp, #" + std::to_string(immval));
   }
+
+  //为后面栈的释放我们反向一下。
+  std::reverse(var_stack_immvals.begin(), var_stack_immvals.end());
+  std::reverse(savefloatregs.begin(), savefloatregs.end());
+  std::reverse(saveintregs.begin(), saveintregs.end());
 
   //函数体翻译
   //跳过label和fbegin
@@ -158,7 +165,6 @@ bool ArmBuilder::TranslateFunction() {
   }
 
   //释放变量栈空间
-  std::reverse(var_stack_immvals.begin(), var_stack_immvals.end());
   for (auto immval : var_stack_immvals) {
     emitln("add sp, sp, #" + std::to_string(immval));
   }
@@ -166,19 +172,16 @@ bool ArmBuilder::TranslateFunction() {
   //还原寄存器
   //因栈的原因，还需要reverse一下
   //还原浮点寄存器
-  {
-    std::reverse(savefloatregs.begin(), savefloatregs.end());
-    for (auto regid : savefloatregs) {
-      emitln("vpop { s" + std::to_string(regid) + " }");
-    }
+  for (auto regid : savefloatregs) {
+    emitln("vpop { " + FloatRegIDToName(regid) + " }");
   }
+
   //还原通用寄存器
-  {
-    std::reverse(saveintregs.begin(), saveintregs.end());
-    for (auto regid : saveintregs) {
-      emitln("pop { " + IntRegIDToName(regid) + " }");
-    }
+
+  for (auto regid : saveintregs) {
+    emitln("pop { " + IntRegIDToName(regid) + " }");
   }
+
   //这里没有用栈来pop lr到sp位置
   emitln("bx lr");
 

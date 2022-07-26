@@ -238,6 +238,9 @@ class TACBuilder {
   void SetLocation(HaveFunCompiler::Parser::location *plocation);
 
  private:
+  //去除对数组的直接访问，用一个变量中转一下。
+  ExpressionPtr RemoveDirectArray(ExpressionPtr exp);
+
   using FlattenedArray = std::vector<std::pair<int, std::shared_ptr<Expression>>>;
   HaveFunCompiler::Parser::location *plocation_;
   void FlattenInitArrayImpl(FlattenedArray *out_result, ArrayDescriptorPtr array);

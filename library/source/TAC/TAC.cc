@@ -661,6 +661,8 @@ ExpressionPtr TACBuilder::CastFloatToInt(ExpressionPtr expF) {
     return CreateConstExp(static_cast<int>(expF->ret->value_.GetFloat()));
   }
   if (expF->ret->type_ == SymbolType::Variable) {
+    expF = RemoveDirectArray(expF);
+
     if (expF->ret->value_.UnderlyingType() != SymbolValue::ValueType::Float) {
       throw TYPEMISMATCH_EXCEPTION(expF->ret->value_.TypeToString(), "Float", "Cast fail");
     }
@@ -678,6 +680,8 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
     return CreateConstExp(static_cast<float>(expI->ret->value_.GetInt()));
   }
   if (expI->ret->type_ == SymbolType::Variable) {
+    expI = RemoveDirectArray(expI);
+    
     if (expI->ret->value_.UnderlyingType() != SymbolValue::ValueType::Int) {
       throw TYPEMISMATCH_EXCEPTION(expI->ret->value_.TypeToString(), "Int", "Cast fail");
     }
@@ -850,6 +854,18 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
   }
   throw UnknownException(*plocation_,
                          "Not TAC operation, type is" + std::string(magic_enum::enum_name<TACOperationType>(arith_op)));
+}
+
+ExpressionPtr TACBuilder::RemoveDirectArray(ExpressionPtr exp) {
+  if (exp->ret->value_.Type() != SymbolValue::ValueType::Array) {
+    return exp;
+  }
+  exp->ret->value_.CheckOperatablity(*plocation_);
+  auto tmpSym = CreateTempVariable(exp->ret->value_.UnderlyingType());
+  (*exp->tac) += NewTAC(TACOperationType::Variable, tmpSym);
+  (*exp->tac) += NewTAC(TACOperationType::Assign, tmpSym, exp->ret);
+  exp->ret = tmpSym;
+  return exp;
 }
 
 void TACBuilder::SetTACList(TACListPtr tac_list) { tac_list_ = tac_list; }

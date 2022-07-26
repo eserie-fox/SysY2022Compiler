@@ -105,6 +105,9 @@ struct Symbol {
 
   //是否是字面常量
   bool IsLiteral() const;
+
+  //是否是全局变量
+  bool IsGlobal() const;
 };
 
 class Expression;
