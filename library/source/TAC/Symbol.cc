@@ -614,7 +614,7 @@ std::string Symbol::get_tac_name(bool name_only) const {
 }
 
 size_t ArrayDescriptor::GetSizeInByte() const {
-  size_t ret = 1;
+  size_t ret = 4;
   for (auto sz : dimensions) {
     ret *= sz;
   }
