@@ -42,6 +42,10 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
             if (tac->a_->value_.Type() == SymbolValue::ValueType::Array)
                 ptrToArrayOnStack.emplace(tac->a_, SymAttribute());
         }
+
+        // 如果有函数调用，标记lr寄存器(r14)的使用
+        else if (tac->operation_ == TACOperationType::Call)
+            SET_UINT(funcAttr.attr.used_regs.intRegs, 14);
     }
 }
 
@@ -132,10 +136,8 @@ SymAttribute& RegAllocator::fetchSymAttr(const SymInfo &symInfo)
     }
 }
 
-SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
+void RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
 {
-    SymAttribute funcAttr;
-    
     // 得到参数传入时占用的地址，同时为每个参数创建了Attribute对象，保存在symAttrMap中
     getParamAddr();
 
@@ -217,12 +219,12 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     };
 
     // 将寄存器regId加入到函数使用的type类寄存器集
-    auto funcUsedRegadd = [&funcAttr](SymValueType type, int regId)
+    auto funcUsedRegadd = [this](SymValueType type, int regId)
     {
         if (type == INT)
-            SET_UINT(funcAttr.attr.used_regs.intRegs, regId);
+            SET_UINT(this->funcAttr.attr.used_regs.intRegs, regId);
         else
-            SET_UINT(funcAttr.attr.used_regs.floatRegs, regId);
+            SET_UINT(this->funcAttr.attr.used_regs.floatRegs, regId);
     };
 
     // 为symAttr记录信息：分配到type类型的寄存器regId，并更新函数使用的寄存器集
@@ -308,8 +310,6 @@ SymAttribute RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     // 将栈的使用情况记录到函数属性
     auto &varStackSize = funcAttr.value;
     varStackSize = abs(varStackOffset);
-
-    return funcAttr;
 }
 
 bool RegAllocator::RegInfo::IsConflict(const std::set<LiveInterval>& symRanges)
@@ -344,7 +344,7 @@ RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
     // 得到函数中的局部变量、参数列表
     ContextInit(liveAnalyzer);
     // 线性扫描
-    auto funcAttr = LinearScan(liveAnalyzer);
+    LinearScan(liveAnalyzer);
     // 在symAttrMap中添加函数属性
     if (symAttrMap.emplace((*liveAnalyzer.get_fbegin())->a_, funcAttr).second == false)
         throw std::runtime_error("RegAllocator error: Unable to insert function attribute");

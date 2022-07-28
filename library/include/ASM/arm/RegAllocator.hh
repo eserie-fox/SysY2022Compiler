@@ -130,6 +130,9 @@ private:
     // 根据函数或变量Sym，取得它们的属性
     std::unordered_map<SymPtr, SymAttribute> symAttrMap;
 
+    // 函数属性
+    SymAttribute funcAttr;
+
     // 函数内的局部变量，参数的列表
     std::vector<SymPtr> localSym, paramLs;
 
@@ -212,7 +215,7 @@ private:
      * 保证参数地址的重定位不会产生循环引用。
      * 
     */
-    SymAttribute LinearScan(const LiveAnalyzer& liveAnalyzer);
+    void LinearScan(const LiveAnalyzer& liveAnalyzer);
 
     // 封装线性扫描时获取SymAttribute的过程
     // sym为参数，直接获取
