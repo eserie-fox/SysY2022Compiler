@@ -201,9 +201,13 @@ void RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
         floatRegsIndex[i] = j;
     }
 
+    // 记录保留的寄存器
     funcAttr.attr.used_regs.intReservedReg = 4;
     funcAttr.attr.used_regs.floatReservedReg = 16;
-    
+    SET_UINT(funcAttr.attr.used_regs.intRegs, 0);
+    SET_UINT(funcAttr.attr.used_regs.intRegs, 4);
+    SET_UINT(funcAttr.attr.used_regs.floatRegs, 0);
+    SET_UINT(funcAttr.attr.used_regs.floatRegs, 16);
 
     // 记录当前局部变量的栈偏移
     int varStackOffset = 0;
