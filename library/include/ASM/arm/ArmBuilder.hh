@@ -43,6 +43,12 @@ class ArmBuilder : public AssemblyBuilder {
 
   static std::string FloatRegIDToName(int regid);
 
+  //获得该sym对应的变量名
+  std::string GetVariableName(SymbolPtr sym);
+
+  //获得某个数据的引用名称
+  std::string ToDataRefName(std::string name);
+
   std::string DeclareDataToASMString(TACPtr tac);
 
   std::string AddDataRefToASMString(TACPtr tac);

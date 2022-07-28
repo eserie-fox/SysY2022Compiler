@@ -50,6 +50,18 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       *target_sym = nullptr;
       return;
     }
+    if ((*target_sym)->IsGlobal()) {
+      //数组指针不会被更改，直接就不用会存。
+      if ((*target_sym)->value_.Type() != SymbolValue::ValueType::Array) {
+        int otherreg = reg_id ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+        emitln("push {" + IntRegIDToName(otherreg) + "}");
+        emitln("ldr " + IntRegIDToName(otherreg) + ", " + ToDataRefName(GetVariableName(*target_sym)));
+        emitln("str " + IntRegIDToName(reg_id) + ", [" + IntRegIDToName(otherreg) + "]");
+        emitln("pop {" + IntRegIDToName(otherreg) + "}");
+      }
+      *target_sym = nullptr;
+      return;
+    }
     auto attr = func_context_.reg_alloc_->get_SymAttribute(*target_sym);
     if (attr.attr.store_type == attr.INT_REG || attr.attr.store_type == attr.FLOAT_REG) {
       throw std::logic_error("Cannot evit register variable");
@@ -101,7 +113,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
   };
 
-  // reg_id为0时驱逐float_freereg1，否则驱逐float_freereg2。只会用到reg_id一个寄存器。
+  // reg_id为0时驱逐float_freereg1，否则驱逐float_freereg2。只会用到reg_id一个寄存器以及可能一个通用寄存器。
   auto evit_float_reg = [&, this](int reg_id) -> void {
     SymbolPtr *target_sym;
     if (reg_id) {
@@ -115,6 +127,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
     if ((*target_sym)->IsLiteral()) {
       //字面量不用回存。
+      *target_sym = nullptr;
+      return;
+    }
+    if ((*target_sym)->IsGlobal()) {
+      int freeintreg = get_free_int_reg();
+      emitln("ldr " + IntRegIDToName(freeintreg) + ", " + ToDataRefName(GetVariableName(*target_sym)));
+      emitln("vstr " + FloatRegIDToName(reg_id) + ", [" + IntRegIDToName(freeintreg) + "]");
       *target_sym = nullptr;
       return;
     }
@@ -234,7 +253,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           emitln("ldr " + IntRegIDToName(freeintreg) + ", =" + std::to_string(castval));
         }
         emitln("vmov s" + std::to_string(target_reg) + ", " + IntRegIDToName(freeintreg));
-
+      } else if (sym->IsGlobal()) {
+        int freeintreg = get_free_int_reg();
+        emitln("ldr " + IntRegIDToName(freeintreg) + ", " + ToDataRefName(GetVariableName(sym)));
+        emitln("vldr " + FloatRegIDToName(target_reg) + ", [" + IntRegIDToName(freeintreg) + "]");
       } else {
         auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
         int32_t realoffset = getrealoffset(attr);
@@ -244,7 +266,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           int freeintreg = get_free_int_reg();
           emitln("ldr " + IntRegIDToName(freeintreg) + ", =" + std::to_string(realoffset));
           emitln("add " + IntRegIDToName(freeintreg) + ", " + IntRegIDToName(freeintreg) + ", sp");
-          emitln("vldr s" + std::to_string(target_reg) + ", [" + IntRegIDToName(freeintreg) + "]");
+          emitln("vldr " + FloatRegIDToName(target_reg) + ", [" + IntRegIDToName(freeintreg) + "]");
         }
       }
 
@@ -274,6 +296,11 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           emitln("mov " + IntRegIDToName(target_reg) + ", #" + std::to_string(val));
         } else {
           emitln("ldr " + IntRegIDToName(target_reg) + ", =" + std::to_string(val));
+        }
+      } else if (sym->IsGlobal()) {
+        emitln("ldr " + IntRegIDToName(target_reg) + ", " + ToDataRefName(GetVariableName(sym)));
+        if (sym->value_.Type() != SymbolValue::ValueType::Array) {
+          emitln("ldr " + IntRegIDToName(target_reg) + ", [" + IntRegIDToName(target_reg) + "]");
         }
       } else {
         auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);

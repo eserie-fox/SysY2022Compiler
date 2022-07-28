@@ -250,12 +250,21 @@ bool ArmBuilder::Translate(std::string *output) {
   return true;
 }
 
+std::string ArmBuilder::GetVariableName(SymbolPtr sym) {
+  if (sym->value_.Type() == SymbolValue::ValueType::Array) {
+    return sym->value_.GetArrayDescriptor()->base_addr.lock()->get_tac_name(true);
+  }
+  return sym->get_tac_name(true);
+}
+
+std::string ArmBuilder::ToDataRefName(std::string name) { return "_ref_" + name; }
+
 std::string ArmBuilder::DeclareDataToASMString(TACPtr tac) {
   auto sym = tac->a_;
   //注释和align设置
   std::string ret = "// " + tac->ToString() + "\n.align 4\n";
   //数据label
-  ret += sym->get_name() + ":\n";
+  ret += GetVariableName(sym) + ":\n";
   //如果是普通的int或float都是1单位sz，数组则可能多个
   size_t sz = 1;
   //数组声明
@@ -267,9 +276,9 @@ std::string ArmBuilder::DeclareDataToASMString(TACPtr tac) {
 }
 
 std::string ArmBuilder::AddDataRefToASMString(TACPtr tac) {
-  std::string name = tac->a_->get_name();
+  std::string name = GetVariableName(tac->a_);
   std::string ret = "// add reference to data '" + name + "'\n";
-  ret += "_ref_" + name + ": .word " + name + "\n";
+  ret += ToDataRefName(name) + ": .word " + name + "\n";
   return ret;
 }
 
