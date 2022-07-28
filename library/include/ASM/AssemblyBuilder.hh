@@ -11,7 +11,7 @@ class AssemblyBuilder {
   AssemblyBuilder() = default;
   virtual ~AssemblyBuilder() = default;
   //成功时返回true，否则返回false。output!=nullptr时会记录结果。
-  virtual bool Translate(std::string *output);
+  virtual bool Translate(std::string *output) = 0;
 };
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

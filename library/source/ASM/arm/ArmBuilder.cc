@@ -185,6 +185,7 @@ bool ArmBuilder::TranslateFunction() {
   //这里没有用栈来pop lr到sp位置
   emitln("bx lr");
 
+  target_output_->append(*pfunc_section);
   return true;
 }
 
