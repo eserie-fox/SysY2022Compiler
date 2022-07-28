@@ -84,7 +84,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (canbeimm) {
         emitln("str " + IntRegIDToName(reg_id) + ", [sp, #" + std::to_string(splitoffset.back()) + "]");
         splitoffset.pop_back();
-      }else{
+      } else {
         emitln("add sp, sp, #" + std::to_string(splitoffset.back()));
         emitln("str " + IntRegIDToName(reg_id) + ", [sp]");
       }
@@ -159,7 +159,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (canbeimm) {
         emitln("vstr " + FloatRegIDToName(reg_id) + ", [sp, #" + std::to_string(splitoffset.back()) + "]");
         splitoffset.pop_back();
-      }else{
+      } else {
         emitln("add sp, sp, #" + std::to_string(splitoffset.back()));
         emitln("vstr " + FloatRegIDToName(reg_id) + ", [sp]");
       }
@@ -171,7 +171,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     *target_sym = nullptr;
   };
 
-  auto evit_all_freereg = [&,this]() -> void{
+  auto evit_all_freereg = [&, this]() -> void {
     evit_int_reg(0);
     evit_int_reg(1);
     evit_float_reg(0);
@@ -327,13 +327,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
   //查看此符号是否被分配永久寄存器
   auto symbol_reg = [&, this](SymbolPtr sym) -> int {
-      auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
-      //如果被分配的话返回寄存器编号
-      if (attr.attr.store_type == attr.FLOAT_REG || attr.attr.store_type == attr.INT_REG) {
-        return attr.value;
-      }
-      //否则返回-1
-      return -1;
+    auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
+    //如果被分配的话返回寄存器编号
+    if (attr.attr.store_type == attr.FLOAT_REG || attr.attr.store_type == attr.INT_REG) {
+      return attr.value;
+    }
+    //否则返回-1
+    return -1;
   };
 
   //处理三个都是同种寄存器时的情况。返回值为：res寄存器，op1寄存器，op2寄存器，是否需要在运算后将缓存去除(-1,0,1，-1代表不需要，0表示去除第一个自由寄存器，1代表去除第二个)。
@@ -385,8 +385,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     return {resreg, op1reg, op2reg, freeregid};
   };
 
-
-  //mod很有可能有问题
+  // mod很有可能有问题
   auto binary_operation = [&, this]() -> void {
     assert(tac->a_->value_.Type() == tac->b_->value_.Type());
     assert(tac->b_->value_.Type() == tac->c_->value_.Type());
@@ -409,8 +408,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         case TACOperationType::NotEqual:
         case TACOperationType::GreaterOrEqual:
         case TACOperationType::GreaterThan:
-        case TACOperationType::Equal:
-        {
+        case TACOperationType::Equal: {
           emitln("vcmp.f32 " + FloatRegIDToName(op1reg) + ", " + FloatRegIDToName(op2reg));
           emitln("vmrs APSR_nzcv, FPSCR");
           int freeintreg = get_free_int_reg();
@@ -502,18 +500,23 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
           break;
         }
-        case TACOperationType::Div:{
+        case TACOperationType::Div: {
           emitln("push {r1-r3}");
-          emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+          if (op1reg < op2reg) {
+            emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+          } else {
+            emitln("push {" + IntRegIDToName(op1reg) + "}");
+            emitln("push {" + IntRegIDToName(op2reg) + "}");
+          }
           evit_int_reg(0);
           evit_int_reg(1);
           emitln("pop {r0, r1}");
           emitln("bl __aeabi_idiv");
           emitln("pop {r1-r3}");
           int regid = symbol_reg(tac->a_);
-          if(regid==-1){
-          func_context_.int_freereg1_ = tac->a_;}
-          else{
+          if (regid == -1) {
+            func_context_.int_freereg1_ = tac->a_;
+          } else {
             emitln("mov " + IntRegIDToName(regid) + ", r0");
           }
           // func_context_.int_freereg1_ = tac->a_;
@@ -525,8 +528,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         case TACOperationType::NotEqual:
         case TACOperationType::GreaterOrEqual:
         case TACOperationType::GreaterThan:
-        case TACOperationType::Equal:
-        {
+        case TACOperationType::Equal: {
           emitln("cmp " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
           switch (tac->operation_) {
             case TACOperationType::LessOrEqual:
@@ -560,7 +562,12 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         }
         case TACOperationType::Mod: {
           emitln("push {r1-r3}");
-          emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+          if (op1reg < op2reg) {
+            emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+          } else {
+            emitln("push {" + IntRegIDToName(op1reg) + "}");
+            emitln("push {" + IntRegIDToName(op2reg) + "}");
+          }
           evit_int_reg(0);
           evit_int_reg(1);
           emitln("pop {r0, r1}");
@@ -568,9 +575,9 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           emitln("mov r0, r1");
           emitln("pop {r1-r3}");
           int regid = symbol_reg(tac->a_);
-          if(regid==-1){
-          func_context_.int_freereg1_ = tac->a_;}
-          else{
+          if (regid == -1) {
+            func_context_.int_freereg1_ = tac->a_;
+          } else {
             emitln("mov " + IntRegIDToName(regid) + ", r0");
           }
           break;
@@ -610,7 +617,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           throw std::logic_error("Unknown binary operation " +
                                  std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));
       }
-      if (freeregid != -1 && tac->operation_ != TACOperationType::Mod && tac->operation_!=TACOperationType::Div) {
+      if (freeregid != -1 && tac->operation_ != TACOperationType::Mod && tac->operation_ != TACOperationType::Div) {
         emitln("mov" + IntRegIDToName(alloc_reg(tac->a_, resreg)) + ", " + IntRegIDToName(resreg));
         if (freeregid == 0) {
           assert(func_context_.int_freereg1_ == tac->b_);
@@ -654,7 +661,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       emitln("movne " + IntRegIDToName(dstreg) + ", #0");
     }
   };
-  
+
   auto assignment = [&, this]() -> void {
     if (tac->b_ == tac->a_) {
       //无需赋值
@@ -664,7 +671,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     int dstreg = alloc_reg(tac->a_, valreg);
     bool arrayA = tac->a_->value_.Type() == SymbolValue::ValueType::Array;
     bool arrayB = tac->b_->value_.Type() == SymbolValue::ValueType::Array;
-    if(arrayA && arrayB){
+    if (arrayA && arrayB) {
       //不符合语法
       throw std::logic_error("Cant assign array element to array element");
     }
@@ -736,15 +743,15 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
     }
   };
-  
+
   auto branch = [&, this]() -> void {
     evit_all_freereg();
     if (tac->operation_ == TACOperationType::Goto) {
-      if(tac->a_->type_ != SymbolType::Label){
+      if (tac->a_->type_ != SymbolType::Label) {
         throw std::logic_error("Must goto a label");
       }
       emitln("b " + tac->a_->get_tac_name(true));
-    }else{
+    } else {
       //是IfZero
       // a是label b是cond
       int valreg = alloc_reg(tac->b_);
@@ -974,7 +981,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (it->sym->value_.Type() == SymbolValue::ValueType::Float) {
         continue;
       }
-      if(it->isaddr){
+      if (it->isaddr) {
         assert(it->sym->value_.Type() == SymbolValue::ValueType::Array);
         auto arrayDescriptor = it->sym->value_.GetArrayDescriptor();
         auto basesym = arrayDescriptor->base_addr.lock();
@@ -1168,7 +1175,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
   auto label_declaration = [&, this]() -> void {
     evit_all_freereg();
-    emitln(tac->a_->get_tac_name(true) + ":"); 
+    emitln(tac->a_->get_tac_name(true) + ":");
   };
 
   auto array_declaration = [&, this]() -> void {
