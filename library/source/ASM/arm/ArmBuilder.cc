@@ -236,40 +236,13 @@ bool ArmBuilder::TranslateFunction() {
   for (; current_ != end_; ++current_) {
     emit(FuncTACToASMString(*current_));
   }
+  //还原fend
+  ++end_;
 
   //为了安全起见，强行加一个return
   TACPtr tacret = std::make_shared<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>();
   tacret->operation_ = TACOperationType::Return;
   emit(FuncTACToASMString(tacret));
-
-  // //释放变量栈空间
-  // for (auto immval : var_stack_immvals) {
-  //   emitln("add sp, sp, #" + std::to_string(immval));
-  // }
-
-  // //还原寄存器
-  // //因栈的原因，还需要reverse一下
-  // //还原浮点寄存器
-  // for (auto regid : savefloatregs) {
-  //   if (regid.first == regid.second) {
-  //     emitln("vpop { " + FloatRegIDToName(regid.first) + " }");
-  //   } else {
-  //     emitln("vpop { " + FloatRegIDToName(regid.first) + "-" + FloatRegIDToName(regid.second) + " }");
-  //   }
-  // }
-
-  // //还原通用寄存器
-
-  // for (auto regid : saveintregs) {
-  //   if (regid.first == regid.second) {
-  //     emitln("pop { " + IntRegIDToName(regid.first) + " }");
-  //   } else {
-  //     emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
-  //   }
-  // }
-
-  // //这里没有用栈来pop lr到sp位置
-  // emitln("bx lr");
 
   return true;
 }
@@ -292,7 +265,7 @@ bool ArmBuilder::TranslateFunctions() {
         func_begin = prev_it;
       } else {
         //不满足条件的话就不要让它多加一次了，进入下一次循环再处理
-        current_ = prev_it;
+        it = prev_it;
       }
     } else if ((*it)->operation_ == TACOperationType::FunctionBegin) {
       //除非在第一种情况下，我们断言不会出现funcbegin，否则为错误
