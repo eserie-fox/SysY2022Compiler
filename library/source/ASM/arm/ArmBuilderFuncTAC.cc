@@ -503,7 +503,21 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Div:{
-          emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          emitln("push {r1-r3}");
+          emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+          evit_int_reg(0);
+          evit_int_reg(1);
+          emitln("pop {r0, r1}");
+          emitln("bl __aeabi_idiv");
+          emitln("pop {r1-r3}");
+          int regid = symbol_reg(tac->a_);
+          if(regid==-1){
+          func_context_.int_freereg1_ = tac->a_;}
+          else{
+            emitln("mov " + IntRegIDToName(regid) + ", r0");
+          }
+          // func_context_.int_freereg1_ = tac->a_;
+          // emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
           break;
         }
         case TACOperationType::LessOrEqual:
@@ -545,27 +559,43 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Mod: {
-          emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
-          emitln("mul " + IntRegIDToName(resreg) + ", " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg));
-          if (freeregid != -1) {
-            if (freeregid == 0) {
-              assert(func_context_.int_freereg1_ == tac->b_);
-              func_context_.int_freereg1_ = nullptr;
-            } else {
-              assert(func_context_.int_freereg2_ == tac->b_);
-              func_context_.int_freereg2_ = nullptr;
-            }
-            op1reg = alloc_reg(tac->b_, resreg);
-          }
-          emitln("sub " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
-          if (freeregid != -1) {
-            if (freeregid == 0) {
-              func_context_.int_freereg1_ = tac->a_;
-            } else {
-              func_context_.int_freereg2_ = tac->a_;
-            }
+          emitln("push {r1-r3}");
+          emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+          evit_int_reg(0);
+          evit_int_reg(1);
+          emitln("pop {r0, r1}");
+          emitln("bl __aeabi_idivmod");
+          emitln("mov r0, r1");
+          emitln("pop {r1-r3}");
+          int regid = symbol_reg(tac->a_);
+          if(regid==-1){
+          func_context_.int_freereg1_ = tac->a_;}
+          else{
+            emitln("mov " + IntRegIDToName(regid) + ", r0");
           }
           break;
+
+          // emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+          // emitln("mul " + IntRegIDToName(resreg) + ", " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg));
+          // if (freeregid != -1) {
+          //   if (freeregid == 0) {
+          //     assert(func_context_.int_freereg1_ == tac->b_);
+          //     func_context_.int_freereg1_ = nullptr;
+          //   } else {
+          //     assert(func_context_.int_freereg2_ == tac->b_);
+          //     func_context_.int_freereg2_ = nullptr;
+          //   }
+          //   op1reg = alloc_reg(tac->b_, resreg);
+          // }
+          // emitln("sub " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
+          // if (freeregid != -1) {
+          //   if (freeregid == 0) {
+          //     func_context_.int_freereg1_ = tac->a_;
+          //   } else {
+          //     func_context_.int_freereg2_ = tac->a_;
+          //   }
+          // }
+          // break;
         }
         case TACOperationType::Mul: {
           emitln("mul " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
@@ -580,7 +610,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           throw std::logic_error("Unknown binary operation " +
                                  std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));
       }
-      if (freeregid != -1 && tac->operation_ != TACOperationType::Mod) {
+      if (freeregid != -1 && tac->operation_ != TACOperationType::Mod && tac->operation_!=TACOperationType::Div) {
         emitln("mov" + IntRegIDToName(alloc_reg(tac->a_, resreg)) + ", " + IntRegIDToName(resreg));
         if (freeregid == 0) {
           assert(func_context_.int_freereg1_ == tac->b_);
