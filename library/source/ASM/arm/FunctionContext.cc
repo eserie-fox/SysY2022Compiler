@@ -11,6 +11,10 @@ void FunctionContext::SetUp() {
   stack_size_for_args_ = 0;
   stack_size_for_vars_ = 0;
   stack_size_for_params_ = 0;
+  arg_nfloatregs_ = 0;
+  arg_nintregs_ = 0;
+  arg_stacksize_ = 0;
+  arg_records_.clear();
   nparam_ = 0;
   CLEAR_UINT(intregs_);
   CLEAR_UINT(floatregs_);
@@ -25,7 +29,6 @@ void FunctionContext::SetUp() {
   int_freereg2_ = nullptr;
   float_freereg1_ = nullptr;
   float_freereg2_ = nullptr;
-  arg_records_.clear();
   var_stack_immvals_.clear();
   savefloatregs_.clear();
   saveintregs_.clear();

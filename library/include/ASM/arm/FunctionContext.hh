@@ -27,6 +27,8 @@ struct FunctionContext {
   //记录当前压栈要用到多少寄存器
   uint32_t arg_nintregs_;
   uint32_t arg_nfloatregs_;
+  //记录当前压栈需要用到多少栈大小（还没有真压）
+  uint32_t arg_stacksize_;
   //压arg要到最后才知道需不需要添加空格来对齐。所以暂存一下。
   struct ArgRecord{
     SymbolPtr sym;
@@ -41,8 +43,8 @@ struct FunctionContext {
   
   //以下三个是用来给函数返回保存的信息，用来还原函数进入时的状态。
   std::vector<uint32_t> var_stack_immvals_;
-  std::vector<uint32_t> savefloatregs_;
-  std::vector<uint32_t> saveintregs_;
+  std::vector<std::pair<uint32_t,uint32_t>> savefloatregs_;
+  std::vector<std::pair<uint32_t,uint32_t>> saveintregs_;
 
   //为寄存器保存用的栈空间，字节单位
   uint32_t stack_size_for_regsave_;

@@ -20,6 +20,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     ret.append(inst);
     ret.append("\n");
   };
+  //来个注释好了
+  emitln("// " + tac->ToString());
 
   //获得相对于当前sp的地址
   auto getrealoffset = [&, this](SymAttribute &attr) -> int32_t {
@@ -199,6 +201,9 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1) -> int {
     //如果有缓存就直接用
     bool is_float = (sym->value_.Type() == SymbolValue::ValueType::Float);
+    if (sym->value_.Type() == SymbolValue::ValueType::Array) {
+      sym = sym->value_.GetArrayDescriptor()->base_addr.lock();
+    }
 
     if (is_float) {
       if (func_context_.float_freereg1_ == sym) {
@@ -244,6 +249,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (*target_sym != nullptr) {
         evit_float_reg(target_reg);
       }
+      *target_sym = sym;
       if (sym->IsLiteral()) {
         int freeintreg = get_free_int_reg();
         uint32_t castval = ArmHelper::BitcastToUInt(sym->value_.GetFloat());
@@ -290,6 +296,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (*target_sym != nullptr) {
         evit_int_reg(target_reg);
       }
+      *target_sym = sym;
       if (sym->IsLiteral()) {
         int val = sym->value_.GetInt();
         if (ArmHelper::IsImmediateValue(val)) {
@@ -653,7 +660,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
         }
         emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
-               " LSL 2");
+               ", LSL #2");
       }
       int valuereg = alloc_reg(tac->b_, addrreg);
       if (tac->b_->value_.Type() == SymbolValue::ValueType::Float) {
@@ -683,7 +690,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
         }
         emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
-               " LSL 2");
+               ", LSL #2");
       }
       int valuereg = alloc_reg(tac->a_, addrreg);
       if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
@@ -846,9 +853,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     func_context_.stack_size_for_args_ = 0;
     //先压栈吧
     emitln("push {r1-r3}");
-    emitln("vpush {v1-v15}");
+    emitln("vpush {s1-s15}");
     //全压！这是刚才压了的寄存器的大小
-    func_context_.stack_size_for_args_ += 3 * 4 + 15 * 4;
+    const int save_reg_size = 3 * 4 + 15 * 4;
+    func_context_.stack_size_for_args_ += save_reg_size;
     int nstackarg = 0;
     for (auto &record : func_context_.arg_records_) {
       if (!record.storage_in_reg) {
@@ -989,12 +997,15 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
     }
     func_context_.stack_size_for_args_ -= toaddstack;
-    assert(func_context_.stack_size_for_args_ == 0);
 
     //恢复寄存器
 
-    emitln("vpush {v1-v15}");
-    emitln("push {r1-r3}");
+    emitln("vpop {s1-s15}");
+    emitln("pop {r1-r3}");
+
+    func_context_.stack_size_for_args_ -= save_reg_size;
+
+    assert(func_context_.stack_size_for_args_ == 0);
 
     //如果有接收变量
     if (tac->a_ != nullptr) {
@@ -1018,9 +1029,14 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         }
       }
     }
+    func_context_.arg_nfloatregs_ = 0;
+    func_context_.arg_nintregs_ = 0;
+    func_context_.arg_stacksize_ = 0;
+    func_context_.arg_records_.clear();
   };
 
   auto do_return = [&, this]() -> void {
+    evit_all_freereg();
     if (tac->a_ != nullptr) {
       //设置返回值
       int retreg = alloc_reg(tac->a_);
@@ -1032,6 +1048,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           emitln("mov r0, " + IntRegIDToName(retreg));
         }
       }
+      func_context_.int_freereg1_ = nullptr;
+      func_context_.int_freereg2_ = nullptr;
+      func_context_.float_freereg1_ = nullptr;
+      func_context_.float_freereg2_ = nullptr;
     }
 
     //释放变量栈空间
@@ -1040,15 +1060,22 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
 
     //还原寄存器
-    //因栈的原因，还需要reverse一下
     //还原浮点寄存器
     for (auto regid : func_context_.savefloatregs_) {
-      emitln("vpop { " + FloatRegIDToName(regid) + " }");
+      if (regid.first == regid.second) {
+        emitln("vpop { " + FloatRegIDToName(regid.first) + " }");
+      } else {
+        emitln("vpop { " + FloatRegIDToName(regid.first) + "-" + FloatRegIDToName(regid.second) + " }");
+      }
     }
 
     //还原通用寄存器
     for (auto regid : func_context_.saveintregs_) {
-      emitln("pop { " + IntRegIDToName(regid) + " }");
+      if (regid.first == regid.second) {
+        emitln("pop { " + IntRegIDToName(regid.first) + " }");
+      } else {
+        emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+      }
     }
 
     //这里没有用栈来pop lr到sp位置
@@ -1071,8 +1098,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           } else {
             //否则存栈上
             record.storage_in_reg = false;
-            record.storage_pos = func_context_.stack_size_for_args_;
-            func_context_.stack_size_for_args_ += 4;
+            record.storage_pos = func_context_.arg_stacksize_;
+            func_context_.arg_stacksize_ += 4;
           }
         } else {
           if (func_context_.arg_nintregs_ < 4) {
@@ -1082,8 +1109,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           } else {
             //否则存栈上
             record.storage_in_reg = false;
-            record.storage_pos = func_context_.stack_size_for_args_;
-            func_context_.stack_size_for_args_ += 4;
+            record.storage_pos = func_context_.arg_stacksize_;
+            func_context_.arg_stacksize_ += 4;
           }
         }
         if (tac->operation_ == TACOperationType::ArgumentAddress) {

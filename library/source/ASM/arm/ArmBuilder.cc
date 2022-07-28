@@ -1,6 +1,7 @@
 #include "ASM/arm/ArmBuilder.hh"
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <vector>
 #include "ASM/ControlFlowGraph.hh"
 #include "ASM/LiveAnalyzer.hh"
@@ -101,45 +102,67 @@ bool ArmBuilder::TranslateFunction() {
     pfunc_section->append("\n");
   };
   //添加函数头
+  emitln(".text");
   emitln(".global " + func_name);
   emitln(func_name + ":");
   //将要用到的寄存器保存起来
   func_context_.func_attr_ = func_context_.reg_alloc_->get_SymAttribute(func_label);
   //保存了的寄存器列表
-  std::vector<uint32_t> &saveintregs = func_context_.saveintregs_;
-  std::vector<uint32_t> &savefloatregs = func_context_.savefloatregs_;
-
-  //如果lr会被用到单独保存一下
-  if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, LR_REGID)) {
-    saveintregs.push_back(LR_REGID);
-    func_context_.stack_size_for_regsave_ += 4;
-  }
+  std::vector<std::pair<uint32_t,uint32_t>> &saveintregs = func_context_.saveintregs_;
+  std::vector<std::pair<uint32_t, uint32_t>> &savefloatregs = func_context_.savefloatregs_;
+  auto push_reg = [](std::vector<std::pair<uint32_t, uint32_t>> &reg_list, uint32_t newreg) -> void {
+    if (reg_list.empty()) {
+      reg_list.emplace_back(newreg, newreg);
+      return;
+    }
+    if (reg_list.back().second == newreg - 1) {
+      reg_list.back().second = newreg;
+      return;
+    }
+    reg_list.emplace_back(newreg, newreg);
+  };
+  
   //保存会修改的通用寄存器
   for (int i = 4; i < 13; i++) {
     //如果第i号通用寄存器要用
     if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, i)) {
       //那么保存它
-      saveintregs.push_back(i);
+      push_reg(saveintregs, i);
       func_context_.stack_size_for_regsave_ += 4;
     }
   }
+
+  //如果lr会被用到单独保存一下
+  if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, LR_REGID)) {
+    push_reg(saveintregs, LR_REGID);
+    func_context_.stack_size_for_regsave_ += 4;
+  }
+
   //保存刚才确定好的通用寄存器
   {
     for (auto regid : saveintregs) {
-      emitln("push { " + IntRegIDToName(regid) + " }");
+      if (regid.first == regid.second) {
+        emitln("push { " + IntRegIDToName(regid.first) + " }");
+      } else {
+        emitln("push { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+      }
     }
   }
   //保存浮点寄存器
   for (int i = 16; i < 32; i++) {
     if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.floatRegs, i)) {
-      savefloatregs.push_back(i);
+      push_reg(savefloatregs, i);
       func_context_.stack_size_for_regsave_ += 4;
     }
   }
   //保存刚才确定好的浮点寄存器
   {
     for (auto regid : savefloatregs) {
-      emitln("vpush { s" + std::to_string(regid) + " }");
+      if (regid.first == regid.second) {
+        emitln("vpush { " + FloatRegIDToName(regid.first) + " }");
+      } else {
+        emitln("vpush { " + FloatRegIDToName(regid.first) + "-" + FloatRegIDToName(regid.second) + " }");
+      }
     }
   }
   //为变量分配栈空间
@@ -147,9 +170,12 @@ bool ArmBuilder::TranslateFunction() {
   //可能用很大的栈空间，立即数存不下，保险起见Divide一下
   auto &var_stack_immvals = func_context_.var_stack_immvals_;
   var_stack_immvals = ArmHelper::DivideIntoImmediateValues(func_context_.stack_size_for_vars_);
+  size_t test_varsize_imm = 0;
   for (auto immval : var_stack_immvals) {
+    test_varsize_imm += immval;
     emitln("sub sp, sp, #" + std::to_string(immval));
   }
+  assert(test_varsize_imm == func_context_.stack_size_for_vars_);
 
   //为后面栈的释放我们反向一下。
   std::reverse(var_stack_immvals.begin(), var_stack_immvals.end());
@@ -158,32 +184,50 @@ bool ArmBuilder::TranslateFunction() {
 
   //函数体翻译
   //跳过label和fbegin
+  assert((*current_)->operation_ == TACOperationType::Label);
   ++current_;
+  assert((*current_)->operation_ == TACOperationType::FunctionBegin);
   ++current_;
+  //去掉fend
+  --end_;
+  assert((*end_)->operation_ == TACOperationType::FunctionEnd);
   for (; current_ != end_; ++current_) {
     emit(FuncTACToASMString(*current_));
   }
 
-  //释放变量栈空间
-  for (auto immval : var_stack_immvals) {
-    emitln("add sp, sp, #" + std::to_string(immval));
-  }
+  //为了安全起见，强行加一个return
+  TACPtr tacret = std::make_shared<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>();
+  tacret->operation_ = TACOperationType::Return;
+  emit(FuncTACToASMString(tacret));
 
-  //还原寄存器
-  //因栈的原因，还需要reverse一下
-  //还原浮点寄存器
-  for (auto regid : savefloatregs) {
-    emitln("vpop { " + FloatRegIDToName(regid) + " }");
-  }
+  // //释放变量栈空间
+  // for (auto immval : var_stack_immvals) {
+  //   emitln("add sp, sp, #" + std::to_string(immval));
+  // }
 
-  //还原通用寄存器
+  // //还原寄存器
+  // //因栈的原因，还需要reverse一下
+  // //还原浮点寄存器
+  // for (auto regid : savefloatregs) {
+  //   if (regid.first == regid.second) {
+  //     emitln("vpop { " + FloatRegIDToName(regid.first) + " }");
+  //   } else {
+  //     emitln("vpop { " + FloatRegIDToName(regid.first) + "-" + FloatRegIDToName(regid.second) + " }");
+  //   }
+  // }
 
-  for (auto regid : saveintregs) {
-    emitln("pop { " + IntRegIDToName(regid) + " }");
-  }
+  // //还原通用寄存器
 
-  //这里没有用栈来pop lr到sp位置
-  emitln("bx lr");
+  // for (auto regid : saveintregs) {
+  //   if (regid.first == regid.second) {
+  //     emitln("pop { " + IntRegIDToName(regid.first) + " }");
+  //   } else {
+  //     emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+  //   }
+  // }
+
+  // //这里没有用栈来pop lr到sp位置
+  // emitln("bx lr");
 
   target_output_->append(*pfunc_section);
   return true;
@@ -242,9 +286,11 @@ bool ArmBuilder::Translate(std::string *output) {
   if (!TranslateGlobal()) {
     return false;
   }
+  target_output_->append(data_section_);
   if (!TranslateFunctions()) {
     return false;
   }
+  target_output_->append(text_section_back_);
   if (!AppendSuffix()) {
     return false;
   }
@@ -263,16 +309,16 @@ std::string ArmBuilder::ToDataRefName(std::string name) { return "_ref_" + name;
 std::string ArmBuilder::DeclareDataToASMString(TACPtr tac) {
   auto sym = tac->a_;
   //注释和align设置
-  std::string ret = "// " + tac->ToString() + "\n.align 4\n";
+  std::string ret = "// " + tac->ToString() + "\n.data\n.align 4\n";
   //数据label
   ret += GetVariableName(sym) + ":\n";
   //如果是普通的int或float都是1单位sz，数组则可能多个
   size_t sz = 1;
   //数组声明
   if (sym->value_.Type() == SymbolValue::ValueType::Array) {
-    sz = sym->value_.GetArrayDescriptor()->dimensions[0] * 4;
+    sz = sym->value_.GetArrayDescriptor()->dimensions[0];
   }
-  ret += ".skip " + std::to_string(sz) + "\n";
+  ret += ".skip " + std::to_string(sz * 4) + "\n";
   return ret;
 }
 
