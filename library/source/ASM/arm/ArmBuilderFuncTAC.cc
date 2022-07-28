@@ -411,7 +411,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         case TACOperationType::GreaterThan:
         case TACOperationType::Equal:
         {
-          emitln("vcmp.f32 s" + std::to_string(op1reg) + ", s" + std::to_string(op2reg));
+          emitln("vcmp.f32 " + FloatRegIDToName(op1reg) + ", " + FloatRegIDToName(op2reg));
           emitln("vmrs APSR_nzcv, FPSCR");
           int freeintreg = get_free_int_reg();
           switch (tac->operation_) {
@@ -615,10 +615,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int valreg = alloc_reg(tac->b_);
       int dstreg = alloc_reg(tac->a_, valreg);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-        emitln("vcmp.f32 s" + std::to_string(valreg) + ", #0");
+        emitln("vcmp.f32 " + FloatRegIDToName(valreg) + ", #0");
         emitln("vmrs APSR_nzcv, FPSCR");
       } else {
-        emitln("cmp " + std::to_string(valreg) + ", #0");
+        emitln("cmp " + IntRegIDToName(valreg) + ", #0");
       }
       emitln("moveq " + IntRegIDToName(dstreg) + ", #1");
       emitln("movne " + IntRegIDToName(dstreg) + ", #0");
@@ -719,7 +719,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       // a是label b是cond
       int valreg = alloc_reg(tac->b_);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-        emitln("vcmp.f32 s" + std::to_string(valreg) + ", #0");
+        emitln("vcmp.f32 " + FloatRegIDToName(valreg) + ", #0");
         emitln("vmrs APSR_nzcv, FPSCR");
       } else {
         emitln("cmp " + IntRegIDToName(valreg) + ", #0");
