@@ -185,7 +185,126 @@ std::string TACFactory::ToTempLabelName(uint64_t id) { return "SL_" + std::to_st
 std::string TACFactory::ToVariableOrConstantName(const std::string name) { return "U_" + name; }
 std::string TACFactory::ToTempVariableName(uint64_t id) { return "SV_" + std::to_string(id); }
 
-TACBuilder::TACBuilder() : cur_temp_var_(0), cur_temp_label_(0), cur_symtab_id_(0) { EnterSubscope(); }
+TACBuilder::TACBuilder() : cur_temp_var_(0), cur_temp_label_(0), cur_symtab_id_(0) {
+  EnterSubscope();
+  CreateLibraryFunction();
+}
+
+void TACBuilder::CreateLibraryFunction() {
+  auto CreateVariable = [&](std::string name, SymbolValue::ValueType type) -> SymbolPtr {
+    auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, name);
+    sym->value_.SetType(type);
+    return sym;
+  };
+  {  // 1
+    auto params = NewParamList();
+    library_functions_["getint"] =
+        CreateFunctionHead(SymbolValue::ValueType::Int, CreateFunctionLabel("getint"), params);
+  }
+  {  // 2
+    auto params = NewParamList();
+    library_functions_["getch"] = CreateFunctionHead(SymbolValue::ValueType::Int, CreateFunctionLabel("getch"), params);
+  }
+  {  // 3
+    auto params = NewParamList();
+    library_functions_["getfloat"] =
+        CreateFunctionHead(SymbolValue::ValueType::Float, CreateFunctionLabel("getfloat"), params);
+  }
+  {  // 4
+    auto params = NewParamList();
+    auto arraySym = CreateVariable("array", ValueType::Array);
+    {
+      auto array = NewArrayDescriptor();
+      array->dimensions.push_back(0);
+      array->base_offset = CreateConstExp(0)->ret;
+      array->value_type = ValueType::Int;
+      arraySym->value_ = SymbolValue(array);
+      array->base_addr = arraySym;
+    }
+    params->push_back_parameter(arraySym);
+    library_functions_["getarray"] =
+        CreateFunctionHead(SymbolValue::ValueType::Int, CreateFunctionLabel("getarray"), params);
+  }
+  {  // 5
+    auto params = NewParamList();
+    auto arraySym = CreateVariable("array", ValueType::Array);
+    {
+      auto array = NewArrayDescriptor();
+      array->dimensions.push_back(0);
+      array->base_offset = CreateConstExp(0)->ret;
+      array->value_type = ValueType::Float;
+      arraySym->value_ = SymbolValue(array);
+      array->base_addr = arraySym;
+    }
+    params->push_back_parameter(arraySym);
+    library_functions_["getfarray"] =
+        CreateFunctionHead(SymbolValue::ValueType::Int, CreateFunctionLabel("getfarray"), params);
+  }
+  {  // 6
+    auto params = NewParamList();
+    params->push_back_parameter(CreateVariable("int", SymbolValue::ValueType::Int));
+    library_functions_["putint"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("putint"), params);
+  }
+  {  // 7
+    auto params = NewParamList();
+    params->push_back_parameter(CreateVariable("ch", SymbolValue::ValueType::Int));
+    library_functions_["putch"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("putch"), params);
+  }
+  {  // 8
+    auto params = NewParamList();
+    params->push_back_parameter(CreateVariable("float", SymbolValue::ValueType::Float));
+    library_functions_["putfloat"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("putfloat"), params);
+  }
+  {  // 9
+    auto params = NewParamList();
+    params->push_back_parameter(CreateVariable("int", SymbolValue::ValueType::Int));
+    auto arraySym = CreateVariable("array", ValueType::Array);
+    {
+      auto array = NewArrayDescriptor();
+      array->dimensions.push_back(0);
+      array->base_offset = CreateConstExp(0)->ret;
+      array->value_type = ValueType::Int;
+      arraySym->value_ = SymbolValue(array);
+      array->base_addr = arraySym;
+    }
+    params->push_back_parameter(arraySym);
+    library_functions_["putarray"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("putarray"), params);
+  }
+  {  // 10
+    auto params = NewParamList();
+    params->push_back_parameter(CreateVariable("int", SymbolValue::ValueType::Int));
+    auto arraySym = CreateVariable("array", ValueType::Array);
+    {
+      auto array = NewArrayDescriptor();
+      array->dimensions.push_back(0);
+      array->base_offset = CreateConstExp(0)->ret;
+      array->value_type = ValueType::Float;
+      arraySym->value_ = SymbolValue(array);
+      array->base_addr = arraySym;
+    }
+    params->push_back_parameter(arraySym);
+    library_functions_["putfarray"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("putfarray"), params);
+  }
+  {  // 11
+    auto params = NewParamList();
+    library_functions_["putf"] = CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("putf"), params);
+  }
+  {  // 12
+    auto params = NewParamList();
+    library_functions_["starttime"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("starttime"), params);
+  }
+  {  // 13
+    auto params = NewParamList();
+    library_functions_["stoptime"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("stoptime"), params);
+  }
+}
 
 SymbolPtr TACBuilder::NewSymbol(SymbolType type, std::optional<std::string> name, SymbolValue value, int offset) {
   return TACFactory::Instance()->NewSymbol(type, name, value, offset);
@@ -384,6 +503,24 @@ ExpressionPtr TACBuilder::CreateArrayInit(ExpressionPtr array, ExpressionPtr ini
   //                        "] array and init_array both are expected to be 'Array' type, but actually " +
   //                        array->value_.TypeToString() + " and " + init_array->value_.TypeToString());
   // }
+  //进行数组初始化
+  {
+    std::vector<ExpressionPtr> zero_pos;
+    auto ad = array->ret->value_.GetArrayDescriptor();
+    size_t size = 1;
+    for(size_t i=0;i<ad->dimensions.size();i++){
+      zero_pos.push_back(CreateConstExp((int)0));
+      size *= ad->dimensions[i];
+    }
+    if (size > INT32_MAX) {
+      throw RUNTIME_EXCEPTION("Array size is too big (" + std::to_string(size) + ")");
+    }
+    auto zero_pos_array = AccessArray(NewExp(NewTACList(), array->ret), zero_pos);
+    (*array->tac) += zero_pos_array->tac;
+    (*array->tac) += NewTAC(TACOperationType::ArgumentAddress, zero_pos_array->ret);
+    (*array->tac) += NewTAC(TACOperationType::Argument, CreateConstExp((int)size)->ret);
+    (*array->tac) += NewTAC(TACOperationType::Call, nullptr, NewSymbol(SymbolType::Function, "_builtin_clear"));
+  }
 
   auto finit_array = FlattenInitArray(init_array->ret->value_.GetArrayDescriptor());
   for (auto &pr : finit_array) {
@@ -623,6 +760,13 @@ SymbolPtr TACBuilder::FindVariableOrConstant(const std::string &name) {
   return ret;
 }
 SymbolPtr TACBuilder::FindFunctionLabel(const std::string &name) {
+  {
+    //查下是否是库函数
+    auto it = library_functions_.find(name);
+    if (it != library_functions_.end()) {
+      return it->second;
+    }
+  }
   std::string func_name = TACFactory::Instance()->ToFuncLabelName(name);
   auto ret = FindSymbolWithName(func_name);
   if (ret == nullptr) {

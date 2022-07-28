@@ -238,6 +238,9 @@ class TACBuilder {
   void SetLocation(HaveFunCompiler::Parser::location *plocation);
 
  private:
+  //注册库函数
+  void CreateLibraryFunction();
+
   //去除对数组的直接访问，用一个变量中转一下。
   ExpressionPtr RemoveDirectArray(ExpressionPtr exp);
 
@@ -258,6 +261,8 @@ class TACBuilder {
   uint64_t cur_symtab_id_;
   std::vector<SymbolTable> symbol_stack_;
   std::vector<std::pair<SymbolPtr, SymbolPtr>> loop_cont_brk_stack_;
+
+  std::unordered_map<std::string, SymbolPtr> library_functions_;
 
   //储存text的表
   std::unordered_map<std::string, SymbolPtr> text_tab_;

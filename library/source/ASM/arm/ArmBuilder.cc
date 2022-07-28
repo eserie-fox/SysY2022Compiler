@@ -16,7 +16,49 @@ namespace AssemblyBuilder {
 using namespace ThreeAddressCode;
 ArmBuilder::ArmBuilder(TACListPtr tac_list) : tac_list_(tac_list) {}
 
-bool ArmBuilder::AppendPrefix() { return true; }
+bool ArmBuilder::AppendPrefix() {
+  std::string *pfunc_section;
+  // auto emit = [&pfunc_section](const std::string &inst) -> void { (*pfunc_section) += inst; };
+  auto emitln = [&pfunc_section](const std::string &inst) -> void {
+    pfunc_section->append(inst);
+    pfunc_section->append("\n");
+  };
+  func_sections_.emplace_back("_builtin_clear");
+  pfunc_section = &func_sections_.back().body_;
+  emitln(".text");
+  emitln(".global _builtin_clear");
+  emitln("_builtin_clear:");
+  emitln("mov r2, #0");
+  emitln("cmp r1, #0");
+  emitln("ble _builtin_clear_break");
+  emitln("_builtin_clear_loop:");
+  emitln("str r2, [r0], #+4");
+  emitln("subs r1, #1");
+  emitln("bgt _builtin_clear_loop");
+  emitln("_builtin_clear_break:");
+  emitln("bx lr");
+
+  auto forward_declare = [&, this](std::string func_name) -> void {
+    func_sections_.emplace_back(func_name);
+    pfunc_section = &func_sections_.back().body_;
+    emitln(".text");
+    emitln(".global " + func_name);
+  };
+  forward_declare("getint");
+  forward_declare("getch");
+  forward_declare("getfloat");
+  forward_declare("getarray");
+  forward_declare("getfarray");
+  forward_declare("putint");
+  forward_declare("putch");
+  forward_declare("putfloat");
+  forward_declare("putarray");
+  forward_declare("putfarray");
+  forward_declare("putf");
+  forward_declare("starttime");
+  forward_declare("stoptime");
+  return true; 
+}
 
 bool ArmBuilder::AppendSuffix() { return true; }
 
@@ -229,7 +271,6 @@ bool ArmBuilder::TranslateFunction() {
   // //这里没有用栈来pop lr到sp位置
   // emitln("bx lr");
 
-  target_output_->append(*pfunc_section);
   return true;
 }
 
@@ -289,6 +330,9 @@ bool ArmBuilder::Translate(std::string *output) {
   target_output_->append(data_section_);
   if (!TranslateFunctions()) {
     return false;
+  }
+  for(auto &func_section : func_sections_){
+    target_output_->append(func_section.body_);
   }
   target_output_->append(text_section_back_);
   if (!AppendSuffix()) {
