@@ -288,7 +288,7 @@ std::list<std::shared_ptr<Symbol>> ThreeAddressCode::getUseSym()
       case TACOperationType::ArgumentAddress: {
         if (a_->value_.Type() == SymbolValue::ValueType::Array) {
           std::list<std::shared_ptr<Symbol>> ret{a_->value_.GetArrayDescriptor()->base_addr.lock()};
-          auto offset_sym = a_->value_.GetArrayDescriptor()->base_addr.lock();
+          auto offset_sym = a_->value_.GetArrayDescriptor()->base_offset;
           if (!offset_sym->IsLiteral()) {
             ret.push_back(offset_sym);
           }
@@ -313,14 +313,14 @@ std::list<std::shared_ptr<Symbol>> ThreeAddressCode::getUseSym()
         std::list<std::shared_ptr<Symbol>> ret;
         if (a_->value_.Type() == SymbolValue::ValueType::Array) {
           ret.push_back(a_->value_.GetArrayDescriptor()->base_addr.lock());
-          auto offset_sym = a_->value_.GetArrayDescriptor()->base_addr.lock();
+          auto offset_sym = a_->value_.GetArrayDescriptor()->base_offset;
           if (!offset_sym->IsLiteral()) {
             ret.push_back(offset_sym);
           }
         }
         if (b_->value_.Type() == SymbolValue::ValueType::Array) {
           ret.push_back(b_->value_.GetArrayDescriptor()->base_addr.lock());
-          auto offset_sym = b_->value_.GetArrayDescriptor()->base_addr.lock();
+          auto offset_sym = b_->value_.GetArrayDescriptor()->base_offset;
           if (!offset_sym->IsLiteral()) {
             ret.push_back(offset_sym);
           }
