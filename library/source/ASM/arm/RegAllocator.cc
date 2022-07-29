@@ -42,10 +42,6 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
             if (tac->a_->value_.Type() == SymbolValue::ValueType::Array)
                 ptrToArrayOnStack.emplace(tac->a_, SymAttribute());
         }
-
-        // 如果有函数调用，标记lr寄存器(r14)的使用
-        else if (tac->operation_ == TACOperationType::Call)
-            SET_UINT(funcAttr.attr.used_regs.intRegs, 14);
     }
 }
 
@@ -206,6 +202,8 @@ void RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     funcAttr.attr.used_regs.floatReservedReg = 16;
     SET_UINT(funcAttr.attr.used_regs.intRegs, 0);
     SET_UINT(funcAttr.attr.used_regs.intRegs, 4);
+    for (int i = 13; i < 16; ++i)
+        SET_UINT(funcAttr.attr.used_regs.intRegs, i);
     SET_UINT(funcAttr.attr.used_regs.floatRegs, 0);
     SET_UINT(funcAttr.attr.used_regs.floatRegs, 16);
 

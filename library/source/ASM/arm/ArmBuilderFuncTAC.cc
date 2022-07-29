@@ -506,8 +506,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           if (op1reg < op2reg) {
             emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
           } else {
-            emitln("push {" + IntRegIDToName(op1reg) + "}");
             emitln("push {" + IntRegIDToName(op2reg) + "}");
+            emitln("push {" + IntRegIDToName(op1reg) + "}");
           }
           evit_int_reg(0);
           evit_int_reg(1);
@@ -568,8 +568,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           if (op1reg < op2reg) {
             emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
           } else {
-            emitln("push {" + IntRegIDToName(op1reg) + "}");
             emitln("push {" + IntRegIDToName(op2reg) + "}");
+            emitln("push {" + IntRegIDToName(op1reg) + "}");
           }
           evit_int_reg(0);
           evit_int_reg(1);
