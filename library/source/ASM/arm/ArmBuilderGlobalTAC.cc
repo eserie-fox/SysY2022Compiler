@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include "ASM/ControlFlowGraph.hh"
 #include "ASM/LiveAnalyzer.hh"
 #include "ASM/arm/ArmBuilder.hh"
@@ -8,6 +9,7 @@
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
+using namespace HaveFunCompiler::ThreeAddressCode;
 std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
   std::string ret = "";
   auto emitln = [&ret](const std::string &inst) -> void {
@@ -28,7 +30,24 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     }
     throw std::logic_error(sym->get_tac_name(true) + " is not global symbol");
   };
-  
+  switch (tac->operation_) {
+    case TACOperationType::Undefined:
+      throw std::runtime_error("cannot translate Undefined");
+      break;
+    case TACOperationType::Add:
+    case TACOperationType::Sub:
+    case TACOperationType::Mul:
+    case TACOperationType::Div:
+    case TACOperationType::Mod:
+    case TACOperationType::Assign:
+    case TACOperationType::UnaryMinus:
+    case TACOperationType::UnaryPositive:
+    case TACOperationType::Call:
+    case TACOperationType::IntToFloat:
+    default:
+      throw std::logic_error("Unknown operation: " +
+                             std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));
+  }
 
   return ret;
 }

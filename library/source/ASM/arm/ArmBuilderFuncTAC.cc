@@ -501,8 +501,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Div: {
-          emitln("push {r1-r3}");
-          emitln("push {lr}");
+          emitln("push {r1-r3, ip}");
           if (op1reg < op2reg) {
             emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
           } else {
@@ -512,9 +511,20 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           evit_int_reg(0);
           evit_int_reg(1);
           emitln("pop {r0, r1}");
+          bool padding = false;
+          {
+            size_t stacksize = 4 * 4ULL + func_context_.stack_size_for_args_ + func_context_.stack_size_for_regsave_ +
+                               func_context_.stack_size_for_vars_;
+            if (stacksize % 8 != 0) {
+              padding = true;
+              emitln("sub sp, sp, #4");
+            }
+          }
           emitln("bl __aeabi_idiv");
-          emitln("pop {lr}");
-          emitln("pop {r1-r3}");
+          if (padding) {
+            emitln("add sp, sp, #4");
+          }
+          emitln("pop {r1-r3, ip}");
           int regid = symbol_reg(tac->a_);
           if (regid == -1) {
             func_context_.int_freereg1_ = tac->a_;
@@ -563,8 +573,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Mod: {
-          emitln("push {r1-r3}");
-          emitln("push {lr}");
+          emitln("push {r1-r3, ip}");
           if (op1reg < op2reg) {
             emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
           } else {
@@ -574,10 +583,21 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           evit_int_reg(0);
           evit_int_reg(1);
           emitln("pop {r0, r1}");
-          emitln("bl __aeabi_idivmod");
+          bool padding = false;
+          {
+            size_t stacksize = 4 * 4ULL + func_context_.stack_size_for_args_ + func_context_.stack_size_for_regsave_ +
+                               func_context_.stack_size_for_vars_;
+            if (stacksize % 8 != 0) {
+              padding = true;
+              emitln("sub sp, sp, #4");
+            }
+          }
+          emitln("bl __aeabi_idiv");
+          if (padding) {
+            emitln("add sp, sp, #4");
+          }
           emitln("mov r0, r1");
-          emitln("pop {lr}");
-          emitln("pop {r1-r3}");
+          emitln("pop {r1-r3, ip}");
           int regid = symbol_reg(tac->a_);
           if (regid == -1) {
             func_context_.int_freereg1_ = tac->a_;
@@ -896,7 +916,12 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     emitln("push {r1-r3}");
     emitln("vpush {s1-s15}");
     //全压！这是刚才压了的寄存器的大小
-    const int save_reg_size = 3 * 4 + 15 * 4;
+    int save_reg_size = 3 * 4 + 15 * 4;
+    //如果是库函数，保存一下ip
+    if (!tac->b_->IsGlobal()) {
+      emitln("push {ip}");
+      save_reg_size += 4;
+    }
     func_context_.stack_size_for_args_ += save_reg_size;
     int nstackarg = 0;
     for (auto &record : func_context_.arg_records_) {
@@ -1040,6 +1065,11 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     func_context_.stack_size_for_args_ -= toaddstack;
 
     //恢复寄存器
+
+    //如果是库函数，还原一下ip
+    if (!tac->b_->IsGlobal()) {
+      emitln("pop {ip}");
+    }
 
     emitln("vpop {s1-s15}");
     emitln("pop {r1-r3}");

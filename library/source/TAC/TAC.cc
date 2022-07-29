@@ -191,10 +191,13 @@ TACBuilder::TACBuilder() : cur_temp_var_(0), cur_temp_label_(0), cur_symtab_id_(
 }
 
 void TACBuilder::CreateLibraryFunction() {
-  auto CreateVariable = [&](std::string name, SymbolValue::ValueType type) -> SymbolPtr {
+  auto CreateVariable = [&](const std::string &name, SymbolValue::ValueType type) -> SymbolPtr {
     auto sym = TACFactory::Instance()->NewSymbol(SymbolType::Variable, name);
     sym->value_.SetType(type);
     return sym;
+  };
+  auto CreateFunctionLabel = [&](const std::string &name) -> SymbolPtr {
+    return TACFactory::Instance()->NewSymbol(SymbolType::Function, name);
   };
   {  // 1
     auto params = NewParamList();
@@ -508,7 +511,7 @@ ExpressionPtr TACBuilder::CreateArrayInit(ExpressionPtr array, ExpressionPtr ini
     std::vector<ExpressionPtr> zero_pos;
     auto ad = array->ret->value_.GetArrayDescriptor();
     size_t size = 1;
-    for(size_t i=0;i<ad->dimensions.size();i++){
+    for (size_t i = 0; i < ad->dimensions.size(); i++) {
       zero_pos.push_back(CreateConstExp((int)0));
       size *= ad->dimensions[i];
     }
@@ -663,7 +666,7 @@ TACListPtr TACBuilder::CreateIf(ExpressionPtr cond, TACListPtr stmt, SymbolPtr *
   if (out_label) {
     *out_label = label;
   }
-  if(cond->ret->value_.Type() == SymbolValue::ValueType::Array){
+  if (cond->ret->value_.Type() == SymbolValue::ValueType::Array) {
     auto tmpSym = CreateTempVariable(cond->ret->value_.UnderlyingType());
     (*cond->tac) += NewTAC(TACOperationType::Variable, tmpSym);
     (*cond->tac) += NewTAC(TACOperationType::Assign, tmpSym, cond->ret);
@@ -825,7 +828,7 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
   }
   if (expI->ret->type_ == SymbolType::Variable) {
     expI = RemoveDirectArray(expI);
-    
+
     if (expI->ret->value_.UnderlyingType() != SymbolValue::ValueType::Int) {
       throw TYPEMISMATCH_EXCEPTION(expI->ret->value_.TypeToString(), "Int", "Cast fail");
     }
