@@ -504,11 +504,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         }
         case TACOperationType::Div:{
           emitln("push {r1-r3}");
+          emitln("push {lr}");
           emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
           evit_int_reg(0);
           evit_int_reg(1);
           emitln("pop {r0, r1}");
           emitln("bl __aeabi_idiv");
+          emitln("pop {lr}");
           emitln("pop {r1-r3}");
           int regid = symbol_reg(tac->a_);
           if(regid==-1){
@@ -560,12 +562,14 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         }
         case TACOperationType::Mod: {
           emitln("push {r1-r3}");
+          emitln("push {lr}");
           emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
           evit_int_reg(0);
           evit_int_reg(1);
           emitln("pop {r0, r1}");
           emitln("bl __aeabi_idivmod");
           emitln("mov r0, r1");
+          emitln("pop {lr}");
           emitln("pop {r1-r3}");
           int regid = symbol_reg(tac->a_);
           if(regid==-1){
