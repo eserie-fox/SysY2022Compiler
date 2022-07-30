@@ -191,8 +191,8 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         }
         glob_context_.float_regs_ranks_[0] = regid;
       }
-      if (regid < 0 || (sym->value_.Type() != SymbolValue::ValueType::Array && !sym->IsGlobalTemp())) {
-        if (regid < 0) regid = get_free_float_reg(except_reg);
+      if (regid < 0) {
+        regid = get_free_float_reg(except_reg);
         if (sym->IsLiteral()) {
           int otherreg = glob_context_.USE_INT_REG_NUM;
           emitln("ldr " + IntRegIDToName(otherreg) +
@@ -215,6 +215,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
           }
         }
       }
+
       glob_context_.float_regs_[regid] = sym;
     } else {
       for (regid = glob_context_.USE_INT_REG_NUM - 1; regid >= 0; regid--) {
@@ -235,8 +236,8 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         }
         glob_context_.int_regs_ranks_[0] = regid;
       }
-      if (regid < 0 || (sym->value_.Type() != SymbolValue::ValueType::Array && !sym->IsGlobalTemp())) {
-        if (regid < 0) regid = get_free_int_reg(except_reg);
+      if (regid < 0) {
+        regid = get_free_int_reg(except_reg);
         if (sym->IsLiteral()) {
           int val = sym->value_.GetInt();
           if (ArmHelper::IsImmediateValue(val)) {
@@ -351,8 +352,6 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       //无需赋值
       return;
     }
-    int valreg = alloc_reg(tac->b_);
-    int dstreg = alloc_reg(tac->a_, valreg);
     bool arrayA = tac->a_->value_.Type() == SymbolValue::ValueType::Array;
     bool arrayB = tac->b_->value_.Type() == SymbolValue::ValueType::Array;
     if (arrayA && arrayB) {
@@ -393,7 +392,32 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       } else {
         emitln("ldr " + IntRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       }
+    } else if (!tac->a_->IsGlobalTemp()) {
+      int dstreg = get_free_int_reg();
+      int valreg;
+      emitln("ldr " + IntRegIDToName(dstreg) + ", " + ToDataRefName(GetVariableName(tac->a_)));
+      if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
+        valreg = alloc_reg(tac->b_);
+        for (int i = 0; i < glob_context_.USE_FLOAT_REG_NUM; i++) {
+          if (glob_context_.float_regs_[i] == tac->a_) {
+            emitln("vmov " + FloatRegIDToName(i) + ", " + FloatRegIDToName(valreg));
+            break;
+          }
+        }
+        emitln("vstr " + FloatRegIDToName(valreg) + ", [" + IntRegIDToName(dstreg) + "]");
+      } else {
+        valreg = alloc_reg(tac->b_, dstreg);
+        for (int i = 0; i < glob_context_.USE_INT_REG_NUM; i++) {
+          if (glob_context_.int_regs_[i] == tac->a_) {
+            emitln("mov " + IntRegIDToName(i) + ", " + IntRegIDToName(valreg));
+            break;
+          }
+        }
+        emitln("str " + IntRegIDToName(valreg) + ", [" + IntRegIDToName(dstreg) + "]");
+      }
     } else {
+      int valreg = alloc_reg(tac->b_);
+      int dstreg = alloc_reg(tac->a_, valreg);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
         emitln("vmov.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
       } else {
@@ -405,6 +429,17 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
   auto do_call = [&, this]() -> void {
     //初始化一下
     glob_context_.stack_size_for_args_ = 0;
+    for (int i = 0; i < glob_context_.USE_INT_REG_NUM; i++) {
+      if (glob_context_.int_regs_[i] != nullptr && !glob_context_.int_regs_[i]->IsGlobalTemp()) {
+        evit_int_reg(i);
+      }
+    }
+    for (int i = 0; i < glob_context_.USE_FLOAT_REG_NUM; i++) {
+      if (glob_context_.float_regs_[i] != nullptr && !glob_context_.float_regs_[i]->IsGlobalTemp()) {
+        evit_float_reg(i);
+      }
+    }
+
     //先压栈吧
     emitln("push {r1-r3}");
     emitln("vpush {s1-s15}");

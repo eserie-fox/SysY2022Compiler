@@ -206,26 +206,19 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     if (sym->value_.Type() == SymbolValue::ValueType::Array) {
       sym = sym->value_.GetArrayDescriptor()->base_addr.lock();
     }
-    //这里特判，如果是global，每次用都重新读取
-    bool is_global = sym->IsGlobal();
-    int global_regid = -1;
     if (is_float) {
       if (func_context_.float_freereg1_ == sym) {
-        if (!is_global) return 0;
-        global_regid = 0;
+        return 0;
       }
       if (func_context_.float_freereg2_ == sym) {
-        if (!is_global) return func_context_.func_attr_.attr.used_regs.floatReservedReg;
-        global_regid = func_context_.func_attr_.attr.used_regs.floatReservedReg;
+        return func_context_.func_attr_.attr.used_regs.floatReservedReg;
       }
     } else {
       if (func_context_.int_freereg1_ == sym) {
-        if (!is_global) return 0;
-        global_regid = 0;
+        return 0;
       }
       if (func_context_.int_freereg2_ == sym) {
-        if (!is_global) return func_context_.func_attr_.attr.used_regs.intReservedReg;
-        global_regid = func_context_.func_attr_.attr.used_regs.intReservedReg;
+        return func_context_.func_attr_.attr.used_regs.intReservedReg;
       }
     }
 
@@ -243,10 +236,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int target_reg = func_context_.last_float_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
       SymbolPtr *target_sym =
           func_context_.last_float_freereg_ ? &func_context_.float_freereg1_ : &func_context_.float_freereg2_;
-      if (is_global && global_regid != -1) {
-        target_reg = global_regid;
-        target_sym = target_reg ? &func_context_.float_freereg2_ : &func_context_.float_freereg1_;
-      } else {
+      {
         int other_reg =
             (!func_context_.last_float_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
         SymbolPtr *other_sym =
@@ -256,12 +246,12 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           target_reg = other_reg;
           target_sym = other_sym;
         }
-        if (*target_sym != nullptr) {
-          evit_float_reg(target_reg);
-        }
       }
-
+      if (*target_sym != nullptr) {
+        evit_float_reg(target_reg);
+      }
       *target_sym = sym;
+
       if (sym->IsLiteral()) {
         int freeintreg = get_free_int_reg();
         uint32_t castval = ArmHelper::BitcastToUInt(sym->value_.GetFloat());
@@ -296,10 +286,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int target_reg = func_context_.last_int_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
       SymbolPtr *target_sym =
           func_context_.last_int_freereg_ ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
-      if (is_global && global_regid != -1) {
-        target_reg = global_regid;
-        target_sym = target_reg ? &func_context_.int_freereg2_ : &func_context_.int_freereg1_;
-      } else {
+      {
         int other_reg = (!func_context_.last_int_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
         SymbolPtr *other_sym =
             (!func_context_.last_int_freereg_) ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
@@ -307,12 +294,12 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           target_reg = other_reg;
           target_sym = other_sym;
         }
-        if (*target_sym != nullptr) {
-          evit_int_reg(target_reg);
-        }
       }
-
+      if (*target_sym != nullptr) {
+        evit_int_reg(target_reg);
+      }
       *target_sym = sym;
+
       if (sym->IsLiteral()) {
         int val = sym->value_.GetInt();
         if (ArmHelper::IsImmediateValue(val)) {
@@ -466,10 +453,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
                  std::to_string(op2reg));
           if (freeregid != -1) {
             if (freeregid == 0) {
-              assert(func_context_.float_freereg1_ == tac->b_);
+              // assert(func_context_.float_freereg1_ == tac->b_);
               func_context_.float_freereg1_ = nullptr;
             } else {
-              assert(func_context_.float_freereg2_ == tac->b_);
+              // assert(func_context_.float_freereg2_ == tac->b_);
               func_context_.float_freereg2_ = nullptr;
             }
             op1reg = alloc_reg(tac->b_, resreg);
@@ -503,10 +490,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (freeregid != -1 && tac->operation_ != TACOperationType::Mod) {
         emitln("vmov.f32 s" + std::to_string(alloc_reg(tac->a_, resreg)) + ", s" + std::to_string(resreg));
         if (freeregid == 0) {
-          assert(func_context_.float_freereg1_ == tac->b_);
+          // assert(func_context_.float_freereg1_ == tac->b_);
           func_context_.float_freereg1_ = nullptr;
         } else {
-          assert(func_context_.float_freereg2_ == tac->b_);
+          // assert(func_context_.float_freereg2_ == tac->b_);
           func_context_.float_freereg2_ = nullptr;
         }
       }
@@ -660,10 +647,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (freeregid != -1 && tac->operation_ != TACOperationType::Mod && tac->operation_ != TACOperationType::Div) {
         emitln("mov" + IntRegIDToName(alloc_reg(tac->a_, resreg)) + ", " + IntRegIDToName(resreg));
         if (freeregid == 0) {
-          assert(func_context_.int_freereg1_ == tac->b_);
+          // assert(func_context_.int_freereg1_ == tac->b_);
           func_context_.int_freereg1_ = nullptr;
         } else {
-          assert(func_context_.int_freereg2_ == tac->b_);
+          // assert(func_context_.int_freereg2_ == tac->b_);
           func_context_.int_freereg2_ = nullptr;
         }
       }
@@ -707,8 +694,6 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       //无需赋值
       return;
     }
-    int valreg = alloc_reg(tac->b_);
-    int dstreg = alloc_reg(tac->a_, valreg);
     bool arrayA = tac->a_->value_.Type() == SymbolValue::ValueType::Array;
     bool arrayB = tac->b_->value_.Type() == SymbolValue::ValueType::Array;
     if (arrayA && arrayB) {
@@ -724,10 +709,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
         if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
           if (basereg == 0) {
-            assert(func_context_.int_freereg1_ == basesym);
+            // assert(func_context_.int_freereg1_ == basesym);
             func_context_.int_freereg1_ = nullptr;
           } else {
-            assert(func_context_.int_freereg2_ == basesym);
+            // assert(func_context_.int_freereg2_ == basesym);
             func_context_.int_freereg2_ = nullptr;
           }
           addrreg = basereg;
@@ -754,10 +739,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
         if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
           if (basereg == 0) {
-            assert(func_context_.int_freereg1_ == basesym);
+            // assert(func_context_.int_freereg1_ == basesym);
             func_context_.int_freereg1_ = nullptr;
           } else {
-            assert(func_context_.int_freereg2_ == basesym);
+            // assert(func_context_.int_freereg2_ == basesym);
             func_context_.int_freereg2_ = nullptr;
           }
           addrreg = basereg;
@@ -775,7 +760,33 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       } else {
         emitln("ldr " + IntRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       }
+    } else if (tac->a_->IsGlobal()) {
+      int dstreg = get_free_int_reg();
+      int valreg;
+      emitln("ldr " + IntRegIDToName(dstreg) + ", " + ToDataRefName(GetVariableName(tac->a_)));
+      if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
+        valreg = alloc_reg(tac->b_);
+        if (func_context_.float_freereg1_ == tac->a_) {
+          emitln("vmov " + FloatRegIDToName(0) + ", " + FloatRegIDToName(valreg));
+        } else if (func_context_.float_freereg2_ == tac->a_) {
+          emitln("vmov " + FloatRegIDToName(func_context_.func_attr_.attr.used_regs.floatReservedReg) + ", " +
+                 FloatRegIDToName(valreg));
+        }
+
+        emitln("vstr " + FloatRegIDToName(valreg) + ", [" + IntRegIDToName(dstreg) + "]");
+      } else {
+        valreg = alloc_reg(tac->b_, dstreg);
+        if (func_context_.int_freereg1_ == tac->a_) {
+          emitln("mov " + IntRegIDToName(0) + ", " + IntRegIDToName(valreg));
+        } else if (func_context_.int_freereg2_ == tac->a_) {
+          emitln("mov " + IntRegIDToName(func_context_.func_attr_.attr.used_regs.intReservedReg) + ", " +
+                 IntRegIDToName(valreg));
+        }
+        emitln("str " + IntRegIDToName(valreg) + ", [" + IntRegIDToName(dstreg) + "]");
+      }
     } else {
+      int valreg = alloc_reg(tac->b_);
+      int dstreg = alloc_reg(tac->a_, valreg);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
         emitln("vmov.f32 s" + std::to_string(dstreg) + ", s" + std::to_string(valreg));
       } else {
@@ -928,6 +939,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   auto do_call = [&, this]() -> void {
     //初始化一下
     func_context_.stack_size_for_args_ = 0;
+    evit_all_freereg();
     //先压栈吧
     emitln("push {r1-r3}");
     emitln("vpush {s1-s15}");
@@ -978,10 +990,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           emitln("push {" + IntRegIDToName(basereg) + "}");
           func_context_.stack_size_for_args_ += 4;
           if (basereg == 0) {
-            assert(func_context_.int_freereg1_ == basesym);
+            // assert(func_context_.int_freereg1_ == basesym);
             func_context_.int_freereg1_ = nullptr;
           } else {
-            assert(func_context_.int_freereg2_ == basesym);
+            // assert(func_context_.int_freereg2_ == basesym);
             func_context_.int_freereg2_ = nullptr;
           }
         } else {
@@ -1040,10 +1052,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(basereg));
           }
           if (basereg == 0) {
-            assert(func_context_.int_freereg1_ == basesym);
+            // assert(func_context_.int_freereg1_ == basesym);
             func_context_.int_freereg1_ = nullptr;
           } else {
-            assert(func_context_.int_freereg2_ == basesym);
+            // assert(func_context_.int_freereg2_ == basesym);
             func_context_.int_freereg2_ = nullptr;
           }
         } else {
