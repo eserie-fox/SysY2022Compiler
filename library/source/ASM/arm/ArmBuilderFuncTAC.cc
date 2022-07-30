@@ -41,8 +41,9 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     if (reg_id) {
       target_sym = &func_context_.int_freereg2_;
       reg_id = func_context_.func_attr_.attr.used_regs.intReservedReg;
+    } else {
+      target_sym = &func_context_.int_freereg1_;
     }
-    target_sym = &func_context_.int_freereg1_;
     if (*target_sym == nullptr) {
       //不需要驱逐
       return;
@@ -121,8 +122,9 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     if (reg_id) {
       target_sym = &func_context_.float_freereg2_;
       reg_id = func_context_.func_attr_.attr.used_regs.floatRegs;
+    } else {
+      target_sym = &func_context_.float_freereg1_;
     }
-    target_sym = &func_context_.float_freereg1_;
     if (*target_sym == nullptr) {
       //不需要驱逐
       return;
@@ -204,20 +206,26 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     if (sym->value_.Type() == SymbolValue::ValueType::Array) {
       sym = sym->value_.GetArrayDescriptor()->base_addr.lock();
     }
-
+    //这里特判，如果是global，每次用都重新读取
+    bool is_global = sym->IsGlobal();
+    int global_regid = -1;
     if (is_float) {
       if (func_context_.float_freereg1_ == sym) {
-        return 0;
+        if (!is_global) return 0;
+        global_regid = 0;
       }
       if (func_context_.float_freereg2_ == sym) {
-        return func_context_.func_attr_.attr.used_regs.floatReservedReg;
+        if (!is_global) return func_context_.func_attr_.attr.used_regs.floatReservedReg;
+        global_regid = func_context_.func_attr_.attr.used_regs.floatReservedReg;
       }
     } else {
       if (func_context_.int_freereg1_ == sym) {
-        return 0;
+        if (!is_global) return 0;
+        global_regid = 0;
       }
       if (func_context_.int_freereg2_ == sym) {
-        return func_context_.func_attr_.attr.used_regs.intReservedReg;
+        if (!is_global) return func_context_.func_attr_.attr.used_regs.intReservedReg;
+        global_regid = func_context_.func_attr_.attr.used_regs.intReservedReg;
       }
     }
 
@@ -235,7 +243,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int target_reg = func_context_.last_float_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
       SymbolPtr *target_sym =
           func_context_.last_float_freereg_ ? &func_context_.float_freereg1_ : &func_context_.float_freereg2_;
-      {
+      if (is_global && global_regid != -1) {
+        target_reg = global_regid;
+        target_sym = target_reg ? &func_context_.float_freereg2_ : &func_context_.float_freereg1_;
+      } else {
         int other_reg =
             (!func_context_.last_float_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
         SymbolPtr *other_sym =
@@ -245,10 +256,11 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           target_reg = other_reg;
           target_sym = other_sym;
         }
+        if (*target_sym != nullptr) {
+          evit_float_reg(target_reg);
+        }
       }
-      if (*target_sym != nullptr) {
-        evit_float_reg(target_reg);
-      }
+
       *target_sym = sym;
       if (sym->IsLiteral()) {
         int freeintreg = get_free_int_reg();
@@ -284,7 +296,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int target_reg = func_context_.last_int_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
       SymbolPtr *target_sym =
           func_context_.last_int_freereg_ ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
-      {
+      if (is_global && global_regid != -1) {
+        target_reg = global_regid;
+        target_sym = target_reg ? &func_context_.int_freereg2_ : &func_context_.int_freereg1_;
+      } else {
         int other_reg = (!func_context_.last_int_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
         SymbolPtr *other_sym =
             (!func_context_.last_int_freereg_) ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
@@ -292,10 +307,11 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           target_reg = other_reg;
           target_sym = other_sym;
         }
+        if (*target_sym != nullptr) {
+          evit_int_reg(target_reg);
+        }
       }
-      if (*target_sym != nullptr) {
-        evit_int_reg(target_reg);
-      }
+
       *target_sym = sym;
       if (sym->IsLiteral()) {
         int val = sym->value_.GetInt();
