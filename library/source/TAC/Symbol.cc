@@ -635,5 +635,16 @@ bool Symbol::IsGlobal() const {
   return false;
 }
 
+bool Symbol::IsGlobalTemp() const {
+  if (IsGlobal()) {
+    if (name_.value().length() >= 4) {
+      if (name_.value()[2] == 'S' && name_.value()[3] == 'V') {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 }  // namespace ThreeAddressCode
 }  // namespace HaveFunCompiler

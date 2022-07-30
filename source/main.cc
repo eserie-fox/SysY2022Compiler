@@ -20,7 +20,7 @@ int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
     auto tss = ss.str();
 //    std::cout << tss << std::endl;
     tacdriver.parse(ss);
-    tacdriver.print(std::cout) << std::endl;
+    // tacdriver.print(std::cout) << std::endl;
 
     std::string output;
     ArmBuilder armBuilder(tacdriver.get_tacbuilder()->GetTACList());

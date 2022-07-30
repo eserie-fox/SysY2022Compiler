@@ -108,6 +108,9 @@ struct Symbol {
 
   //是否是全局变量
   bool IsGlobal() const;
+
+  //是否是全局临时变量
+  bool IsGlobalTemp() const;
 };
 
 class Expression;

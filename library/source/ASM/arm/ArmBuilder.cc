@@ -65,9 +65,11 @@ bool ArmBuilder::AppendPrefix() {
 bool ArmBuilder::AppendSuffix() { return true; }
 
 bool ArmBuilder::TranslateGlobal() {
+  ArmUtil::GlobalContextGuard glob_context_guard(glob_context_);
   current_ = tac_list_->begin();
   end_ = tac_list_->end();
   int func_level = 0;
+  //第一遍进行变量地址分配
   try {
     for (; current_ != end_; ++current_) {
       auto tac = *current_;
@@ -78,10 +80,11 @@ bool ArmBuilder::TranslateGlobal() {
         case TACOperationType::FunctionEnd:
           func_level--;
           break;
-        case TACOperationType::Label:
-          break;
         case TACOperationType::Constant:
           if (!func_level) {
+            if (!tac->a_->IsGlobal()) {
+              throw std::logic_error("Not global variable in global region: " + tac->a_->get_name());
+            }
             if (tac->a_->type_ != SymbolType::Constant) {
               throw std::runtime_error("Expected constant in const declaration, but actually " +
                                        std::string(magic_enum::enum_name<SymbolType>(tac->a_->type_)));
@@ -91,12 +94,27 @@ bool ArmBuilder::TranslateGlobal() {
                   "Only constant array allowed in const declaration, but actually " +
                   std::string(magic_enum::enum_name<SymbolValue::ValueType>(tac->a_->value_.Type())));
             }
-            data_section_ += DeclareDataToASMString(tac);
-            text_section_back_ += AddDataRefToASMString(tac);
+
+            //字面量跳过
+            if (tac->a_->IsLiteral()) {
+              break;
+            }
+
+            //一定没有全局临时常量
+            if (tac->a_->IsGlobalTemp()) {
+              throw std::logic_error("Illegal global temporary constant");
+            } else if (tac->a_->name_.value_or("").length() > 3 && tac->a_->name_.value()[2] == 'U') {
+              //对于非临时变量，进行存储声明
+              data_section_ += DeclareDataToASMString(tac);
+              text_section_back_ += AddDataRefToASMString(tac);
+            }
           }
           break;
         case TACOperationType::Variable:
           if (!func_level) {
+            if (!tac->a_->IsGlobal()) {
+              throw std::logic_error("Not global variable in global region: " + tac->a_->get_name());
+            }
             if (tac->a_->type_ != SymbolType::Variable) {
               throw std::runtime_error("Expected variable in var declaration, but actually " +
                                        std::string(magic_enum::enum_name<SymbolType>(tac->a_->type_)));
@@ -106,13 +124,78 @@ bool ArmBuilder::TranslateGlobal() {
                   "Expected array or int/float in var declaration, but actually " +
                   std::string(magic_enum::enum_name<SymbolValue::ValueType>(tac->a_->value_.Type())));
             }
-            data_section_ += DeclareDataToASMString(tac);
-            text_section_back_ += AddDataRefToASMString(tac);
+
+            //字面量跳过
+            if (tac->a_->IsLiteral()) {
+              break;
+            }
+
+            //进行栈空间分配
+            if (tac->a_->IsGlobalTemp()) {
+              assert(!glob_context_.var_stack_pos.count(tac->a_));
+              glob_context_.var_stack_pos[tac->a_] = glob_context_.stack_size_for_vars_;
+              glob_context_.stack_size_for_vars_ += 4;
+            } else if (tac->a_->name_.value_or("").length() > 3 && tac->a_->name_.value()[2] == 'U') {
+              data_section_ += DeclareDataToASMString(tac);
+              text_section_back_ += AddDataRefToASMString(tac);
+            }
           }
           break;
         default:
+          break;
+      }
+    }
+  } catch (std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return false;
+  }
+  
+  current_ = tac_list_->begin();
+  end_ = tac_list_->end();
+  assert(func_level == 0);
+
+  
+  //添加一个新函数在列表
+  func_sections_.emplace_back("main");
+  //绑定到body，后面简写
+  auto *pfunc_section = &func_sections_.back().body_;
+  auto emit = [pfunc_section](const std::string &inst) -> void { (*pfunc_section) += inst; };
+  auto emitln = [pfunc_section](const std::string &inst) -> void {
+    pfunc_section->append(inst);
+    pfunc_section->append("\n");
+  };
+
+  emitln(".text");
+  emitln(".global main");
+  emitln("main:");
+
+  emitln("push {r4-r12, lr}");
+  emitln("vpush {s16-s31}");
+  glob_context_.stack_size_for_regsave_ = 10 * 4 + 16 * 4;
+  if (ArmHelper::IsImmediateValue(glob_context_.stack_size_for_vars_)) {
+    emitln("sub sp, sp, #" + std::to_string(glob_context_.stack_size_for_vars_));
+  } else {
+    emitln("ldr ip, =" + std::to_string(glob_context_.stack_size_for_vars_));
+    emitln("sub sp, sp, ip");
+  }
+
+  try {
+    for (; current_ != end_; ++current_) {
+      auto tac = *current_;
+      switch (tac->operation_) {
+        case TACOperationType::FunctionBegin:
+          func_level++;
+          break;
+        case TACOperationType::FunctionEnd:
+          func_level--;
+          break;
+        case TACOperationType::Constant:
+          break;
+        case TACOperationType::Variable:
+          break;
+        default:
           if (!func_level) {
-            init_section_ += GlobalTACToASMString(tac);
+            emit(GlobalTACToASMString(tac));
           }
           break;
       }
@@ -121,6 +204,23 @@ bool ArmBuilder::TranslateGlobal() {
     std::cerr << e.what() << std::endl;
     return false;
   }
+  if (ArmHelper::IsImmediateValue(glob_context_.stack_size_for_vars_)) {
+    emitln("add sp, sp, #" + std::to_string(glob_context_.stack_size_for_vars_));
+  } else {
+    emitln("ldr ip, =" + std::to_string(glob_context_.stack_size_for_vars_));
+    emitln("add sp, sp, ip");
+  }
+  glob_context_.stack_size_for_vars_ = 0;
+  emitln("vpop {s16-s31}");
+  emitln("pop {r4-r12 ,lr}");
+  glob_context_.stack_size_for_regsave_ = 0;
+  emitln("push {lr}");
+  emitln("sub sp, sp, #4");
+  emitln("bl S0U_main");
+  emitln("add sp, sp, #4");
+  emitln("pop {lr}");
+  emitln("bx lr");
+
   return true;
 }
 
@@ -291,7 +391,6 @@ bool ArmBuilder::TranslateFunctions() {
 
 bool ArmBuilder::Translate(std::string *output) {
   target_output_ = output;
-  init_section_.clear();
   data_section_.clear();
   text_section_back_.clear();
   func_sections_.clear();

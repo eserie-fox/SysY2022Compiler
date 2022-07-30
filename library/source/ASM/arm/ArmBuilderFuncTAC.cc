@@ -271,8 +271,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         } else {
           int freeintreg = get_free_int_reg();
           emitln("ldr " + IntRegIDToName(freeintreg) + ", =" + std::to_string(realoffset));
-          emitln("add " + IntRegIDToName(freeintreg) + ", " + IntRegIDToName(freeintreg) + ", sp");
-          emitln("vldr " + FloatRegIDToName(target_reg) + ", [" + IntRegIDToName(freeintreg) + "]");
+          // emitln("add " + IntRegIDToName(freeintreg) + ", " + IntRegIDToName(freeintreg) + ", sp");
+          emitln("vldr " + FloatRegIDToName(target_reg) + ", [sp, " + IntRegIDToName(freeintreg) + "]");
         }
       }
 
@@ -592,7 +592,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
               emitln("sub sp, sp, #4");
             }
           }
-          emitln("bl __aeabi_idiv");
+          emitln("bl __aeabi_idivmod");
           if (padding) {
             emitln("add sp, sp, #4");
           }
@@ -706,7 +706,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int addrreg;
       {
         int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
-        if (symbol_reg(basesym) == -1) {
+        if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
           if (basereg == 0) {
             assert(func_context_.int_freereg1_ == basesym);
             func_context_.int_freereg1_ = nullptr;
@@ -736,7 +736,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int addrreg;
       {
         int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
-        if (symbol_reg(basesym) == -1) {
+        if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
           if (basereg == 0) {
             assert(func_context_.int_freereg1_ == basesym);
             func_context_.int_freereg1_ = nullptr;

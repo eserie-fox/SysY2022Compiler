@@ -4,6 +4,7 @@
 #include "ASM/AssemblyBuilder.hh"
 #include "ASM/Common.hh"
 #include "ASM/arm/FunctionContext.hh"
+#include "ASM/arm/GlobalContext.hh"
 #include "TAC/ThreeAddressCode.hh"
 
 namespace HaveFunCompiler {
@@ -62,9 +63,6 @@ class ArmBuilder : public AssemblyBuilder {
   //数据段代码
   std::string data_section_;
 
-  //初始化段代码，用于对全局数据进行预先初始化。
-  std::string init_section_;
-
   // text段末尾，补充上对数据段的引用
   std::string text_section_back_;
 
@@ -78,6 +76,8 @@ class ArmBuilder : public AssemblyBuilder {
   std::vector<FuncASM> func_sections_;
 
   ArmUtil::FunctionContext func_context_;
+
+  ArmUtil::GlobalContext glob_context_;
 
 
   TACListPtr tac_list_;
