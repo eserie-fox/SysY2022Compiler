@@ -96,6 +96,8 @@ class ThreeAddressCodeList {
   const_iterator cbegin() const { return list_.cbegin(); }
   const_iterator cend() const { return list_.cend(); }
 
+  void erase(iterator it) { list_.erase(it); }
+
  private:
   list_t list_;
 };
