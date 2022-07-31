@@ -8,5 +8,4 @@ cd build
 cmake ..
 make
 cd ..
-rm collection/library/parser -rf
 cp build/library/parser collection/library/ -r
