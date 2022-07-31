@@ -325,6 +325,14 @@ CompUnit
   {
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return, $2));
   }
+  | RET SUB IntConst
+  {
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return, tacbuilder->CreateConstSym($3)));
+  }
+  | RET SUB floatConst
+  {
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return, tacbuilder->CreateConstSym($3)));
+  }
   | GOTO IDENTIFIER
   {
     SymbolPtr sym;
