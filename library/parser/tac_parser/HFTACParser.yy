@@ -327,11 +327,11 @@ CompUnit
   }
   | RET SUB IntConst
   {
-    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return, tacbuilder->CreateConstSym($3)));
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return, tacbuilder->CreateConstSym(-$3)));
   }
   | RET SUB floatConst
   {
-    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return, tacbuilder->CreateConstSym($3)));
+    $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return, tacbuilder->CreateConstSym(-$3)));
   }
   | GOTO IDENTIFIER
   {
