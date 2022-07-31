@@ -365,7 +365,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       int addrreg;
       {
         int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
-        addrreg = glob_context_.USE_INT_REG_NUM;
+        addrreg = get_free_int_reg();
         emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
                ", LSL #2");
       }
@@ -382,7 +382,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       int addrreg;
       {
         int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
-        addrreg = glob_context_.USE_INT_REG_NUM;
+        addrreg = get_free_int_reg();
         emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
                ", LSL #2");
       }

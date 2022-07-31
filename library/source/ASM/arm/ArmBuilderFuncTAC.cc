@@ -99,14 +99,23 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
   // 自动选择驱逐一个不常用的freereg，并返回其编号
   auto get_free_int_reg = [&, this]() -> int {
-    if (func_context_.int_freereg1_ == nullptr) {
+    bool empty0 = func_context_.int_freereg1_ == nullptr || func_context_.int_freereg1_->IsLiteral();
+    bool empty1 = func_context_.int_freereg2_ == nullptr || func_context_.int_freereg2_->IsLiteral();
+    if (empty0 && empty1) {
+      if (func_context_.last_int_freereg_ == 0) {
+        return func_context_.func_attr_.attr.used_regs.intReservedReg;
+      } else {
+        return 0;
+      }
+    }
+    if (empty0) {
       return 0;
     }
-    if (func_context_.int_freereg2_ == nullptr) {
+    if (empty1) {
       return func_context_.func_attr_.attr.used_regs.intReservedReg;
     }
     //如果上一个在用int_freereg1，则驱逐reg2
-    if (func_context_.last_int_freereg_ != 0) {
+    if (func_context_.last_int_freereg_ == 0) {
       int reg_id = func_context_.func_attr_.attr.used_regs.intReservedReg;
       evit_int_reg(reg_id);
       return reg_id;
@@ -182,14 +191,23 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
   // 自动选择驱逐一个不常用的freereg，并返回其编号
   auto get_free_float_reg = [&, this]() -> int {
-    if (func_context_.float_freereg1_ == nullptr) {
+    bool empty0 = func_context_.float_freereg1_ == nullptr || func_context_.float_freereg1_->IsLiteral();
+    bool empty1 = func_context_.float_freereg2_ == nullptr || func_context_.float_freereg2_->IsLiteral();
+    if (empty0 && empty1) {
+      if (func_context_.last_float_freereg_ == 0) {
+        return func_context_.func_attr_.attr.used_regs.floatReservedReg;
+      } else {
+        return 0;
+      }
+    }
+    if (empty0) {
       return 0;
     }
-    if (func_context_.float_freereg2_ == nullptr) {
+    if (empty1) {
       return func_context_.func_attr_.attr.used_regs.floatReservedReg;
     }
     //如果上一个在用float_freereg1，则驱逐reg2
-    if (func_context_.last_float_freereg_ != 0) {
+    if (func_context_.last_float_freereg_ == 0) {
       int reg_id = func_context_.func_attr_.attr.used_regs.floatReservedReg;
       evit_float_reg(reg_id);
       return reg_id;
@@ -208,16 +226,20 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
     if (is_float) {
       if (func_context_.float_freereg1_ == sym) {
+        func_context_.last_float_freereg_ = 0;
         return 0;
       }
       if (func_context_.float_freereg2_ == sym) {
+        func_context_.last_float_freereg_ = func_context_.func_attr_.attr.used_regs.floatReservedReg;
         return func_context_.func_attr_.attr.used_regs.floatReservedReg;
       }
     } else {
       if (func_context_.int_freereg1_ == sym) {
+        func_context_.last_int_freereg_ = 0;
         return 0;
       }
       if (func_context_.int_freereg2_ == sym) {
+        func_context_.last_int_freereg_ = func_context_.func_attr_.attr.used_regs.intReservedReg;
         return func_context_.func_attr_.attr.used_regs.intReservedReg;
       }
     }
@@ -233,23 +255,42 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //如果没缓存
     if (is_float) {
       //尽量选择一个既不是经常被用到，又不是except_reg的reg
-      int target_reg = func_context_.last_float_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
-      SymbolPtr *target_sym =
-          func_context_.last_float_freereg_ ? &func_context_.float_freereg1_ : &func_context_.float_freereg2_;
+      int target_reg;
+      SymbolPtr *target_sym;
       {
-        int other_reg =
-            (!func_context_.last_float_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.floatReservedReg;
-        SymbolPtr *other_sym =
-            (!func_context_.last_float_freereg_) ? &func_context_.float_freereg1_ : &func_context_.float_freereg2_;
-        if (target_reg == except_reg ||
-            (other_reg != except_reg && (((*other_sym) == nullptr) || (*other_sym)->IsLiteral()))) {
-          target_reg = other_reg;
-          target_sym = other_sym;
+        int regids[2] = {0,func_context_.func_attr_.attr.used_regs.floatReservedReg};
+        SymbolPtr *syms[2] = {&func_context_.float_freereg1_, &func_context_.float_freereg2_};
+        auto choose = [&](int id) -> void {
+            target_reg = regids[id];
+            target_sym = syms[id];
+        };
+
+        if(except_reg == regids[0] || except_reg == regids[1]){
+          if(except_reg == regids[0]){
+            choose(1);
+          }else{
+            choose(0);
+          }
+        } else {
+          bool empty0 = (*syms[0]) == nullptr || (*syms[0])->IsLiteral();
+          bool empty1 = (*syms[1]) == nullptr || (*syms[1])->IsLiteral();
+          if ((empty0 && empty1) || ((!empty0) && (!empty1))) {
+            if (func_context_.last_float_freereg_ == 0) {
+              choose(1);
+            } else {
+              choose(0);
+            }
+          } else {
+            if(empty0){
+              choose(0);
+            }else{
+              choose(1);
+            }
+          }
         }
       }
-      if (*target_sym != nullptr) {
-        evit_float_reg(target_reg);
-      }
+
+      evit_float_reg(target_reg);
       *target_sym = sym;
 
       if (sym->IsLiteral()) {
@@ -283,21 +324,42 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       return target_reg;
     } else {
       //尽量选择一个既不是经常被用到，又不是except_reg的reg
-      int target_reg = func_context_.last_int_freereg_ ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
-      SymbolPtr *target_sym =
-          func_context_.last_int_freereg_ ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
+      int target_reg;
+      SymbolPtr *target_sym;
       {
-        int other_reg = (!func_context_.last_int_freereg_) ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
-        SymbolPtr *other_sym =
-            (!func_context_.last_int_freereg_) ? &func_context_.int_freereg1_ : &func_context_.int_freereg2_;
-        if (target_reg == except_reg || (other_reg != except_reg && (*other_sym) == nullptr)) {
-          target_reg = other_reg;
-          target_sym = other_sym;
+        int regids[2] = {0,func_context_.func_attr_.attr.used_regs.intReservedReg};
+        SymbolPtr* syms[2] = {&func_context_.int_freereg1_, &func_context_.int_freereg2_};
+        auto choose = [&](int id) -> void {
+            target_reg = regids[id];
+            target_sym = syms[id];
+        };
+
+        if(except_reg == regids[0] || except_reg == regids[1]){
+          if(except_reg == regids[0]){
+            choose(1);
+          }else{
+            choose(0);
+          }
+        } else {
+          bool empty0 = (*syms[0]) == nullptr || (*syms[0])->IsLiteral();
+          bool empty1 = (*syms[1]) == nullptr || (*syms[1])->IsLiteral();
+          if ((empty0 && empty1) || ((!empty0) && (!empty1))) {
+            if (func_context_.last_int_freereg_ == 0) {
+              choose(1);
+            } else {
+              choose(0);
+            }
+          } else {
+            if(empty0){
+              choose(0);
+            }else{
+              choose(1);
+            }
+          }
         }
       }
-      if (*target_sym != nullptr) {
-        evit_int_reg(target_reg);
-      }
+
+      evit_int_reg(target_reg);
       *target_sym = sym;
 
       if (sym->IsLiteral()) {
@@ -716,10 +778,14 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             func_context_.int_freereg2_ = nullptr;
           }
           addrreg = basereg;
+          //把offreg的另外一个reg驱逐。
+          evit_int_reg((addrreg == 0));
+          func_context_.last_int_freereg_ = addrreg;
         } else {
           //把offreg的另外一个reg驱逐。
           evit_int_reg((offreg == 0));
           addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+          func_context_.last_int_freereg_ = addrreg;
         }
         emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
                ", LSL #2");
@@ -746,10 +812,15 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             func_context_.int_freereg2_ = nullptr;
           }
           addrreg = basereg;
+
+          //把offreg的另外一个reg驱逐。
+          evit_int_reg((addrreg == 0));
+          func_context_.last_int_freereg_ = addrreg;
         } else {
           //把offreg的另外一个reg驱逐。
           evit_int_reg((offreg == 0));
           addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+          func_context_.last_int_freereg_ = addrreg;
         }
         emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
                ", LSL #2");
