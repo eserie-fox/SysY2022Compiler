@@ -183,6 +183,8 @@ using token = HaveFunCompiler::Parser::TACParser::token;
 
 "&" { return token::AND; }
 
+";" { return token::SEM; }
+
 ([ \t\r])+ {
 
 }

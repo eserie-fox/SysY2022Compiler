@@ -67,7 +67,7 @@ const int NONFUNC_BLOCK_FLAG = 2024;
 /* %define parse.trace */
 
 %token              END 0 "end of file"
-%token INT EQ NE LT LE LEQ LS  RS AND LM CALL RM GT GE IFZ RET LN FLOAT CONST ADD SUB MUL DIV MOD LABEL GOTO STRING FBEGIN FEND ARG PARAM
+%token INT EQ NE LT LE LEQ LS  RS AND LM CALL RM GT GE IFZ RET LN FLOAT CONST ADD SUB MUL DIV MOD LABEL GOTO STRING FBEGIN FEND ARG PARAM SEM
 %token <int> IntConst
 %token <float> floatConst
 %token <std::string> IDENTIFIER
@@ -317,7 +317,7 @@ CompUnit
     }
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Call, $1, sym));
   }
-  | RET 
+  | RET SEM
   {
     $$ = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Return));
   }

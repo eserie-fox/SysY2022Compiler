@@ -98,7 +98,7 @@ std::string ThreeAddressCode::ToString() const {
     }
 
     case TACOperationType::Return:
-      return "ret" + (a_ == nullptr ? "" : (std::string(" ") + a_->get_tac_name()));
+      return "ret" + (a_ == nullptr ? ";" : (std::string(" ") + a_->get_tac_name()));
     case TACOperationType::Variable:
       return a_->value_.TypeToTACString() + " " + a_->get_tac_name(true);
     case TACOperationType::Constant:
