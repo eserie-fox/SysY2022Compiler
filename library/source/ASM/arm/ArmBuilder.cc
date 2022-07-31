@@ -229,14 +229,16 @@ bool ArmBuilder::TranslateFunction() {
   //拿到func_context_guard确保func_context拥有正确初始化和析构行为
   auto func_context_guard = ArmUtil::FunctionContextGuard(func_context_);
   {
-    //解析寄存器分配
+    // 生成控制流图
     auto cfg = std::make_shared<ControlFlowGraph>(current_, end_);
-    func_context_.reg_alloc_ = new RegAllocator(LiveAnalyzer(cfg));
 
     // 移除死代码
     auto& deadCode = cfg->get_unreachableTACItrList();
     for (auto it : deadCode)
       tac_list_->erase(it);
+    
+    // 解析寄存器分配
+    func_context_.reg_alloc_ = new RegAllocator(LiveAnalyzer(cfg));
   }
   //开头label包含了函数名
   auto func_label = (*current_)->a_;

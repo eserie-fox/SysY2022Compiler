@@ -114,10 +114,6 @@ public:
 
     NONCOPYABLE(RegAllocator)
 
-    /*
-     * 流程：
-     * ContextInit-> getParameterAddr->LinearScan
-    */
     RegAllocator(const LiveAnalyzer&);
 
     SymAttribute get_SymAttribute(SymPtr sym);
