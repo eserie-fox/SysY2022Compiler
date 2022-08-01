@@ -74,5 +74,13 @@ bool ArmHelper::IsLDRSTRImmediateValue(int value) {
   return false;
 }
 
+int ArmHelper::CountLines(const std::string &str) {
+  int ret = 0;
+  for (auto c : str) {
+    ret += (c == '\n');
+  }
+  return ret;
+}
+
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

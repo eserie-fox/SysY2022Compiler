@@ -14,7 +14,7 @@
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
 using namespace ThreeAddressCode;
-ArmBuilder::ArmBuilder(TACListPtr tac_list) : tac_list_(tac_list) {}
+ArmBuilder::ArmBuilder(TACListPtr tac_list) : data_pool_distance_(0), data_pool_id_(0), tac_list_(tac_list) {}
 
 bool ArmBuilder::AppendPrefix() {
   std::string *pfunc_section;
@@ -59,7 +59,7 @@ bool ArmBuilder::AppendPrefix() {
   forward_declare("stoptime");
   forward_declare("__aeabi_idiv");
   forward_declare("__aeabi_idivmod");
-  return true; 
+  return true;
 }
 
 bool ArmBuilder::AppendSuffix() { return true; }
@@ -106,7 +106,7 @@ bool ArmBuilder::TranslateGlobal() {
             } else if (tac->a_->name_.value_or("").length() > 3 && tac->a_->name_.value()[2] == 'U') {
               //对于非临时变量，进行存储声明
               data_section_ += DeclareDataToASMString(tac);
-              text_section_back_ += AddDataRefToASMString(tac);
+              AddDataRef(tac);
             }
           }
           break;
@@ -137,7 +137,7 @@ bool ArmBuilder::TranslateGlobal() {
               glob_context_.stack_size_for_vars_ += 4;
             } else if (tac->a_->name_.value_or("").length() > 3 && tac->a_->name_.value()[2] == 'U') {
               data_section_ += DeclareDataToASMString(tac);
-              text_section_back_ += AddDataRefToASMString(tac);
+              AddDataRef(tac);
             }
           }
           break;
@@ -159,10 +159,20 @@ bool ArmBuilder::TranslateGlobal() {
   func_sections_.emplace_back("main");
   //绑定到body，后面简写
   auto *pfunc_section = &func_sections_.back().body_;
-  auto emit = [pfunc_section](const std::string &inst) -> void { (*pfunc_section) += inst; };
-  auto emitln = [pfunc_section](const std::string &inst) -> void {
+  auto emit = [pfunc_section, this](const std::string &inst) -> void {
+    (*pfunc_section) += inst;
+    data_pool_distance_ += ArmHelper::CountLines(inst);
+    if(data_pool_distance_> DATA_POOL_DISTANCE_THRESHOLD){
+      (*pfunc_section) += EndCurrentDataPool();
+    }
+  };
+  auto emitln = [pfunc_section, this](const std::string &inst) -> void {
     pfunc_section->append(inst);
     pfunc_section->append("\n");
+    data_pool_distance_ += ArmHelper::CountLines(inst) + 1;
+    if (data_pool_distance_ > DATA_POOL_DISTANCE_THRESHOLD) {
+      (*pfunc_section) += EndCurrentDataPool();
+    }
   };
 
   emitln(".text");
@@ -247,10 +257,20 @@ bool ArmBuilder::TranslateFunction() {
   func_sections_.emplace_back(func_name);
   //绑定到body，后面简写
   auto *pfunc_section = &func_sections_.back().body_;
-  auto emit = [pfunc_section](const std::string &inst) -> void { (*pfunc_section) += inst; };
-  auto emitln = [pfunc_section](const std::string &inst) -> void {
+  auto emit = [pfunc_section, this](const std::string &inst) -> void {
+    (*pfunc_section) += inst;
+    data_pool_distance_ += ArmHelper::CountLines(inst);
+    if (data_pool_distance_ > DATA_POOL_DISTANCE_THRESHOLD) {
+      (*pfunc_section) += EndCurrentDataPool();
+    }
+  };
+  auto emitln = [pfunc_section, this](const std::string &inst) -> void {
     pfunc_section->append(inst);
     pfunc_section->append("\n");
+    data_pool_distance_ += ArmHelper::CountLines(inst) + 1;
+    if (data_pool_distance_ > DATA_POOL_DISTANCE_THRESHOLD) {
+      (*pfunc_section) += EndCurrentDataPool();
+    }
   };
   //添加函数头
   emitln(".text");
@@ -399,7 +419,7 @@ bool ArmBuilder::TranslateFunctions() {
 bool ArmBuilder::Translate(std::string *output) {
   target_output_ = output;
   data_section_.clear();
-  text_section_back_.clear();
+  ref_data_.clear();
   func_sections_.clear();
 
   if (!AppendPrefix()) {
@@ -415,7 +435,7 @@ bool ArmBuilder::Translate(std::string *output) {
   for(auto &func_section : func_sections_){
     target_output_->append(func_section.body_);
   }
-  target_output_->append(text_section_back_);
+  target_output_->append(EndCurrentDataPool(true));
   if (!AppendSuffix()) {
     return false;
   }
@@ -429,7 +449,7 @@ std::string ArmBuilder::GetVariableName(SymbolPtr sym) {
   return sym->get_tac_name(true);
 }
 
-std::string ArmBuilder::ToDataRefName(std::string name) { return "_ref_" + name; }
+std::string ArmBuilder::ToDataRefName(std::string name) { return "_ref_" + name + "_" + std::to_string(data_pool_id_); }
 
 std::string ArmBuilder::DeclareDataToASMString(TACPtr tac) {
   auto sym = tac->a_;
@@ -447,11 +467,11 @@ std::string ArmBuilder::DeclareDataToASMString(TACPtr tac) {
   return ret;
 }
 
-std::string ArmBuilder::AddDataRefToASMString(TACPtr tac) {
+void ArmBuilder::AddDataRef(TACPtr tac) {
   std::string name = GetVariableName(tac->a_);
-  std::string ret = "// add reference to data '" + name + "'\n";
-  ret += ToDataRefName(name) + ": .word " + name + "\n";
-  return ret;
+  ref_data_.push_back(name);
+  // std::string ret = "// add reference to data '" + name + "'\n";
+  // ret += ToDataRefName(name) + ": .word " + name + "\n";
 }
 
 std::string ArmBuilder::IntRegIDToName(int regid) {
@@ -483,5 +503,26 @@ std::string ArmBuilder::FloatRegIDToName(int regid) {
   throw std::runtime_error("Unexpected float regid " + std::to_string(regid));
 }
 
+std::string ArmBuilder::EndCurrentDataPool(bool ignorebranch) {
+  data_pool_distance_ = 0;
+  std::string ret;
+  auto emitln = [&ret](const std::string str) -> void {
+    ret.append(str);
+    ret.append("\n");
+  };
+  if (!ignorebranch) {
+    emitln("b _ignore_data_pool" + std::to_string(data_pool_id_));
+  }
+  emitln(".ltorg");
+  for (const auto &name : ref_data_) {
+    emitln("// add reference to data '" + name);
+    emitln(ToDataRefName(name) + ": .word " + name);
+  }
+  if (!ignorebranch) {
+    emitln("_ignore_data_pool" + std::to_string(data_pool_id_) + ":");
+  }
+  data_pool_id_++;
+  return ret;
+}
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

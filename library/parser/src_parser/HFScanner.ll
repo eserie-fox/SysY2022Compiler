@@ -87,9 +87,9 @@ ENDWORD "*/"
       if(temp[i]>='0' && temp[i]<='9')
         val = val * 16 + temp[i] - '0';
       else if(temp[i]>='a' && temp[i]<='f')
-        val = val*16 + temp[i]-'a';
+        val = val*16 + 10 + temp[i]-'a';
       else
-        val = val * 16 + temp[i]-'A';
+        val = val * 16 + 10 + temp[i]-'A';
     }
     yylval->build<int>(val);
     return token::IntConst;

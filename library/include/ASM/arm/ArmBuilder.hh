@@ -18,6 +18,7 @@ class ArmBuilder : public AssemblyBuilder {
   static const int SP_REGID = 13;
   static const int LR_REGID = 14;
   static const int PC_REGID = 15;
+  static const int DATA_POOL_DISTANCE_THRESHOLD = 500;
 
  public:
   ArmBuilder(TACListPtr tac_list);
@@ -52,19 +53,21 @@ class ArmBuilder : public AssemblyBuilder {
 
   std::string DeclareDataToASMString(TACPtr tac);
 
-  std::string AddDataRefToASMString(TACPtr tac);
+  void AddDataRef(TACPtr tac);
 
   std::string GlobalTACToASMString(TACPtr tac);
 
   std::string FuncTACToASMString(TACPtr tac);
+
+  std::string EndCurrentDataPool(bool ignorebranch = false);
 
   std::string *target_output_;
 
   //数据段代码
   std::string data_section_;
 
-  // text段末尾，补充上对数据段的引用
-  std::string text_section_back_;
+  // 对数据段的引用
+  std::vector<std::string> ref_data_;
 
   struct FuncASM {
     std::string name_;
@@ -79,6 +82,8 @@ class ArmBuilder : public AssemblyBuilder {
 
   ArmUtil::GlobalContext glob_context_;
 
+  int data_pool_distance_;
+  int data_pool_id_;
 
   TACListPtr tac_list_;
   TACList::iterator current_;
