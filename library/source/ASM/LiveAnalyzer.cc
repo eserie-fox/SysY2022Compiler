@@ -120,8 +120,8 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
         while (!startQueue.empty())
         {
             // 从一个活跃点开始逆dfs序遍历
-            // 遇到已经处理过的结点则停止（处理过说明该结点已经包含在其他活跃区间）
-            // 遇到定值结点，更新interval的first为该定值结点后停止
+            // dfn连续的前驱结点已经处理过则停止（处理过说明该结点已经包含在其他活跃区间）
+            // 遇到定值结点，如果该点不同时是使用结点，则停止
             // 对于dfn不连续的前驱结点（该前驱结点存在多个后继时会出现），将该结点加入队列，但不从该结点继续向上遍历
             size_t cur = startQueue.front();
             startQueue.pop();
@@ -142,9 +142,10 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
                 // 将活跃区间头更新成当前结点cur
                 interval.first = cfg->get_node_dfn(cur);
 
-                // 当前结点cur不是定值（如果是，就已经找到连续活跃区间了，退出）
-                if (defSet.find(cur) == defSet.end())
+                // 当前结点cur不是定值，或同时是定值和使用，则应当继续向上遍历
+                if (defSet.find(cur) == defSet.end() || useSet.find(cur) != useSet.end())
                 {
+                    size_t nxtcur;
                     auto inNodeLs = cfg->get_inNodeList(cur);
                     for (auto u : inNodeLs)
                     {
@@ -152,7 +153,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
                         {
                             if (!vis[u])  // 如果前驱没有被访问过，继续向上遍历
                             {
-                                cur = u;
+                                nxtcur = u;
                                 flag = true;
                             }
                         }
@@ -162,6 +163,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
                         else if (!vis[u])
                             startQueue.push(u);
                     }
+                    cur = nxtcur;
                 }
             } while (flag);
 
