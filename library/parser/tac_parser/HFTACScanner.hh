@@ -3,7 +3,7 @@
 #if !defined(yyFlexLexerOnce)
 #undef yyFlexLexer
 #define yyFlexLexer tacyyFlexLexer
-#include <FlexLexer.h>
+#include "FlexLexer.h"
 #endif
 
 #include "../src_parser/location.hh"
