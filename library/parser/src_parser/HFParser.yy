@@ -248,8 +248,8 @@ ConstDef
     int type;
     tacbuilder->Top(&type);
     $2->value_type = (ValueType)type;
-    auto arraySym = tacbuilder->NewSymbol(SymbolType::Constant, $1, SymbolValue($2));
-    tacbuilder->BindConstName($1, arraySym);
+    auto arraySym = tacbuilder->CreateVariable($1, ValueType::Array);
+    arraySym->value_ = SymbolValue($2);
     $2->base_addr = arraySym;
     auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Constant,arraySym)), arraySym);
     $$ = tacbuilder->CreateArrayInit(arrayExp, $4)->tac;

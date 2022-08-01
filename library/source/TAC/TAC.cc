@@ -843,7 +843,13 @@ ExpressionPtr TACBuilder::CastIntToFloat(ExpressionPtr expI) {
 }
 
 ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, ExpressionPtr exp1, ExpressionPtr exp2) {
+  bool isExp1Const = false;
   if (exp1->ret->type_ == SymbolType::Constant) {
+    if (exp1->ret->value_.Type() != SymbolValue::ValueType::Array) {
+      isExp1Const = true;
+    }
+  }
+  if (isExp1Const) {
     auto val1 = exp1->ret->value_;
     switch (arith_op) {
       case TACOperationType::UnaryPositive:
@@ -858,7 +864,13 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
       default:
         break;
     }
+    bool isExp2Const = false;
     if (exp2->ret->type_ == SymbolType::Constant) {
+      if (exp2->ret->value_.Type() != SymbolValue::ValueType::Array) {
+        isExp2Const = true;
+      }
+    }
+    if (isExp2Const) {
       auto val2 = exp2->ret->value_;
       switch (arith_op) {
         case TACOperationType::Add:

@@ -405,20 +405,20 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   };
 
   //处理三个都是同种寄存器时的情况。返回值为：res寄存器，op1寄存器，op2寄存器，是否需要在运算后将缓存去除(-1,0,1，-1代表不需要，0表示去除第一个自由寄存器，1代表去除第二个)。
-  auto prepare_binary_operation = [&, this](SymbolPtr result, SymbolPtr oprand1,
-                                            SymbolPtr oprand2) -> std::tuple<int, int, int, int> {
-    assert(result->value_.Type() == oprand1->value_.Type());
-    assert(oprand1->value_.Type() == oprand2->value_.Type());
-    assert(oprand1 != oprand2);
+  auto prepare_binary_operation = [&, this](SymbolPtr result, SymbolPtr operand1,
+                                            SymbolPtr operand2) -> std::tuple<int, int, int, int> {
+    assert(result->value_.Type() == operand1->value_.Type());
+    assert(operand1->value_.Type() == operand2->value_.Type());
+    // assert(operand1 != operand2);
     int resreg = -1;
-    int op1reg = alloc_reg(oprand1);
-    int op2reg = alloc_reg(oprand2, op1reg);
+    int op1reg = alloc_reg(operand1);
+    int op2reg = alloc_reg(operand2, op1reg);
     int freeregid = -1;
     bool inres = false;
-    if (result == oprand1) {
+    if (result == operand1) {
       resreg = op1reg;
       inres = true;
-    } else if (result == oprand2) {
+    } else if (result == operand2) {
       resreg = op2reg;
       inres = true;
     }
@@ -431,7 +431,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (resreg == -1) {
         //如果res被分配在栈上
         if (result->value_.Type() == SymbolValue::ValueType::Float) {
-          if (symbol_reg(oprand1) == -1) {
+          if (symbol_reg(operand1) == -1) {
             resreg = op1reg;
             freeregid = (op1reg == func_context_.func_attr_.attr.used_regs.floatReservedReg);
           } else {
@@ -439,7 +439,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             freeregid = -1;
           }
         } else {
-          if (symbol_reg(oprand1) == -1) {
+          if (symbol_reg(operand1) == -1) {
             resreg = op1reg;
             freeregid = (op1reg == func_context_.func_attr_.attr.used_regs.intReservedReg);
           } else {
@@ -710,7 +710,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
                                  std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));
       }
       if (freeregid != -1 && tac->operation_ != TACOperationType::Mod && tac->operation_ != TACOperationType::Div) {
-        emitln("mov" + IntRegIDToName(alloc_reg(tac->a_, resreg)) + ", " + IntRegIDToName(resreg));
+        emitln("mov " + IntRegIDToName(alloc_reg(tac->a_, resreg)) + ", " + IntRegIDToName(resreg));
         if (freeregid == 0) {
           // assert(func_context_.int_freereg1_ == tac->b_);
           func_context_.int_freereg1_ = nullptr;

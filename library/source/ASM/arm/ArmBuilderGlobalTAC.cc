@@ -122,13 +122,13 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     int i, backpos, back;
     if (hint_regid == -1) {
       for (i = glob_context_.USE_INT_REG_NUM - 1; i >= 0; i--) {
-        if (glob_context_.int_regs_[i] == nullptr && i != except_reg) {
+        if (i != except_reg && glob_context_.int_regs_[i] == nullptr) {
           target_regid = i;
           goto found_regid;
         }
       }
       for (i = glob_context_.USE_INT_REG_NUM - 1; i >= 0; i--) {
-        if (glob_context_.int_regs_[i]->IsLiteral() && i != except_reg) {
+        if (i != except_reg && glob_context_.int_regs_[i]->IsLiteral()) {
           target_regid = i;
           goto found_regid;
         }
@@ -168,13 +168,13 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     int i, backpos, back;
     if (hint_regid != -1) {
       for (i = glob_context_.USE_FLOAT_REG_NUM - 1; i >= 0; i--) {
-        if (glob_context_.float_regs_[i] == nullptr && i != except_reg) {
+        if (i != except_reg && glob_context_.float_regs_[i] == nullptr) {
           target_regid = i;
           goto found_regid;
         }
       }
       for (i = glob_context_.USE_FLOAT_REG_NUM - 1; i >= 0; i--) {
-        if (glob_context_.float_regs_[i]->IsLiteral() && i != except_reg) {
+        if (i != except_reg && glob_context_.float_regs_[i]->IsLiteral()) {
           target_regid = i;
           goto found_regid;
         }
