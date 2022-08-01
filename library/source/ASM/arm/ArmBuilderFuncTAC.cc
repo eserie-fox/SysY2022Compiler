@@ -392,6 +392,9 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
   //查看此符号是否被分配永久寄存器
   auto symbol_reg = [&, this](SymbolPtr sym) -> int {
+    if (sym->IsLiteral() || sym->IsGlobal()) {
+      return -1;
+    }
     auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
     //如果被分配的话返回寄存器编号
     if (attr.attr.store_type == attr.FLOAT_REG || attr.attr.store_type == attr.INT_REG) {
@@ -1096,12 +1099,48 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       if (it->sym->value_.Type() != SymbolValue::ValueType::Float) {
         continue;
       }
-      int reg = alloc_reg(it->sym);
-      if (reg != it->storage_pos) {
+      int reg = symbol_reg(it->sym);
+      if (reg == -1) {
+        reg = alloc_reg(it->sym);
+      }
+      //需要特殊处理会被寄存器传参用到的寄存器位置的变量
+      if (reg > 0 && reg < 16) {
+        //从栈上定位一下
+        int regoffset;
+        {
+          //压栈的顺序是倒过来的，所以是16 - reg ，前面的3是因为前面有3个通用寄存器压栈
+          int nth = 3 + 16 - reg;
+          regoffset = func_context_.stack_size_for_args_ - nth * 4;
+        }
+        if (ArmHelper::IsLDRSTRImmediateValue(regoffset)) {
+          emitln("vldr " + FloatRegIDToName(it->storage_pos) + ", [sp, #" + std::to_string(regoffset) + "]");
+        } else {
+          auto divides = ArmHelper::DivideIntoImmediateValues(regoffset);
+          for (auto val : divides) {
+            emitln("add sp, sp, #" + std::to_string(val));
+          }
+          emitln("vldr " + FloatRegIDToName(it->storage_pos) + ", [sp]");
+          for (auto val : divides) {
+            emitln("sub sp, sp, #" + std::to_string(val));
+          }
+        }
+      } else if (it->storage_pos != reg) {
         emitln("vmov " + FloatRegIDToName(it->storage_pos) + ", " + FloatRegIDToName(reg));
       }
     }
-
+    auto read_intreg_from_stack = [&, this](int src_regid, int dst_regid) -> void {
+      //一定要是栈上的才行
+      assert(src_regid > 0 && src_regid < 4);
+      //压栈的顺序是倒过来的，所以是4 - reg
+      int nth = 4 - src_regid;
+      int offset = func_context_.stack_size_for_args_ - nth * 4;
+      if (ArmHelper::IsLDRSTRImmediateValue(offset)) {
+        emitln("ldr " + IntRegIDToName(dst_regid) + ", [sp, #" + std::to_string(offset) + "]");
+      } else {
+        emitln("ldr " + IntRegIDToName(dst_regid) + ", =" + std::to_string(offset));
+        emitln("ldr " + IntRegIDToName(dst_regid) + ", [sp, " + IntRegIDToName(dst_regid) + "]");
+      }
+    };
     for (auto it = func_context_.arg_records_.rbegin(); it != func_context_.arg_records_.rend(); ++it) {
       if (!it->storage_in_reg) {
         continue;
@@ -1114,11 +1153,27 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         auto arrayDescriptor = it->sym->value_.GetArrayDescriptor();
         auto basesym = arrayDescriptor->base_addr.lock();
         auto offsym = arrayDescriptor->base_offset;
-        int basereg = alloc_reg(basesym);
-        int offreg = alloc_reg(offsym, basereg);
+        int basereg = symbol_reg(basesym);
+        bool basesym_on_stack = false;
+        if (basereg == -1) {
+          basesym_on_stack = true;
+          basereg = alloc_reg(it->sym);
+        }
+        int offreg =  symbol_reg(offsym);
+        if (offreg == -1) {
+          offreg = alloc_reg(offsym, basereg);
+        }
         //如果basesym分配在栈空间，result可以复用basereg
-        if (symbol_reg(basesym) == -1) {
-          emitln("add " + IntRegIDToName(basereg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg));
+        if (basesym_on_stack) {
+          //处理一下offreg从栈中读取
+          if (0 < offreg && offreg < 4) {
+            evit_int_reg(basereg == 0);
+            int freeintreg = get_free_int_reg();
+            read_intreg_from_stack(offreg, freeintreg);
+            offreg = freeintreg;
+          }
+          emitln("add " + IntRegIDToName(basereg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
           if (basereg != it->storage_pos) {
             emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(basereg));
           }
@@ -1133,14 +1188,36 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           //否则basesym分配在寄存器，需要再申请一个reg储存结果
           int resreg = (offreg == 0 ? func_context_.func_attr_.attr.used_regs.intReservedReg : 0);
           evit_int_reg(resreg);
-          emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg));
+
+          //处理一下basereg从栈中读取
+          if (0 < basereg && basereg < 4) {
+            read_intreg_from_stack(basereg, resreg);
+            basereg = resreg;
+          }
+
+          //处理一下offreg从栈中读取
+          if (0 < offreg && offreg < 4) {
+            evit_int_reg(resreg == 0);
+            int freeintreg = get_free_int_reg();
+            read_intreg_from_stack(offreg, freeintreg);
+            offreg = freeintreg;
+          }
+
+          emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
           if (resreg != it->storage_pos) {
             emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(resreg));
           }
         }
       } else {
-        int reg = alloc_reg(it->sym);
-        if (reg != it->storage_pos) {
+        int reg = symbol_reg(it->sym);
+        if (reg == -1) {
+          reg = alloc_reg(it->sym);
+        }
+        //需要特殊处理会被寄存器传参用到的寄存器位置的变量
+        if (reg > 0 && reg < 4) {
+          read_intreg_from_stack(reg, it->storage_pos);
+        } else if (reg != it->storage_pos) {
           emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(reg));
         }
       }

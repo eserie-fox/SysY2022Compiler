@@ -116,55 +116,100 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     target_sym = nullptr;
   };
 
-  auto get_free_int_reg = [&, this](int except_reg = -1) -> int {
-    for (int i = glob_context_.USE_INT_REG_NUM - 1; i >= 0; i--) {
-      if (glob_context_.int_regs_[i] == nullptr && i != except_reg) {
-        return i;
+  auto get_free_int_reg = [&, this](int except_reg = -1, int hint_regid = -1) -> int {
+    int target_regid = -1;
+    int target_regpos = -1;
+    int i, backpos, back;
+    if (hint_regid == -1) {
+      for (i = glob_context_.USE_INT_REG_NUM - 1; i >= 0; i--) {
+        if (glob_context_.int_regs_[i] == nullptr && i != except_reg) {
+          target_regid = i;
+          goto found_regid;
+        }
       }
-    }
-    for (int i = glob_context_.USE_INT_REG_NUM - 1; i >= 0; i--) {
-      if (glob_context_.int_regs_[i]->IsLiteral() && i != except_reg) {
-        return i;
+      for (i = glob_context_.USE_INT_REG_NUM - 1; i >= 0; i--) {
+        if (glob_context_.int_regs_[i]->IsLiteral() && i != except_reg) {
+          target_regid = i;
+          goto found_regid;
+        }
       }
+    } else {
+      target_regid = hint_regid;
+      goto found_regid;
     }
-    int backpos = glob_context_.USE_INT_REG_NUM - 1;
+
+    backpos = glob_context_.USE_INT_REG_NUM - 1;
     if (except_reg == glob_context_.int_regs_ranks_[backpos]) {
       backpos--;
     }
-    int back = glob_context_.int_regs_ranks_[backpos];
-    for (int i = backpos; i > 0; i--) {
+    back = glob_context_.int_regs_ranks_[backpos];
+    target_regid = back;
+    target_regpos = backpos;
+    goto found_regpos;
+
+  found_regid:
+    for (target_regpos = glob_context_.USE_INT_REG_NUM - 1; target_regpos >= 0; target_regpos--) {
+      if (glob_context_.int_regs_ranks_[target_regpos] == target_regid) {
+        break;
+      }
+    }
+  found_regpos:
+    for (i = target_regpos; i > 0; i--) {
       glob_context_.int_regs_ranks_[i] = glob_context_.int_regs_ranks_[i - 1];
     }
-    glob_context_.int_regs_ranks_[0] = back;
-    evit_int_reg(back);
-    return back;
+    glob_context_.int_regs_ranks_[0] = target_regid;
+    evit_int_reg(target_regid);
+    return target_regid;
   };
 
-  auto get_free_float_reg = [&, this](int except_reg = -1) -> int {
-    for (int i = glob_context_.USE_FLOAT_REG_NUM - 1; i >= 0; i--) {
-      if (glob_context_.float_regs_[i] == nullptr && i != except_reg) {
-        return i;
+  auto get_free_float_reg = [&, this](int except_reg = -1, int hint_regid = -1) -> int {
+    int target_regid = -1;
+    int target_regpos = -1;
+    int i, backpos, back;
+    if (hint_regid != -1) {
+      for (i = glob_context_.USE_FLOAT_REG_NUM - 1; i >= 0; i--) {
+        if (glob_context_.float_regs_[i] == nullptr && i != except_reg) {
+          target_regid = i;
+          goto found_regid;
+        }
       }
-    }
-    for (int i = glob_context_.USE_FLOAT_REG_NUM - 1; i >= 0; i--) {
-      if (glob_context_.float_regs_[i]->IsLiteral() && i != except_reg) {
-        return i;
+      for (i = glob_context_.USE_FLOAT_REG_NUM - 1; i >= 0; i--) {
+        if (glob_context_.float_regs_[i]->IsLiteral() && i != except_reg) {
+          target_regid = i;
+          goto found_regid;
+        }
       }
+    } else {
+      target_regid = hint_regid;
+      goto found_regid;
     }
-    int backpos = glob_context_.USE_FLOAT_REG_NUM - 1;
+    backpos = glob_context_.USE_FLOAT_REG_NUM - 1;
     if (except_reg == glob_context_.float_regs_ranks_[backpos]) {
       backpos--;
     }
-    int back = glob_context_.float_regs_ranks_[backpos];
-    for (int i = backpos; i > 0; i--) {
+    back = glob_context_.float_regs_ranks_[backpos];
+    target_regid = back;
+    target_regpos = backpos;
+    goto found_regpos;
+  found_regid:
+    for (target_regpos = glob_context_.USE_FLOAT_REG_NUM - 1; target_regpos >= 0; target_regpos--) {
+      if (glob_context_.float_regs_ranks_[target_regpos] == target_regid) {
+        break;
+      }
+    }
+    if (target_regpos < 0) {
+      throw std::logic_error("target regpos not found");
+    }
+  found_regpos:
+    for (int i = target_regpos; i > 0; i--) {
       glob_context_.float_regs_ranks_[i] = glob_context_.float_regs_ranks_[i - 1];
     }
-    glob_context_.float_regs_ranks_[0] = back;
-    evit_float_reg(back);
-    return back;
+    glob_context_.float_regs_ranks_[0] = target_regid;
+    evit_float_reg(target_regid);
+    return target_regid;
   };
 
-  auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1) -> int {
+  auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1, int hint_regid = -1) -> int {
     bool is_float = (sym->value_.Type() == SymbolValue::ValueType::Float);
     if (sym->value_.Type() == SymbolValue::ValueType::Array) {
       sym = sym->value_.GetArrayDescriptor()->base_addr.lock();
@@ -191,8 +236,10 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         }
         glob_context_.float_regs_ranks_[0] = regid;
       }
+
       if (regid < 0) {
-        regid = get_free_float_reg(except_reg);
+        regid = get_free_float_reg(except_reg, hint_regid);
+
         if (sym->IsLiteral()) {
           int otherreg = glob_context_.USE_INT_REG_NUM;
           emitln("ldr " + IntRegIDToName(otherreg) +
@@ -236,8 +283,10 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         }
         glob_context_.int_regs_ranks_[0] = regid;
       }
+
       if (regid < 0) {
-        regid = get_free_int_reg(except_reg);
+        regid = get_free_int_reg(except_reg, hint_regid);
+
         if (sym->IsLiteral()) {
           int val = sym->value_.GetInt();
           if (ArmHelper::IsImmediateValue(val)) {
@@ -439,6 +488,12 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         evit_float_reg(i);
       }
     }
+    for (int i = 0; i < 4; i++) {
+      evit_int_reg(i);
+    }
+    for (int i = 0; i < 16; i++) {
+      evit_float_reg(i);
+    }
 
     //先压栈吧
     emitln("push {r1-r3}");
@@ -496,6 +551,13 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       }
     }
 
+    for (int i = 0; i < 4; i++) {
+      glob_context_.int_regs_[i] = nullptr;
+    }
+    for (int i = 0; i < 16; i++) {
+      glob_context_.float_regs_[i] = nullptr;
+    }
+
     //然后处理寄存器
     //先让float的全压了，因为是倒序，保证了s0最后处理
     for (auto it = glob_context_.arg_records_.rbegin(); it != glob_context_.arg_records_.rend(); ++it) {
@@ -505,7 +567,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       if (it->sym->value_.Type() != SymbolValue::ValueType::Float) {
         continue;
       }
-      int reg = alloc_reg(it->sym);
+      int reg = alloc_reg(it->sym, -1, 16);
       if (reg != it->storage_pos) {
         evit_float_reg(it->storage_pos);
         emitln("vmov " + FloatRegIDToName(it->storage_pos) + ", " + FloatRegIDToName(reg));
@@ -524,14 +586,14 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         auto arrayDescriptor = it->sym->value_.GetArrayDescriptor();
         auto basesym = arrayDescriptor->base_addr.lock();
         auto offsym = arrayDescriptor->base_offset;
-        int basereg = alloc_reg(basesym);
-        int offreg = alloc_reg(offsym, basereg);
+        int basereg = alloc_reg(basesym, -1, 4);
+        int offreg = alloc_reg(offsym, basereg, 5);
         int resreg = glob_context_.USE_INT_REG_NUM;
         emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg));
         evit_int_reg(it->storage_pos);
         emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(resreg));
       } else {
-        int reg = alloc_reg(it->sym);
+        int reg = alloc_reg(it->sym, -1, 4);
         if (reg != it->storage_pos) {
           evit_int_reg(it->storage_pos);
           emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(reg));

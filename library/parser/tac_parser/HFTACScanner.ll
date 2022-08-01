@@ -82,12 +82,12 @@ using token = HaveFunCompiler::Parser::TACParser::token;
   return(token::IDENTIFIER);
 }
 
-[1-9]([0-9])*	{
+(-)?[1-9]([0-9])*	{
   yylval->build<int>(atoi(yytext));
 	return token::IntConst;
 }
 
-[0]([0-9])* {
+(-)?[0]([0-9])* {
     std::string temp = std::string(yytext);
     int val = 0;
     for(size_t i = 0;i<temp.size();i++){
@@ -101,7 +101,7 @@ using token = HaveFunCompiler::Parser::TACParser::token;
     return token::IntConst;
 }
 
-[0][xX]([A-F]|[a-f]|[0-9])+  {
+(-)?[0][xX]([A-F]|[a-f]|[0-9])+  {
     std::string temp = std::string(yytext);
     int val = 0;
     for(size_t i=2;i<temp.size();i++){
@@ -116,7 +116,7 @@ using token = HaveFunCompiler::Parser::TACParser::token;
     return token::IntConst;
 }
 
-[0-9]*[.][0-9]*([eE]([+-])?[0-9]+)?([flFL])?   {
+(-)?[0-9]*[.][0-9]*([eE]([+-])?[0-9]+)?([flFL])?   {
   std::string floatNum = std::string(yytext);
   if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
     floatNum = floatNum.substr(0, floatNum.size()-1);
@@ -124,7 +124,7 @@ using token = HaveFunCompiler::Parser::TACParser::token;
   return token::floatConst;
 }
 
-[0-9]+[eE]([+-])?[0-9]+([flFL])?  {
+(-)?[0-9]+[eE]([+-])?[0-9]+([flFL])?  {
   std::string floatNum = std::string(yytext);
   if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
     floatNum = floatNum.substr(0, floatNum.size()-1);
@@ -132,7 +132,7 @@ using token = HaveFunCompiler::Parser::TACParser::token;
   return token::floatConst;
 }
 
-[0][xX](([A-F]|[a-f]|[0-9])+)?[.]([A-F]|[a-f]|[0-9])*[pP]([+-])?[0-9]+([flFL])?  {
+(-)?[0][xX](([A-F]|[a-f]|[0-9])+)?[.]([A-F]|[a-f]|[0-9])*[pP]([+-])?[0-9]+([flFL])?  {
   std::string floatNum = std::string(yytext);
   if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
     floatNum = floatNum.substr(0, floatNum.size()-1);
@@ -140,7 +140,7 @@ using token = HaveFunCompiler::Parser::TACParser::token;
   return token::floatConst;
 }
 
-[0][xX][0-9A-Fa-f]+[pP]([+-])?[0-9]+([flFL])?  {
+(-)?[0][xX][0-9A-Fa-f]+[pP]([+-])?[0-9]+([flFL])?  {
   std::string floatNum = std::string(yytext);
   if(floatNum[floatNum.size()-1]<'0' || floatNum[floatNum.size()-1]>'9')
     floatNum = floatNum.substr(0, floatNum.size()-1);
