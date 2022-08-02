@@ -18,7 +18,6 @@ ArmBuilder::ArmBuilder(TACListPtr tac_list) : data_pool_distance_(0), data_pool_
 
 bool ArmBuilder::AppendPrefix() {
   std::string *pfunc_section;
-  // auto emit = [&pfunc_section](const std::string &inst) -> void { (*pfunc_section) += inst; };
   auto emitln = [&pfunc_section](const std::string &inst) -> void {
     pfunc_section->append(inst);
     pfunc_section->append("\n");
@@ -158,13 +157,7 @@ bool ArmBuilder::TranslateGlobal() {
   func_sections_.emplace_back("main");
   //绑定到body，后面简写
   auto *pfunc_section = &func_sections_.back().body_;
-  auto emit = [pfunc_section, this](const std::string &inst) -> void {
-    (*pfunc_section) += inst;
-    data_pool_distance_ += ArmHelper::CountLines(inst);
-    if (data_pool_distance_ > DATA_POOL_DISTANCE_THRESHOLD) {
-      (*pfunc_section) += EndCurrentDataPool();
-    }
-  };
+  auto emit = [pfunc_section, this](const std::string &inst) -> void { (*pfunc_section) += inst; };
   auto emitln = [pfunc_section, this](const std::string &inst) -> void {
     pfunc_section->append(inst);
     pfunc_section->append("\n");
@@ -255,13 +248,7 @@ bool ArmBuilder::TranslateFunction() {
   func_sections_.emplace_back(func_name);
   //绑定到body，后面简写
   auto *pfunc_section = &func_sections_.back().body_;
-  auto emit = [pfunc_section, this](const std::string &inst) -> void {
-    (*pfunc_section) += inst;
-    data_pool_distance_ += ArmHelper::CountLines(inst);
-    if (data_pool_distance_ > DATA_POOL_DISTANCE_THRESHOLD) {
-      (*pfunc_section) += EndCurrentDataPool();
-    }
-  };
+  auto emit = [pfunc_section, this](const std::string &inst) -> void { (*pfunc_section) += inst; };
   auto emitln = [pfunc_section, this](const std::string &inst) -> void {
     pfunc_section->append(inst);
     pfunc_section->append("\n");
