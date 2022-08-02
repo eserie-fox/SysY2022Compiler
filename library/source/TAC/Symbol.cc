@@ -83,8 +83,11 @@ std::string SymbolValue::ToString() const {
   switch (type) {
     case ValueType::Int:
       return std::to_string(GetInt());
-    case ValueType::Float:
-      return std::to_string(GetFloat());
+    case ValueType::Float: {
+      char buf[200];
+      snprintf(buf, 200, "%a", GetFloat());
+      return std::string((char *)buf);
+    }
     case ValueType::Str:
       return std::string(GetStr());
     case ValueType::Void:
