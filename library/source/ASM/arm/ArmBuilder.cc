@@ -26,7 +26,7 @@ bool ArmBuilder::AppendPrefix() {
   func_sections_.emplace_back("_builtin_clear");
   pfunc_section = &func_sections_.back().body_;
   emitln(".text");
-  emitln(".global _builtin_clear");
+  // emitln(".global _builtin_clear");
   emitln("_builtin_clear:");
   emitln("mov r2, #0");
   emitln("cmp r1, #0");
@@ -149,12 +149,11 @@ bool ArmBuilder::TranslateGlobal() {
     std::cerr << e.what() << std::endl;
     return false;
   }
-  
+
   current_ = tac_list_->begin();
   end_ = tac_list_->end();
   assert(func_level == 0);
 
-  
   //添加一个新函数在列表
   func_sections_.emplace_back("main");
   //绑定到body，后面简写
@@ -162,7 +161,7 @@ bool ArmBuilder::TranslateGlobal() {
   auto emit = [pfunc_section, this](const std::string &inst) -> void {
     (*pfunc_section) += inst;
     data_pool_distance_ += ArmHelper::CountLines(inst);
-    if(data_pool_distance_> DATA_POOL_DISTANCE_THRESHOLD){
+    if (data_pool_distance_ > DATA_POOL_DISTANCE_THRESHOLD) {
       (*pfunc_section) += EndCurrentDataPool();
     }
   };
@@ -243,10 +242,9 @@ bool ArmBuilder::TranslateFunction() {
     auto cfg = std::make_shared<ControlFlowGraph>(current_, end_);
 
     // 移除死代码
-    auto& deadCode = cfg->get_unreachableTACItrList();
-    for (auto it : deadCode)
-      tac_list_->erase(it);
-    
+    auto &deadCode = cfg->get_unreachableTACItrList();
+    for (auto it : deadCode) tac_list_->erase(it);
+
     // 解析寄存器分配
     func_context_.reg_alloc_ = new RegAllocator(LiveAnalyzer(cfg));
   }
@@ -279,7 +277,7 @@ bool ArmBuilder::TranslateFunction() {
   //将要用到的寄存器保存起来
   func_context_.func_attr_ = func_context_.reg_alloc_->get_SymAttribute(func_label);
   //保存了的寄存器列表
-  std::vector<std::pair<uint32_t,uint32_t>> &saveintregs = func_context_.saveintregs_;
+  std::vector<std::pair<uint32_t, uint32_t>> &saveintregs = func_context_.saveintregs_;
   std::vector<std::pair<uint32_t, uint32_t>> &savefloatregs = func_context_.savefloatregs_;
   auto push_reg = [](std::vector<std::pair<uint32_t, uint32_t>> &reg_list, uint32_t newreg) -> void {
     if (reg_list.empty()) {
@@ -292,7 +290,7 @@ bool ArmBuilder::TranslateFunction() {
     }
     reg_list.emplace_back(newreg, newreg);
   };
-  
+
   //保存会修改的通用寄存器
   for (int i = 4; i < 13; i++) {
     //如果第i号通用寄存器要用
@@ -432,7 +430,7 @@ bool ArmBuilder::Translate(std::string *output) {
   if (!TranslateFunctions()) {
     return false;
   }
-  for(auto &func_section : func_sections_){
+  for (auto &func_section : func_sections_) {
     target_output_->append(func_section.body_);
   }
   target_output_->append(EndCurrentDataPool(true));
