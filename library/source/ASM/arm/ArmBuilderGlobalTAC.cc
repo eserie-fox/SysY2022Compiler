@@ -14,9 +14,13 @@ using namespace HaveFunCompiler::ThreeAddressCode;
 
 std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
   std::string ret = "";
-  auto emitln = [&ret](const std::string &inst) -> void {
+  auto emitln = [&ret, this](const std::string &inst) -> void {
     ret.append(inst);
     ret.append("\n");
+    data_pool_distance_ += ArmHelper::CountLines(inst) + 1;
+    if (data_pool_distance_ > DATA_POOL_DISTANCE_THRESHOLD) {
+      ret += EndCurrentDataPool();
+    }
   };
   //来个注释好了
   emitln("// " + tac->ToString());
