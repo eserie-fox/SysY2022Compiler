@@ -130,7 +130,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     SymbolPtr *target_sym;
     if (reg_id) {
       target_sym = &func_context_.float_freereg2_;
-      reg_id = func_context_.func_attr_.attr.used_regs.floatRegs;
+      reg_id = func_context_.func_attr_.attr.used_regs.floatReservedReg;
     } else {
       target_sym = &func_context_.float_freereg1_;
     }
@@ -258,17 +258,17 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int target_reg;
       SymbolPtr *target_sym;
       {
-        int regids[2] = {0,func_context_.func_attr_.attr.used_regs.floatReservedReg};
+        int regids[2] = {0, func_context_.func_attr_.attr.used_regs.floatReservedReg};
         SymbolPtr *syms[2] = {&func_context_.float_freereg1_, &func_context_.float_freereg2_};
         auto choose = [&](int id) -> void {
-            target_reg = regids[id];
-            target_sym = syms[id];
+          target_reg = regids[id];
+          target_sym = syms[id];
         };
 
-        if(except_reg == regids[0] || except_reg == regids[1]){
-          if(except_reg == regids[0]){
+        if (except_reg == regids[0] || except_reg == regids[1]) {
+          if (except_reg == regids[0]) {
             choose(1);
-          }else{
+          } else {
             choose(0);
           }
         } else {
@@ -281,9 +281,9 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
               choose(0);
             }
           } else {
-            if(empty0){
+            if (empty0) {
               choose(0);
-            }else{
+            } else {
               choose(1);
             }
           }
@@ -327,17 +327,17 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int target_reg;
       SymbolPtr *target_sym;
       {
-        int regids[2] = {0,func_context_.func_attr_.attr.used_regs.intReservedReg};
-        SymbolPtr* syms[2] = {&func_context_.int_freereg1_, &func_context_.int_freereg2_};
+        int regids[2] = {0, func_context_.func_attr_.attr.used_regs.intReservedReg};
+        SymbolPtr *syms[2] = {&func_context_.int_freereg1_, &func_context_.int_freereg2_};
         auto choose = [&](int id) -> void {
-            target_reg = regids[id];
-            target_sym = syms[id];
+          target_reg = regids[id];
+          target_sym = syms[id];
         };
 
-        if(except_reg == regids[0] || except_reg == regids[1]){
-          if(except_reg == regids[0]){
+        if (except_reg == regids[0] || except_reg == regids[1]) {
+          if (except_reg == regids[0]) {
             choose(1);
-          }else{
+          } else {
             choose(0);
           }
         } else {
@@ -350,9 +350,9 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
               choose(0);
             }
           } else {
-            if(empty0){
+            if (empty0) {
               choose(0);
-            }else{
+            } else {
               choose(1);
             }
           }
@@ -1161,7 +1161,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           basesym_on_stack = true;
           basereg = alloc_reg(it->sym);
         }
-        int offreg =  symbol_reg(offsym);
+        int offreg = symbol_reg(offsym);
         if (offreg == -1) {
           offreg = alloc_reg(offsym, basereg);
         }
