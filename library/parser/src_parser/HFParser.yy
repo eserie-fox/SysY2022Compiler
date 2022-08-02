@@ -685,6 +685,8 @@ Stmt
   | Block
   | IF LS Cond RS Stmt %prec LOWER_THAN_ELSE
   {
+    auto cond = $3;
+    auto stmt = $5;
     $3->ret->value_.CheckOperatablity(scanner.get_location());
     $$ = tacbuilder->CreateIf($3, $5, nullptr);
   }
@@ -986,10 +988,13 @@ LAndExp
     if($1->ret->type_==SymbolType::Constant){
       if(!(bool)$1->ret->value_){
         $$=tacbuilder->CreateConstExp(0);
+      }else if($3->ret->type_==SymbolType::Constant){
+        if(!(bool)$3->ret->value_){
+          $$ = tacbuilder->CreateConstExp(0);
+        }
       }
     }
-    else
-    {
+    if($$ == nullptr){
       ExpressionPtr exp = tacbuilder->CreateArithmeticOperation(TACOperationType::UnaryNot, $1);
       SymbolPtr ret = tacbuilder->CreateTempVariable(ValueType::Int);
       TACListPtr tac1 = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable, ret));
@@ -1011,15 +1016,19 @@ LOrExp
   : LAndExp
   | LOrExp LO LAndExp
   {
+    $$ = nullptr;
     $1->ret->value_.CheckOperatablity(scanner.get_location());
     $3->ret->value_.CheckOperatablity(scanner.get_location());
     if($1->ret->type_==SymbolType::Constant){
       if((bool)$1->ret->value_){
         $$=tacbuilder->CreateConstExp(1);
+      }else if($3->ret->type_==SymbolType::Constant){
+        if((bool)$3->ret->value_){
+          $$ = tacbuilder->CreateConstExp(1);
+        }
       }
     }
-    else
-    {
+    if($$ == nullptr){
       SymbolPtr ret = tacbuilder->CreateTempVariable(ValueType::Int);
       TACListPtr tac1 = tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Variable, ret));
       TACListPtr tac2 = tacbuilder->CreateAssign(ret, tacbuilder->CreateConstExp(1))->tac;
@@ -1032,6 +1041,7 @@ LOrExp
       exp2->tac = tac1;
       $$ = exp2;
     }
+    
   }  
   ;
 

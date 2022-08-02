@@ -362,6 +362,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
   auto int_divmod_operation = [&, this]() -> void {
     int op1reg = alloc_reg(tac->b_);
     int op2reg = alloc_reg(tac->c_, op1reg);
+    evit_int_reg(0);
     emitln("push {r1-r3}");
     if (op1reg < op2reg) {
       emitln("push {" + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg) + "}");
@@ -369,7 +370,6 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       emitln("push {" + IntRegIDToName(op2reg) + "}");
       emitln("push {" + IntRegIDToName(op1reg) + "}");
     }
-    evit_int_reg(0);
     emitln("pop {r0, r1}");
     bool padding = false;
     {
@@ -536,7 +536,8 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         int basereg = alloc_reg(basesym);
         int offreg = alloc_reg(offsym, basereg);
         int resreg = glob_context_.USE_INT_REG_NUM;
-        emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg));
+        emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+               ", LSL #2");
         emitln("push {" + IntRegIDToName(resreg) + "}");
         glob_context_.stack_size_for_args_ += 4;
       } else {
@@ -589,7 +590,8 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         int basereg = alloc_reg(basesym, -1, 4);
         int offreg = alloc_reg(offsym, basereg, 5);
         int resreg = glob_context_.USE_INT_REG_NUM;
-        emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg));
+        emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+               ", LSL #2");
         evit_int_reg(it->storage_pos);
         emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(resreg));
       } else {

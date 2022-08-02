@@ -513,11 +513,14 @@ std::string ArmBuilder::EndCurrentDataPool(bool ignorebranch) {
   if (!ignorebranch) {
     emitln("b _ignore_data_pool" + std::to_string(data_pool_id_));
   }
+  emitln(".align 4");
   emitln(".ltorg");
+  emitln(".align 4");
   for (const auto &name : ref_data_) {
     emitln("// add reference to data '" + name);
     emitln(ToDataRefName(name) + ": .word " + name);
   }
+  emitln(".align 4");
   if (!ignorebranch) {
     emitln("_ignore_data_pool" + std::to_string(data_pool_id_) + ":");
   }

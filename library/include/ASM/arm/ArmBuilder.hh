@@ -18,7 +18,7 @@ class ArmBuilder : public AssemblyBuilder {
   static const int SP_REGID = 13;
   static const int LR_REGID = 14;
   static const int PC_REGID = 15;
-  static const int DATA_POOL_DISTANCE_THRESHOLD = 500;
+  static const int DATA_POOL_DISTANCE_THRESHOLD = 400;
 
  public:
   ArmBuilder(TACListPtr tac_list);

@@ -569,6 +569,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Div: {
+          evit_int_reg(0);
+          evit_int_reg(1);
           emitln("push {r1-r3, ip}");
           if (op1reg < op2reg) {
             emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
@@ -576,8 +578,6 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             emitln("push {" + IntRegIDToName(op2reg) + "}");
             emitln("push {" + IntRegIDToName(op1reg) + "}");
           }
-          evit_int_reg(0);
-          evit_int_reg(1);
           emitln("pop {r0, r1}");
           bool padding = false;
           {
@@ -641,6 +641,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Mod: {
+          evit_int_reg(0);
+          evit_int_reg(1);
           emitln("push {r1-r3, ip}");
           if (op1reg < op2reg) {
             emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
@@ -648,8 +650,6 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             emitln("push {" + IntRegIDToName(op2reg) + "}");
             emitln("push {" + IntRegIDToName(op1reg) + "}");
           }
-          evit_int_reg(0);
-          evit_int_reg(1);
           emitln("pop {r0, r1}");
           bool padding = false;
           {
@@ -1060,7 +1060,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         int offreg = alloc_reg(offsym, basereg);
         //如果basesym分配在栈空间，result可以复用basereg
         if (symbol_reg(basesym) == -1) {
-          emitln("add " + IntRegIDToName(basereg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg));
+          emitln("add " + IntRegIDToName(basereg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
           emitln("push {" + IntRegIDToName(basereg) + "}");
           func_context_.stack_size_for_args_ += 4;
           if (basereg == 0) {
@@ -1074,7 +1075,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           //否则basesym分配在寄存器，需要再申请一个reg储存结果
           int resreg = (offreg == 0 ? func_context_.func_attr_.attr.used_regs.intReservedReg : 0);
           evit_int_reg(resreg);
-          emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg));
+          emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
           emitln("push {" + IntRegIDToName(resreg) + "}");
           func_context_.stack_size_for_args_ += 4;
         }
