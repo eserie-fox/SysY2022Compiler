@@ -55,8 +55,8 @@ bool ArmBuilder::AppendPrefix() {
   forward_declare("putarray");
   forward_declare("putfarray");
   forward_declare("putf");
-  forward_declare("starttime");
-  forward_declare("stoptime");
+  forward_declare("_sysy_starttime");
+  forward_declare("_sysy_stoptime");
   forward_declare("__aeabi_idiv");
   forward_declare("__aeabi_idivmod");
   return true;

@@ -34,7 +34,19 @@ ENDWORD "*/"
   builder_->SetLocation(location);
 %}
 
+"starttime()"  { 
+  std::string s("_sysy_starttime(");
+  s += std::to_string(loc->end.line) += ')';
+  for (int i = s.length() - 1; i >= 0; --i)
+    unput(s[i]);
+}
 
+"stoptime()"  { 
+  std::string s("_sysy_stoptime(");
+  s += std::to_string(loc->end.line) += ')';
+  for (int i = s.length() - 1; i >= 0; --i)
+    unput(s[i]);
+}
 
 "int"  {  return token::INT;  }
 

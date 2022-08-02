@@ -299,13 +299,15 @@ void TACBuilder::CreateLibraryFunction() {
   }
   {  // 12
     auto params = NewParamList();
-    library_functions_["starttime"] =
-        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("starttime"), params);
+    params->push_back_parameter(CreateVariable("int", SymbolValue::ValueType::Int));
+    library_functions_["_sysy_starttime"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("_sysy_starttime"), params);
   }
   {  // 13
     auto params = NewParamList();
-    library_functions_["stoptime"] =
-        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("stoptime"), params);
+    params->push_back_parameter(CreateVariable("int", SymbolValue::ValueType::Int));
+    library_functions_["_sysy_stoptime"] =
+        CreateFunctionHead(SymbolValue::ValueType::Void, CreateFunctionLabel("_sysy_stoptime"), params);
   }
 }
 
