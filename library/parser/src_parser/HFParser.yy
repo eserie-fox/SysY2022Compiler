@@ -209,8 +209,6 @@ ConstDef
     switch(type){
       case (int)ValueType::Int:
       {
-        SymbolPtr sym = $3->ret;
-        sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
         int value;
         if($3->ret->value_.UnderlyingType()==ValueType::Int)
         {
@@ -218,14 +216,11 @@ ConstDef
         }else{
           value = static_cast<int>($3->ret->value_.GetFloat());
         }
-        sym->value_ = SymbolValue(value);
-        tacbuilder->BindConstName($1,sym);
+        tacbuilder->BindConstName($1,tacbuilder->CreateConstExp(value)->ret);
         break;
       }
       case (int)ValueType::Float:
       {
-        SymbolPtr sym = $3->ret;
-        sym->type_ =  HaveFunCompiler::ThreeAddressCode::SymbolType::Constant;
         float value;
         if($3->ret->value_.UnderlyingType()==ValueType::Int)
         {
@@ -233,8 +228,7 @@ ConstDef
         }else{
           value = $3->ret->value_.GetFloat();
         }
-        sym->value_ = SymbolValue(value);
-        tacbuilder->BindConstName($1,sym);
+        tacbuilder->BindConstName($1,tacbuilder->CreateConstExp(value)->ret);
         break;
       }
       default:

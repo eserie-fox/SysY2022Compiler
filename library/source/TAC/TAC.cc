@@ -916,6 +916,7 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
   switch (arith_op) {
     case TACOperationType::UnaryPositive:
     case TACOperationType::UnaryMinus: {
+      exp1 = NewExp(exp1->tac->MakeCopy(), exp1->ret);
       auto tmpSym = CreateTempVariable(exp1->ret->value_.UnderlyingType());
       auto tac_list = TACFactory::Instance()->NewTACList();
       (*tac_list) += exp1->tac;
@@ -931,6 +932,7 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
       return TACFactory::Instance()->NewExp(tac_list, tmpSym);
     }
     case TACOperationType::UnaryNot: {
+      exp1 = NewExp(exp1->tac->MakeCopy(), exp1->ret);
       auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Int);
       auto tac_list = TACFactory::Instance()->NewTACList();
       //如果是Array的话要单独抽出来
@@ -960,6 +962,8 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
     case TACOperationType::LogicAnd:
     case TACOperationType::LogicOr: {
       auto tac_list = TACFactory::Instance()->NewTACList();
+      exp1 = NewExp(exp1->tac->MakeCopy(), exp1->ret);
+      exp2 = NewExp(exp2->tac->MakeCopy(), exp2->ret);
       if (exp1->ret->value_.UnderlyingType() == SymbolValue::ValueType::Float ||
           exp2->ret->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
         auto tmpSym = CreateTempVariable(SymbolValue::ValueType::Float);
@@ -1023,6 +1027,7 @@ ExpressionPtr TACBuilder::CreateArithmeticOperation(TACOperationType arith_op, E
 }
 
 ExpressionPtr TACBuilder::RemoveDirectArray(ExpressionPtr exp) {
+  exp = NewExp(exp->tac->MakeCopy(), exp->ret);
   if (exp->ret->value_.Type() != SymbolValue::ValueType::Array) {
     return exp;
   }
