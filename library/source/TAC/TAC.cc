@@ -176,7 +176,12 @@ TACListPtr TACFactory::MakeDoWhile(ExpressionPtr cond_not, SymbolPtr label_cont,
 }
 TACListPtr TACFactory::MakeFor(TACListPtr init, ExpressionPtr cond, TACListPtr modify, SymbolPtr label_cont,
                                SymbolPtr label_brk, TACListPtr stmt) {
-  return NewTACList(*init + *MakeWhile(cond, label_cont, label_brk, NewTACList(*stmt + *modify)));
+  // return NewTACList(*init + *MakeWhile(cond, label_cont, label_brk, NewTACList(*stmt + *modify)));
+  TACListPtr ret = init;
+  TACListPtr new_stmt = stmt;
+  (*new_stmt) += modify;
+  (*ret) += MakeWhile(cond, label_cont, label_brk, new_stmt);
+  return ret;
 }
 
 std::string TACFactory::ToFuncLabelName(const std::string name) { return "U_" + name; }
@@ -337,7 +342,7 @@ ExpressionPtr TACBuilder::CreateAssign(SymbolPtr var, ExpressionPtr exp) {
   // 如果两者都是Array
   auto tac_list = NewTACList();
   if (exp->ret->value_.Type() == SymbolValue::ValueType::Array && var->value_.Type() == SymbolValue::ValueType::Array) {
-    exp = NewExp(exp->tac->MakeCopy(), exp->ret);
+    exp = NewExp(exp->tac, exp->ret);
     auto tmpSym = CreateTempVariable(exp->ret->value_.UnderlyingType());
     (*exp->tac) += NewTAC(TACOperationType::Variable, tmpSym);
     (*exp->tac) += NewTAC(TACOperationType::Assign, tmpSym, exp->ret);

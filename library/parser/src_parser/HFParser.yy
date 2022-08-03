@@ -151,7 +151,8 @@ Start:
 CompUnit
   : CompUnit Decls
   {
-     $$ = tacbuilder->NewTACList((*$1) + (*$2));
+    $$ = $1;
+    (*$$) += $2;
   }
   | Decls 
   {
@@ -184,7 +185,8 @@ ConstDef_list
   : ConstDef
   | ConstDef_list COM ConstDef
   {
-    $$ = tacbuilder->NewTACList((*$1) + (*$3));
+    $$ = $1;
+    (*$$) += $3;
   }
   ;
 
@@ -249,6 +251,7 @@ ConstDef
     tacbuilder->Top(&type);
     $2->value_type = (ValueType)type;
     auto arraySym = tacbuilder->CreateVariable($1, ValueType::Array);
+    arraySym->type_ = SymbolType::Constant;
     arraySym->value_ = SymbolValue($2);
     $2->base_addr = arraySym;
     auto arrayExp = tacbuilder->NewExp(tacbuilder->NewTACList(tacbuilder->NewTAC(TACOperationType::Constant,arraySym)), arraySym);
@@ -318,7 +321,8 @@ VarDef_list
   }
   | VarDef_list COM VarDef
   {
-    $$ = tacbuilder->NewTACList((*$1) + (*$3->tac));
+    $$ = $1;
+    (*$$) += $3->tac;
   }
   ;
 
@@ -397,9 +401,10 @@ InitVal
       auto arrayDescriptor = $1->ret->value_.GetArrayDescriptor();
       if($1->ret->type_ == SymbolType::Constant)
       {
+        assert(arrayDescriptor->dimensions.empty());
         if (!arrayDescriptor->subarray->empty()) {
           assert(arrayDescriptor->subarray->size() == 1);
-          if((ValueType)type != arrayDescriptor->subarray->begin()->second->ret->value_.Type()){
+          if((ValueType)type != arrayDescriptor->value_type){
             if((ValueType)type == SymbolValue::ValueType::Int){
               exp = tacbuilder->CastFloatToInt(arrayDescriptor->subarray->begin()->second);
             }else{
@@ -642,7 +647,8 @@ BlockItem_list
   : BlockItem
   | BlockItem_list BlockItem
   {
-    $$ = tacbuilder->NewTACList((*$1) + (*$2));
+    $$ = $1;
+    (*$$) += $2;
   }
   ;
 
@@ -746,16 +752,18 @@ Stmt
       }else{
         exp = tacbuilder->CastIntToFloat($2);
       }
-      $$ = tacbuilder->NewTACList(*exp->tac + tacbuilder->NewTAC(TACOperationType::Return, exp->ret));
+      $$ = exp->tac;
+      (*$$) += tacbuilder->NewTAC(TACOperationType::Return, exp->ret);
     }
     else if($2->ret->value_.Type()==SymbolValue::ValueType::Array){
       auto tmpSym = tacbuilder->CreateTempVariable($2->ret->value_.UnderlyingType());
-      $$ = tacbuilder->NewTACList(*$2->tac 
-        + tacbuilder->NewTAC(TACOperationType::Variable, tmpSym)
-        + tacbuilder->NewTAC(TACOperationType::Assign, tmpSym ,$2->ret) 
-        + tacbuilder->NewTAC(TACOperationType::Return, tmpSym));
+      $$ = $2->tac;
+      (*$$) += tacbuilder->NewTAC(TACOperationType::Variable, tmpSym);
+      (*$$) += tacbuilder->NewTAC(TACOperationType::Assign, tmpSym ,$2->ret);
+      (*$$) += tacbuilder->NewTAC(TACOperationType::Return, tmpSym);
     }else{
-      $$ = tacbuilder->NewTACList(*$2->tac + tacbuilder->NewTAC(TACOperationType::Return, $2->ret));
+      $$ = $2->tac;
+      (*$$) += tacbuilder->NewTAC(TACOperationType::Return, $2->ret);
     }
    }
   ;
@@ -839,13 +847,11 @@ UnaryExp
             else{
               exp = tacbuilder->CastIntToFloat(exp);
             }
-          }else{
-            if(exp->ret->value_.Type() == SymbolValue::ValueType::Array){
-              auto tmpSym = tacbuilder->CreateTempVariable(exp->ret->value_.UnderlyingType());
-              (*exp->tac)+=tacbuilder->NewTAC(TACOperationType::Variable, tmpSym);
-              (*exp->tac)+=tacbuilder->NewTAC(TACOperationType::Assign, tmpSym, exp->ret);
-              exp->ret = tmpSym;
-            }
+          }else if(exp->ret->value_.Type() == SymbolValue::ValueType::Array){
+            auto tmpSym = tacbuilder->CreateTempVariable(exp->ret->value_.UnderlyingType());
+            (*exp->tac)+=tacbuilder->NewTAC(TACOperationType::Variable, tmpSym);
+            (*exp->tac)+=tacbuilder->NewTAC(TACOperationType::Assign, tmpSym, exp->ret);
+            exp->ret = tmpSym;
           }
         }
         ansArg->push_back_argument(exp);
@@ -983,6 +989,7 @@ LAndExp
   :EqExp
   |LAndExp LA EqExp
   {
+    $$ = nullptr;
     $1->ret->value_.CheckOperatablity(scanner.get_location());
     $3->ret->value_.CheckOperatablity(scanner.get_location());
     if($1->ret->type_==SymbolType::Constant){
@@ -991,6 +998,8 @@ LAndExp
       }else if($3->ret->type_==SymbolType::Constant){
         if(!(bool)$3->ret->value_){
           $$ = tacbuilder->CreateConstExp(0);
+        }else{
+          $$ = tacbuilder->CreateConstExp(1);
         }
       }
     }
@@ -1025,6 +1034,8 @@ LOrExp
       }else if($3->ret->type_==SymbolType::Constant){
         if((bool)$3->ret->value_){
           $$ = tacbuilder->CreateConstExp(1);
+        }else{
+          $$ = tacbuilder->CreateConstExp(0);
         }
       }
     }

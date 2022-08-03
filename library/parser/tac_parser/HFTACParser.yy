@@ -116,7 +116,8 @@ CompUnit_list
   : CompUnit
   | CompUnit_list CompUnit
   {
-    $$ = tacbuilder->NewTACList((*$1) + (*$2));
+    $$ = $1;
+    (*$$) += $2;
   }
   ;
 

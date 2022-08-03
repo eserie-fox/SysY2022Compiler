@@ -28,7 +28,7 @@ SymbolValue::SymbolValue(std::shared_ptr<ArrayDescriptor> v) : type(ValueType::A
 float SymbolValue::GetFloat() const {
   if (type != ValueType::Float) {
     if (type == ValueType::Array) {
-      if (auto ad = GetArrayDescriptor(); ad->value_type == ValueType::Float) {
+      if (auto ad = GetArrayDescriptor(); ad->value_type == ValueType::Float && ad->dimensions.empty()) {
         if (ad->subarray->size() == 1) {
           if (auto it = ad->subarray->find(0); it != ad->subarray->end()) {
             return it->second->ret->value_.GetFloat();
@@ -44,7 +44,7 @@ float SymbolValue::GetFloat() const {
 int SymbolValue::GetInt() const {
   if (type != ValueType::Int) {
     if (type == ValueType::Array) {
-      if (auto ad = GetArrayDescriptor(); ad->value_type == ValueType::Int) {
+      if (auto ad = GetArrayDescriptor(); ad->value_type == ValueType::Int && ad->dimensions.empty()) {
         if (ad->subarray->size() == 1) {
           if (auto it = ad->subarray->find(0); it != ad->subarray->end()) {
             return it->second->ret->value_.GetInt();
