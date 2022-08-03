@@ -83,7 +83,7 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
         if (nodes[i].dfn == 0)
             unreachableTACItrList.push_back(itrMap[i]);
     }
-    WarnUnreachable();
+//    WarnUnreachable();
 }
 
 void ControlFlowGraph::link(size_t n1, size_t n2)
