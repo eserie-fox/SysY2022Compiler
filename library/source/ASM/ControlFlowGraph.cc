@@ -7,6 +7,9 @@
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
+const size_t ControlFlowGraph::startNode = 0;
+const size_t ControlFlowGraph::endNode = 1;
+
 ControlFlowGraph::ControlFlowGraph(TACListPtr FuncTACList) : ControlFlowGraph(FuncTACList->begin(), FuncTACList->end()) { }
 
 ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator fend)
@@ -75,7 +78,7 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
     for (auto e : jmpReloc)
         link(e, labelMap[getJmpLabel(nodes[e].tac)]);
     
-    getDfn();
+    setDfn();
 
     // 检查不可达代码并将不可达信息输出
     for (size_t i = 0; i < nodes.size(); ++i)
@@ -111,21 +114,51 @@ inline std::string ControlFlowGraph::getJmpLabel(TACPtr tac)
 }
 
 
-void ControlFlowGraph::doDfn(size_t &cnt, std::vector<bool> &vis, size_t u)
-{
-    if (vis[u])
-        return;
-    nodes[u].dfn = ++cnt;
-    vis[u] = 1;
-    for (auto v : nodes[u].outNodeList)
-        doDfn(cnt, vis, v);
-}
+// void ControlFlowGraph::doDfn(size_t &cnt, std::vector<bool> &vis, size_t u)
+// {
+//     if (vis[u])
+//         return;
+//     nodes[u].dfn = ++cnt;
+//     vis[u] = 1;
+//     for (auto v : nodes[u].outNodeList)
+//         doDfn(cnt, vis, v);
+// }
 
-void ControlFlowGraph::getDfn()
+void ControlFlowGraph::setDfn()
 {
     size_t cnt = 0;
     std::vector<bool> vis(nodes.size(), 0);
-    doDfn(cnt, vis, startNode);
+
+    std::vector<std::pair<size_t, size_t>> st;  // dfs状态[结点号，将要访问的邻接结点在邻接表的下标]
+    vis[startNode] = 1;
+    nodes[startNode].dfn = ++cnt;
+    st.emplace_back(startNode, 0);
+
+    while (true)
+    {
+        auto& [u, idx] = st.back();
+        if (idx == nodes[u].outNodeList.size())
+        {
+            st.pop_back();
+            if (st.empty())
+                break;
+            ++st.back().second;
+        }
+        else
+        {
+            auto v = nodes[u].outNodeList[idx];
+            if (!vis[v])
+            {
+                vis[v] = 1;
+                nodes[v].dfn = ++cnt;
+                st.emplace_back(v, 0);
+            }
+            else
+                ++idx;
+        }
+    }
+
+//    doDfn(cnt, vis, startNode);
 }
 
 void ControlFlowGraph::WarnUnreachable() const
