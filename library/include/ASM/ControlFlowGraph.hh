@@ -103,8 +103,6 @@ private:
     TACList::iterator f_begin, f_end;
     std::vector<TACList::iterator> unreachableTACItrList;
 
-    static const size_t startNode = 0, endNode = 1;
-
     // n1 -> n2
     void link(size_t n1, size_t n2);
 
@@ -114,12 +112,15 @@ private:
 
     std::string getJmpLabel(TACPtr tac);
 
-    void getDfn();
-    void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
+    void setDfn();
+//    void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
 
     void WarnUnreachable() const;
 
     void dfsPrintToDot(size_t n, std::vector<bool> &vis, std::ostream &os) const;
+
+
+    static const size_t startNode, endNode;
 };
 
 }  // namespace AssemblyBuilder
