@@ -46,33 +46,34 @@ int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
 
   // 分析命令行参数, 目前做IO重定向
   const char *input;
-  for (int i = 0; i < arg; ++i)
-  {
+  for (int i = 0; i < arg; ++i) {
     auto res = analyzeArg(argv[i]);
     if (res == ArgType::SourceFile)
       input = argv[i];
-    else if (res == ArgType::_o)
-    {
-      if (analyzeArg(argv[i + 1]) == ArgType::TargetFile)
-      {
+    else if (res == ArgType::_o) {
+      if (analyzeArg(argv[i + 1]) == ArgType::TargetFile) {
         ++i;
         freopen(argv[i], "w", stdout);
       }
     }
   }
-
-  if (driver.parse(input)) {
-    std::stringstream ss;
-    driver.print(ss) << "\n";
-    auto tss = ss.str();
-    // std::cout << tss << std::endl;
-    tacdriver.parse(ss);
-    // tacdriver.print(std::cout) << std::endl;
-
-    std::string output;
-    ArmBuilder armBuilder(tacdriver.get_tacbuilder()->GetTACList());
-    armBuilder.Translate(&output);
-    std::cout << output << std::endl;
+  if (!driver.parse(input)) {
+    return -1;
   }
+  std::stringstream ss;
+  driver.print(ss) << "\n";
+  auto tss = ss.str();
+  // std::cout << tss << std::endl;
+  if (!tacdriver.parse(ss)) {
+    return -1;
+  }
+  // tacdriver.print(std::cout) << std::endl;
+
+  std::string output;
+  ArmBuilder armBuilder(tacdriver.get_tacbuilder()->GetTACList());
+  if (!armBuilder.Translate(&output)) {
+    return -1;
+  }
+  std::cout << output << std::endl;
   return 0;
 }
