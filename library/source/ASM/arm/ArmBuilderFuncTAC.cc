@@ -305,7 +305,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         } else {
           emitln("ldr " + IntRegIDToName(freeintreg) + ", =" + std::to_string(castval));
         }
-        emitln("vmov s" + std::to_string(target_reg) + ", " + IntRegIDToName(freeintreg));
+        emitln("vmov " + FloatRegIDToName(target_reg) + ", " + IntRegIDToName(freeintreg));
       } else if (sym->IsGlobal()) {
         int freeintreg = get_free_int_reg();
         emitln("ldr " + IntRegIDToName(freeintreg) + ", " + ToDataRefName(GetVariableName(sym)));
@@ -314,7 +314,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         auto attr = func_context_.reg_alloc_->get_SymAttribute(sym);
         int32_t realoffset = getrealoffset(attr);
         if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
-          emitln("vldr s" + std::to_string(target_reg) + ", [sp, #" + std::to_string(realoffset) + "]");
+          emitln("vldr " + FloatRegIDToName(target_reg) + ", [sp, #" + std::to_string(realoffset) + "]");
         } else {
           int freeintreg = get_free_int_reg();
           emitln("ldr " + IntRegIDToName(freeintreg) + ", =" + std::to_string(realoffset));
@@ -466,13 +466,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
       switch (tac->operation_) {
         case TACOperationType::Add: {
-          emitln("vadd.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
-                 std::to_string(op2reg));
+          emitln("vadd.f32 " + FloatRegIDToName(resreg) + ", " + FloatRegIDToName(op1reg) + ", " +
+                 FloatRegIDToName(op2reg));
           break;
         }
         case TACOperationType::Div: {
-          emitln("vdiv.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
-                 std::to_string(op2reg));
+          emitln("vdiv.f32 " + FloatRegIDToName(resreg) + ", " + FloatRegIDToName(op1reg) + ", " +
+                 FloatRegIDToName(op2reg));
           break;
         }
         case TACOperationType::LessOrEqual:
@@ -512,14 +512,14 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             default:
               throw std::logic_error("Unreachable");
           }
-          emitln("vmov s" + std::to_string(resreg) + ", " + IntRegIDToName(freeintreg));
+          emitln("vmov " + FloatRegIDToName(resreg) + ", " + IntRegIDToName(freeintreg));
           break;
         }
         case TACOperationType::Mod: {
-          emitln("vdiv.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
-                 std::to_string(op2reg));
-          emitln("vmul.f32 s" + std::to_string(resreg) + ", s" + std::to_string(resreg) + ", s" +
-                 std::to_string(op2reg));
+          emitln("vdiv.f32 " + FloatRegIDToName(resreg) + ", " + FloatRegIDToName(op1reg) + ", " +
+                 FloatRegIDToName(op2reg));
+          emitln("vmul.f32 " + FloatRegIDToName(resreg) + ", " + FloatRegIDToName(resreg) + ", " +
+                 FloatRegIDToName(op2reg));
           if (freeregid != -1) {
             if (freeregid == 0) {
               // assert(func_context_.float_freereg1_ == tac->b_);
@@ -530,8 +530,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             }
             op1reg = alloc_reg(tac->b_, resreg);
           }
-          emitln("vsub.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
-                 std::to_string(resreg));
+          emitln("vsub.f32 " + FloatRegIDToName(resreg) + ", " + FloatRegIDToName(op1reg) + ", " +
+                 FloatRegIDToName(resreg));
           if (freeregid != -1) {
             if (freeregid == 0) {
               func_context_.float_freereg1_ = tac->a_;
@@ -542,13 +542,13 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Mul: {
-          emitln("vmul.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
-                 std::to_string(op2reg));
+          emitln("vmul.f32 " + FloatRegIDToName(resreg) + ", " + FloatRegIDToName(op1reg) + ", " +
+                 FloatRegIDToName(op2reg));
           break;
         }
         case TACOperationType::Sub: {
-          emitln("vsub.f32 s" + std::to_string(resreg) + ", s" + std::to_string(op1reg) + ", s" +
-                 std::to_string(op2reg));
+          emitln("vsub.f32 " + FloatRegIDToName(resreg) + ", " + FloatRegIDToName(op1reg) + ", " +
+                 FloatRegIDToName(op2reg));
           break;
         }
 
@@ -557,7 +557,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
                                  std::string(magic_enum::enum_name<TACOperationType>(tac->operation_)));
       }
       if (freeregid != -1 && tac->operation_ != TACOperationType::Mod) {
-        emitln("vmov.f32 s" + std::to_string(alloc_reg(tac->a_, resreg)) + ", s" + std::to_string(resreg));
+        emitln("vmov.f32 " + FloatRegIDToName(alloc_reg(tac->a_, resreg)) + ", " + FloatRegIDToName(resreg));
         if (freeregid == 0) {
           // assert(func_context_.float_freereg1_ == tac->b_);
           func_context_.float_freereg1_ = nullptr;
@@ -736,7 +736,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int dstreg = alloc_reg(tac->a_, valreg);
       //如果是浮点
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-        emitln("vneg.f32 s" + std::to_string(dstreg) + ", s" + std::to_string(valreg));
+        emitln("vneg.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
       } else {
         emitln("neg " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
       }
@@ -799,7 +799,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
       int valuereg = alloc_reg(tac->b_, addrreg);
       if (tac->b_->value_.Type() == SymbolValue::ValueType::Float) {
-        emitln("vstr s" + std::to_string(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
+        emitln("vstr " + FloatRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       } else {
         emitln("str " + IntRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       }
@@ -834,7 +834,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
       int valuereg = alloc_reg(tac->a_, addrreg);
       if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
-        emitln("vldr s" + std::to_string(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
+        emitln("vldr " + FloatRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       } else {
         emitln("ldr " + IntRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       }
@@ -866,7 +866,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int valreg = alloc_reg(tac->b_);
       int dstreg = alloc_reg(tac->a_, valreg);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-        emitln("vmov.f32 s" + std::to_string(dstreg) + ", s" + std::to_string(valreg));
+        emitln("vmov.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
       } else {
         emitln("mov " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
       }
@@ -954,7 +954,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         if (!on_stack) {
           if (offset == 0) {
             if (symAttr.value != 0) {
-              emitln("vmov.f32 s" + std::to_string(symAttr.value) + ", s0");
+              emitln("vmov.f32 " + FloatRegIDToName(symAttr.value) + ", s0");
             }
             break;
           } else if (symAttr.value != offset) {
@@ -964,12 +964,12 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         }
         int32_t realoffset = func_context_.stack_size_for_vars_ + func_context_.stack_size_for_regsave_ + offset;
         if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
-          emitln("vldr s" + std::to_string(symAttr.value) + ", [sp, #" + std::to_string(realoffset) + "]");
+          emitln("vldr " + FloatRegIDToName(symAttr.value) + ", [sp, #" + std::to_string(realoffset) + "]");
         } else {
           int intReservedReg = func_context_.func_attr_.attr.used_regs.intReservedReg;
           emitln("ldr " + IntRegIDToName(intReservedReg) + ", =" + std::to_string(realoffset));
           emitln("add " + IntRegIDToName(intReservedReg) + ", " + IntRegIDToName(intReservedReg) + ", sp");
-          emitln("vldr s" + std::to_string(symAttr.value) + ", [" + IntRegIDToName(intReservedReg) + "]");
+          emitln("vldr " + FloatRegIDToName(symAttr.value) + ", [" + IntRegIDToName(intReservedReg) + "]");
         }
         break;
       }
@@ -980,7 +980,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         int32_t realoffset = symAttr.value;
         if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
           if (is_float) {
-            emitln("vstr s" + std::to_string(offset) + ", [sp, #" + std::to_string(realoffset) + "]");
+            emitln("vstr " + FloatRegIDToName(offset) + ", [sp, #" + std::to_string(realoffset) + "]");
           } else {
             emitln("str " + IntRegIDToName(offset) + ", [sp, #" + std::to_string(realoffset) + "]");
           }
@@ -989,7 +989,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             int intReservedReg = func_context_.func_attr_.attr.used_regs.intReservedReg;
             emitln("ldr " + IntRegIDToName(intReservedReg) + ", =" + std::to_string(realoffset));
             emitln("add " + IntRegIDToName(intReservedReg) + ", " + IntRegIDToName(intReservedReg) + ", sp");
-            emitln("vstr s" + std::to_string(offset) + ", [" + IntRegIDToName(intReservedReg) + "]");
+            emitln("vstr " + FloatRegIDToName(offset) + ", [" + IntRegIDToName(intReservedReg) + "]");
           } else {
             emitln("ldr " + IntRegIDToName(offset) + ", =" + std::to_string(realoffset));
             emitln("ldr " + IntRegIDToName(offset) + ", [sp, " + IntRegIDToName(offset) + "]");

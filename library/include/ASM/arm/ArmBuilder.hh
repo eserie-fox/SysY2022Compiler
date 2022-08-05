@@ -22,6 +22,7 @@ class ArmBuilder : public AssemblyBuilder {
 
  public:
   ArmBuilder(TACListPtr tac_list);
+  ArmBuilder() = delete;
   bool Translate(std::string *output) override;
 
  private:

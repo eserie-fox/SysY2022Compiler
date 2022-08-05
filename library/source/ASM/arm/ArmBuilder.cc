@@ -25,6 +25,7 @@ bool ArmBuilder::AppendPrefix() {
   func_sections_.emplace_back("_builtin_clear");
   pfunc_section = &func_sections_.back().body_;
   emitln(".text");
+  emitln(".align 4");
   // emitln(".global _builtin_clear");
   emitln("_builtin_clear:");
   emitln("mov r2, #0");
@@ -168,6 +169,7 @@ bool ArmBuilder::TranslateGlobal() {
   };
 
   emitln(".text");
+  emitln(".align 4");
   emitln(".global main");
   emitln("main:");
 
@@ -259,6 +261,7 @@ bool ArmBuilder::TranslateFunction() {
   };
   //添加函数头
   emitln(".text");
+  emitln(".align 4");
   emitln(".global " + func_name);
   emitln(func_name + ":");
   //将要用到的寄存器保存起来
@@ -439,7 +442,7 @@ std::string ArmBuilder::ToDataRefName(std::string name) { return "_ref_" + name 
 std::string ArmBuilder::DeclareDataToASMString(TACPtr tac) {
   auto sym = tac->a_;
   //注释和align设置
-  std::string ret = "// " + tac->ToString() + "\n.data\n.align 4\n";
+  std::string ret = "// " + tac->ToString() + "\n.bss\n.align 4\n";
   //数据label
   ret += GetVariableName(sym) + ":\n";
   //如果是普通的int或float都是1单位sz，数组则可能多个
@@ -496,18 +499,20 @@ std::string ArmBuilder::EndCurrentDataPool(bool ignorebranch) {
     ret.append("\n");
   };
   if (!ignorebranch) {
-    emitln("b _ignore_data_pool" + std::to_string(data_pool_id_));
+    emitln("b _ignore_data_pool_" + std::to_string(data_pool_id_));
   }
   emitln(".align 4");
   emitln(".ltorg");
-  emitln(".align 4");
+  if (!ref_data_.empty()) {
+    emitln(".align 4");
+  }
   for (const auto &name : ref_data_) {
     emitln("// add reference to data '" + name);
     emitln(ToDataRefName(name) + ": .word " + name);
   }
-  emitln(".align 4");
   if (!ignorebranch) {
-    emitln("_ignore_data_pool" + std::to_string(data_pool_id_) + ":");
+    emitln(".align 4");
+    emitln("_ignore_data_pool_" + std::to_string(data_pool_id_) + ":");
   }
   data_pool_id_++;
   return ret;

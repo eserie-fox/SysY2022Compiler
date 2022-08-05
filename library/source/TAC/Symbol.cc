@@ -630,10 +630,21 @@ bool Symbol::IsLiteral() const {
 }
 
 bool Symbol::IsGlobal() const {
-  if (name_.has_value() && name_.value().length() > 2) {
-    if (name_.value()[0] == 'S' && name_.value()[1] == '0') {
-      return true;
+  if (name_.has_value()) {
+    if (name_.value().length() > 2) {
+      if (name_.value()[0] == 'S' && name_.value()[1] == '0') {
+        return true;
+      }
+    } else {
+      return false;
     }
+  } else if (value_.Type() == SymbolValue::ValueType::Array) {
+    auto ad = value_.GetArrayDescriptor();
+    auto base_addr = ad->base_addr.lock();
+    if (base_addr == nullptr) {
+      return false;
+    }
+    return base_addr->IsGlobal();
   }
   return false;
 }

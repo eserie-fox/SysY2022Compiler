@@ -258,7 +258,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
           //是全局临时变量
           int realoffset = getrealoffset(sym);
           if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
-            emitln("vldr s" + std::to_string(regid) + ", [sp, #" + std::to_string(realoffset) + "]");
+            emitln("vldr " + FloatRegIDToName(regid) + ", [sp, #" + std::to_string(realoffset) + "]");
           } else {
             int otherreg = glob_context_.USE_INT_REG_NUM;
             emitln("ldr " + IntRegIDToName(otherreg) + ", =" + std::to_string(realoffset));
@@ -424,7 +424,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       }
       int valuereg = alloc_reg(tac->b_, addrreg);
       if (tac->b_->value_.Type() == SymbolValue::ValueType::Float) {
-        emitln("vstr s" + std::to_string(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
+        emitln("vstr " + FloatRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       } else {
         emitln("str " + IntRegIDToName(valuereg) + ", [" + IntRegIDToName(addrreg) + "]");
       }
@@ -480,6 +480,17 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
   };
 
   auto do_call = [&, this]() -> void {
+    //对全局数组不调用_builtin_clear
+    if (tac->b_->get_tac_name(true) == std::string("_builtin_clear")) {
+      if (glob_context_.arg_records_[0].sym->IsGlobal()) {
+        glob_context_.arg_nfloatregs_ = 0;
+        glob_context_.arg_nintregs_ = 0;
+        glob_context_.arg_stacksize_ = 0;
+        glob_context_.arg_records_.clear();
+        emitln("// This function call has been optimized");
+        return;
+      }
+    }
     //初始化一下
     glob_context_.stack_size_for_args_ = 0;
     for (int i = 0; i < glob_context_.USE_INT_REG_NUM; i++) {
@@ -719,7 +730,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         int dstreg = alloc_reg(tac->a_, valreg);
         //如果是浮点
         if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-          emitln("vneg.f32 s" + std::to_string(dstreg) + ", s" + std::to_string(valreg));
+          emitln("vneg.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
         } else {
           emitln("neg " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
         }
