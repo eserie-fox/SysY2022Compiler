@@ -22,6 +22,10 @@ read_dir(){
 read_dir ./tests/compile_test_cases
 
 failed_tests=()
+declare -i id=0
+declare -i totnum=${#file_list[@]}
+
+calc() { awk "BEGIN{ printf \"%.2f\n\", $* }"; }
 
 for file in ${file_list[@]}
 do
@@ -30,8 +34,10 @@ do
     then
         if [ "${filename##*.}" = "sy" ];
         then 
+            id=$id+1
             cp $file ./build/source/test.sy
-            echo "Compiling ${filename}..."
+            prog=$(calc 100*$id/$totnum)
+            echo "[$prog%] Compiling ${filename}..."
             ./build/source/hfb -o ./build/source/out.s ./build/source/test.sy
             retcode=$?
             if [ $retcode == 0 ]
@@ -39,43 +45,26 @@ do
                 echo "Compiling ${filename} ended succeessfully!"
             else
                 echo "Compiling ${filename} failed. Exit Code: ${retcode}"
-                failed_tests+=("Failure:${filename},ExitCode:${retcode}")
+                failed_tests+=("Failure:${file},ExitCode:${retcode}")
             fi
         fi
     fi    
 done
 
-echo "Failure test cases:"
+echo "Summary"
+id=0
 
-for failure in ${failed_tests[@]}
-do
-    echo $failure
-done
-# for line in $(ls -a ./tests/compile_test_cases/)
-# do
-#     echo ${line}
-# done
-
-# for file in $(ls -r ./tests/compile_test_cases/)
-# do
-#     filename=$(basename "${file}")
-#     if test -f $file
-#     then
-#         if [ "${filename##*.}" = "sy" ];
-#         then 
-#             cp $file ./build/source/test.sy
-#             echo "Compiling ${filename}..."
-#             ./build/source/hfb -o ./build/source/out.s ./build/source/test.sy
-#             retcode=$?
-#             if [ retcode == 0 ]
-#             then 
-#                 echo "Compiling ${filename} ended succeessfully!"
-#             else
-#                 echo "Compiling ${filename} failed. Exit Code:${retcode}"
-#             fi
-#         fi
-#     fi
-# done
+if [ ${#failed_tests[@]} -eq 0 ]
+then
+    echo "No failure test case."
+else
+    echo "Failure test cases(${#failed_tests[@]}):"
+    for failure in ${failed_tests[@]}
+    do
+        id=$id+1
+        echo "[$id] $failure"
+    done
+fi
 
 # fullfilename=$1
 # filename=$(basename "$fullfilename")
