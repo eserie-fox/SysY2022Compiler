@@ -95,10 +95,8 @@ void SymLiveInfo::updateIntervalEndPoint()
 
 LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
 {
-    std::vector<bool> vis(cfg->get_nodes_number(), false);
-
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合，局部变量的集合
-    bfs(cfg->get_startNode(), vis);
+    bfs();
 
     nodeLiveInfo.resize(cfg->get_nodes_number());
 
@@ -107,8 +105,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     {
         std::unordered_set<size_t> &useSet = symUseMap[sym], &defSet = symDefMap[sym];
         auto &symLiveInfo = symLiveMap[sym];
-        for (size_t i = 0; i < vis.size(); ++i)
-            vis[i] = false;
+        std::unordered_set<size_t> vis;
         
         // 队列中存放所有可能作为活跃区间终点的结点下标
         std::queue<size_t> startQueue;
@@ -128,7 +125,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
             size_t cur = startQueue.front();
             startQueue.pop();
 
-            if (vis[cur])  continue;
+            if (vis.find(cur) != vis.end())  continue;
 
             LiveInterval interval;
             // 将活跃区间尾更新为当前活跃点，然后开始向上逆dfn序遍历
@@ -139,7 +136,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
             do
             {
                 flag = false;
-                vis[cur] = true;
+                vis.emplace(cur);
 
                 // 将活跃区间头更新成当前结点cur
                 interval.first = cfg->get_node_dfn(cur);
@@ -158,7 +155,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
                         {
                             // 如果前驱u没有被访问过，继续向上遍历
                             // 同时将sym加入到u的出口活跃集合中
-                            if (!vis[u])
+                            if (vis.find(u) == vis.end())
                             {
                                 nxtcur = u;
                                 flag = true;
@@ -168,7 +165,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
                         // u不是dfn连续的前驱，而sym必在u活跃
                         // 本次循环只求1个连续区间，u不连续
                         // 所以，当u没访问过时，将其加入活跃点，后续的循环中再求从它开始的活跃区间
-                        else if (!vis[u])
+                        else if (vis.find(u) == vis.end())
                         {
                             startQueue.push(u);
                             nodeLiveInfo[u].outLive.insert(sym);
@@ -191,10 +188,11 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     }
 }
 
-void LiveAnalyzer::bfs(size_t start, std::vector<bool> &vis)
+void LiveAnalyzer::bfs()
 {
+    std::vector<bool> vis(cfg->get_nodes_number(), false);
     std::queue<size_t> q;
-    q.push(start);
+    q.push(cfg->get_startNode());
     while (!q.empty())
     {
         size_t n = q.front();

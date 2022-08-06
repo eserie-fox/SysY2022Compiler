@@ -127,7 +127,7 @@ private:
 
 
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合
-    void bfs(size_t start, std::vector<bool> &vis);
+    void bfs();
 
 };
 
