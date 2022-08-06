@@ -15,7 +15,7 @@ using namespace HaveFunCompiler::AssemblyBuilder;
 
 enum class ArgType
 {
-  SourceFile, TargetFile, _o, Others
+  SourceFile, TargetFile, _o, OP, Others
 };
 
 ArgType analyzeArg(const char *arg)
@@ -26,6 +26,8 @@ ArgType analyzeArg(const char *arg)
   {
     if (s == "-o")
       return ArgType::_o;
+    else if (s == "-O2")
+      return ArgType::OP;
     return ArgType::Others;
   }
   else
@@ -39,6 +41,8 @@ ArgType analyzeArg(const char *arg)
       return ArgType::Others;
   }
 }
+
+int OP_flag = 0;
 
 int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
   HaveFunCompiler::Parser::Driver driver;
@@ -55,6 +59,9 @@ int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
         ++i;
         freopen(argv[i], "w", stdout);
       }
+    }
+    else if (res == ArgType::OP) {
+      OP_flag = 1;
     }
   }
   if (!driver.parse(input)) {

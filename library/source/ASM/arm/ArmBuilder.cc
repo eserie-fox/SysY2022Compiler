@@ -12,6 +12,8 @@
 #include "MagicEnum.hh"
 #include "TAC/TAC.hh"
 
+extern int OP_flag;
+
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
 using namespace ThreeAddressCode;
@@ -234,9 +236,12 @@ bool ArmBuilder::TranslateFunction() {
   //拿到func_context_guard确保func_context拥有正确初始化和析构行为
   auto func_context_guard = ArmUtil::FunctionContextGuard(func_context_);
   {
-    // 目前只进行死代码删除优化
-    DeadCodeOptimizer optimizer(tac_list_, current_, end_);
-    optimizer.optimize();
+    if (OP_flag)
+    {
+      // 目前只进行死代码删除优化
+      DeadCodeOptimizer optimizer(tac_list_, current_, end_);
+      optimizer.optimize();
+    }
 
     // 生成控制流图
     auto cfg = std::make_shared<ControlFlowGraph>(current_, end_);
