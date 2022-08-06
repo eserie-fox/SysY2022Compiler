@@ -24,25 +24,52 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
     if (intRegParamUsableNumber + 2 >= intRegPoolSize || floatRegParamUsableNumber + 2 >= floatRegPoolSize) 
         throw std::runtime_error("RegAllocator: Register config error");
 
-    for (auto it = liveAnalyzer.get_fbegin(); it != liveAnalyzer.get_fend(); ++it)
+    auto it = liveAnalyzer.get_fbegin();
+    auto fend = liveAnalyzer.get_fend();
+    std::unordered_set<SymPtr> tmpParams;
+
+    // 提取参数列表
+    for (;it != fend && (*it)->operation_ != TACOperationType::Parameter; ++it);
+    for (;it != fend && (*it)->operation_ == TACOperationType::Parameter; ++it)
     {
         auto &tac = *it;
-        if (tac->operation_ == TACOperationType::Parameter)  // tac是形参声明
-        {
-            if (!(tac->a_))
-                throw std::runtime_error("RegAllocator: parameter TAC get symbol fault!");
-            paramLs.push_back(tac->a_);
-        }
+        if (!(tac->a_))
+            throw std::runtime_error("RegAllocator: parameter TAC get symbol fault!");
+        paramLs.push_back(tac->a_);
+        tmpParams.insert(tac->a_);  
+    }
 
-        else if (tac->operation_ == TACOperationType::Constant || tac->operation_ == TACOperationType::Variable)  // tac是局部变量声明
+    // 提取局部变量列表
+    auto& allSymSet = liveAnalyzer.get_allSymSet();
+    for (auto sym : allSymSet)
+    {
+        if (tmpParams.find(sym) == tmpParams.end() && !sym->IsGlobal())
         {
-            if (!(tac->a_))
-                throw std::runtime_error("RegAllocator: Declare TAC get symbol fault!");
-            localSym.push_back(tac->a_);
-            if (tac->a_->value_.Type() == SymbolValue::ValueType::Array)
-                ptrToArrayOnStack.emplace(tac->a_, SymAttribute());
+            localSym.push_back(sym);
+            if (sym->value_.Type() == SymbolValue::ValueType::Array)
+                ptrToArrayOnStack.emplace(sym, SymAttribute());
         }
     }
+
+    // for (auto it = liveAnalyzer.get_fbegin(); it != liveAnalyzer.get_fend(); ++it)
+    // {
+    //     auto &tac = *it;
+    //     if (tac->operation_ == TACOperationType::Parameter)  // tac是形参声明
+    //     {
+    //         if (!(tac->a_))
+    //             throw std::runtime_error("RegAllocator: parameter TAC get symbol fault!");
+    //         paramLs.push_back(tac->a_);
+    //     }
+
+    //     else if (tac->operation_ == TACOperationType::Constant || tac->operation_ == TACOperationType::Variable)  // tac是局部变量声明
+    //     {
+    //         if (!(tac->a_))
+    //             throw std::runtime_error("RegAllocator: Declare TAC get symbol fault!");
+    //         localSym.push_back(tac->a_);
+    //         if (tac->a_->value_.Type() == SymbolValue::ValueType::Array)
+    //             ptrToArrayOnStack.emplace(tac->a_, SymAttribute());
+    //     }
+    // }
 }
 
 RegAllocator::SymValueType RegAllocator::fetchSymValueType(SymPtr sym)

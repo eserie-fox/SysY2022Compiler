@@ -78,6 +78,11 @@ public:
         return nodes[n].dfn;
     }
 
+    const TACList::iterator& get_node_itr(size_t n) const
+    {
+        return itrMap[n];
+    }
+
     const std::vector<TACList::iterator>& get_unreachableTACItrList() const
     {
         return unreachableTACItrList;
@@ -102,6 +107,7 @@ private:
     std::vector<Node> nodes;
     TACList::iterator f_begin, f_end;
     std::vector<TACList::iterator> unreachableTACItrList;
+    std::vector<TACList::iterator> itrMap;  // 保存node下标到itr的映射
 
     // n1 -> n2
     void link(size_t n1, size_t n2);

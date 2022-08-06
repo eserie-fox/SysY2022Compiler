@@ -115,8 +115,8 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
         for (auto n : useSet)
             startQueue.push(n);
         // 目前先将单独的定值点(定值后没有使用的定值)作为一个活跃区间处理（优化后就不存在了）
-        for (auto n : defSet)  
-            startQueue.push(n);
+        // for (auto n : defSet)  
+        //     startQueue.push(n);
 
         // 一次循环，从一个终点(endDfn)开始，向上遍历，求出一个连续的活跃区间[startDfn, endDfn]
         while (!startQueue.empty())
@@ -183,9 +183,9 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
         }
 
         // 更新该变量的活跃区间端点(寄存器分配优先级可能使用)
-        symLiveInfo.updateIntervalEndPoint();
+        // symLiveInfo.updateIntervalEndPoint();
 
-        // 保存该变量的定值和引用计数(寄存器分配优先级可能使用)
+        // 保存该变量的定值和引用计数(寄存器分配优先级使用)
         symLiveInfo.defCnt = defSet.size();
         symLiveInfo.useCnt = useSet.size();
     }

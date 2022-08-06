@@ -101,6 +101,11 @@ public:
         return &symLiveMap.at(sym);
     }
 
+    const NodeLiveInfo& get_nodeLiveInfo(size_t u) const
+    {
+        return nodeLiveInfo[u];
+    }
+
     // 得到函数中出现的所有变量的集合
     const std::unordered_set<SymPtr>& get_allSymSet() const
     {

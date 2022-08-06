@@ -28,7 +28,6 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
 
     std::unordered_map<std::string, size_t> labelMap;  // 映射jmp目标对应节点下标
     std::vector<size_t> jmpReloc;  // 第一次扫描时保存需要jmp的指令
-    std::vector<TACList::iterator> itrMap;  // 保存node下标到itr的映射，扫描不可达点时使用
 
     // nodes[0]->fbegin(label)
     // nodes[1]->fend

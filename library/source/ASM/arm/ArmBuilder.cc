@@ -5,6 +5,7 @@
 #include <vector>
 #include "ASM/ControlFlowGraph.hh"
 #include "ASM/LiveAnalyzer.hh"
+#include "ASM/Optimizer.hh"
 #include "ASM/arm/ArmHelper.hh"
 #include "ASM/arm/RegAllocator.hh"
 #include "MacroUtil.hh"
@@ -233,10 +234,14 @@ bool ArmBuilder::TranslateFunction() {
   //拿到func_context_guard确保func_context拥有正确初始化和析构行为
   auto func_context_guard = ArmUtil::FunctionContextGuard(func_context_);
   {
+    // 目前只进行死代码删除优化
+    DeadCodeOptimizer optimizer(tac_list_, current_, end_);
+    optimizer.optimize();
+
     // 生成控制流图
     auto cfg = std::make_shared<ControlFlowGraph>(current_, end_);
 
-    // 移除死代码
+    // 移除不可达代码
     auto &deadCode = cfg->get_unreachableTACItrList();
     for (auto it : deadCode) tac_list_->erase(it);
 
