@@ -213,7 +213,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     return target_regid;
   };
 
-  auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1, int hint_regid = -1) -> int {
+  auto alloc_reg = [&, this](SymbolPtr sym, int except_reg = -1, int hint_regid = -1, bool no_load = false) -> int {
     bool is_float = (sym->value_.Type() == SymbolValue::ValueType::Float);
     if (sym->value_.Type() == SymbolValue::ValueType::Array) {
       sym = sym->value_.GetArrayDescriptor()->base_addr.lock();
@@ -243,26 +243,27 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
 
       if (regid < 0) {
         regid = get_free_float_reg(except_reg, hint_regid);
-
-        if (sym->IsLiteral()) {
-          int otherreg = glob_context_.USE_INT_REG_NUM;
-          emitln("ldr " + IntRegIDToName(otherreg) +
-                 ", =" + std::to_string(ArmHelper::BitcastToUInt(sym->value_.GetFloat())));
-          emitln("vmov " + FloatRegIDToName(regid) + ", " + IntRegIDToName(otherreg));
-        } else if (!sym->IsGlobalTemp()) {
-          //是全局变量
-          int otherreg = glob_context_.USE_INT_REG_NUM;
-          emitln("ldr " + IntRegIDToName(otherreg) + ", " + ToDataRefName(GetVariableName(sym)));
-          emitln("vldr " + FloatRegIDToName(regid) + ", [" + IntRegIDToName(otherreg) + "]");
-        } else {
-          //是全局临时变量
-          int realoffset = getrealoffset(sym);
-          if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
-            emitln("vldr " + FloatRegIDToName(regid) + ", [sp, #" + std::to_string(realoffset) + "]");
-          } else {
+        if (!no_load) {
+          if (sym->IsLiteral()) {
             int otherreg = glob_context_.USE_INT_REG_NUM;
-            emitln("ldr " + IntRegIDToName(otherreg) + ", =" + std::to_string(realoffset));
-            emitln("vldr " + FloatRegIDToName(regid) + ", [sp, " + IntRegIDToName(otherreg) + "]");
+            emitln("ldr " + IntRegIDToName(otherreg) +
+                   ", =" + std::to_string(ArmHelper::BitcastToUInt(sym->value_.GetFloat())));
+            emitln("vmov " + FloatRegIDToName(regid) + ", " + IntRegIDToName(otherreg));
+          } else if (!sym->IsGlobalTemp()) {
+            //是全局变量
+            int otherreg = glob_context_.USE_INT_REG_NUM;
+            emitln("ldr " + IntRegIDToName(otherreg) + ", " + ToDataRefName(GetVariableName(sym)));
+            emitln("vldr " + FloatRegIDToName(regid) + ", [" + IntRegIDToName(otherreg) + "]");
+          } else {
+            //是全局临时变量
+            int realoffset = getrealoffset(sym);
+            if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
+              emitln("vldr " + FloatRegIDToName(regid) + ", [sp, #" + std::to_string(realoffset) + "]");
+            } else {
+              int otherreg = glob_context_.USE_INT_REG_NUM;
+              emitln("ldr " + IntRegIDToName(otherreg) + ", =" + std::to_string(realoffset));
+              emitln("vldr " + FloatRegIDToName(regid) + ", [sp, " + IntRegIDToName(otherreg) + "]");
+            }
           }
         }
       }
@@ -290,26 +291,27 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
 
       if (regid < 0) {
         regid = get_free_int_reg(except_reg, hint_regid);
-
-        if (sym->IsLiteral()) {
-          int val = sym->value_.GetInt();
-          if (ArmHelper::IsImmediateValue(val)) {
-            emitln("mov " + IntRegIDToName(regid) + ", #" + std::to_string(val));
+        if (!no_load) {
+          if (sym->IsLiteral()) {
+            int val = sym->value_.GetInt();
+            if (ArmHelper::IsImmediateValue(val)) {
+              emitln("mov " + IntRegIDToName(regid) + ", #" + std::to_string(val));
+            } else {
+              emitln("ldr " + IntRegIDToName(regid) + ", =" + std::to_string(val));
+            }
+          } else if (!sym->IsGlobalTemp()) {
+            emitln("ldr " + IntRegIDToName(regid) + ", " + ToDataRefName(GetVariableName(sym)));
+            if (sym->value_.Type() != SymbolValue::ValueType::Array) {
+              emitln("ldr " + IntRegIDToName(regid) + ", [" + IntRegIDToName(regid) + "]");
+            }
           } else {
-            emitln("ldr " + IntRegIDToName(regid) + ", =" + std::to_string(val));
-          }
-        } else if (!sym->IsGlobalTemp()) {
-          emitln("ldr " + IntRegIDToName(regid) + ", " + ToDataRefName(GetVariableName(sym)));
-          if (sym->value_.Type() != SymbolValue::ValueType::Array) {
-            emitln("ldr " + IntRegIDToName(regid) + ", [" + IntRegIDToName(regid) + "]");
-          }
-        } else {
-          int32_t realoffset = getrealoffset(sym);
-          if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
-            emitln("ldr " + IntRegIDToName(regid) + ", [sp, #" + std::to_string(realoffset) + "]");
-          } else {
-            emitln("ldr " + IntRegIDToName(regid) + ", =" + std::to_string(realoffset));
-            emitln("ldr " + IntRegIDToName(regid) + ", [sp, " + IntRegIDToName(regid) + "]");
+            int32_t realoffset = getrealoffset(sym);
+            if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
+              emitln("ldr " + IntRegIDToName(regid) + ", [sp, #" + std::to_string(realoffset) + "]");
+            } else {
+              emitln("ldr " + IntRegIDToName(regid) + ", =" + std::to_string(realoffset));
+              emitln("ldr " + IntRegIDToName(regid) + ", [sp, " + IntRegIDToName(regid) + "]");
+            }
           }
         }
       }
@@ -323,8 +325,10 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
       int op1reg = alloc_reg(tac->b_);
       int op2reg = alloc_reg(tac->c_, op1reg);
-      int resreg = alloc_reg(tac->a_, op2reg);
+      int resreg = alloc_reg(tac->a_, op2reg, -1, true);
       if (resreg == op1reg || resreg == op2reg) {
+        evit_float_reg(op1reg);
+        evit_float_reg(op2reg);
         op1reg = alloc_reg(tac->b_);
         op2reg = alloc_reg(tac->c_, op1reg);
         int tmpreg = 0;
@@ -334,7 +338,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         emitln("vpush {" + FloatRegIDToName(tmpreg) + "}");
         emitln("v" + op + ".f32 " + FloatRegIDToName(tmpreg) + ", " + FloatRegIDToName(op1reg) + ", " +
                FloatRegIDToName(op2reg));
-        resreg = alloc_reg(tac->a_, tmpreg);
+        resreg = alloc_reg(tac->a_, tmpreg, -1, true);
         if (tmpreg == resreg) {
           emitln("add sp, sp, #4");
         } else {
@@ -348,14 +352,16 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     } else {
       int op1reg = alloc_reg(tac->b_);
       int op2reg = alloc_reg(tac->c_, op1reg);
-      int resreg = alloc_reg(tac->a_, op2reg);
+      int resreg = alloc_reg(tac->a_, op2reg, -1, true);
       if (resreg == op1reg || resreg == op2reg) {
+        evit_int_reg(op1reg);
+        evit_int_reg(op2reg);
         op1reg = alloc_reg(tac->b_);
         op2reg = alloc_reg(tac->c_, op1reg);
         int otherreg = glob_context_.USE_INT_REG_NUM;
         emitln(op + " " + IntRegIDToName(otherreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
         emitln("push {" + IntRegIDToName(otherreg) + "}");
-        resreg = alloc_reg(tac->a_);
+        resreg = alloc_reg(tac->a_, -1, -1, true);
         emitln("pop {" + IntRegIDToName(resreg) + "}");
       } else {
         emitln(op + " " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
@@ -470,7 +476,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
       }
     } else {
       int valreg = alloc_reg(tac->b_);
-      int dstreg = alloc_reg(tac->a_, valreg);
+      int dstreg = alloc_reg(tac->a_, valreg, -1, true);
       if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
         emitln("vmov.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
       } else {
