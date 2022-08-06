@@ -6,6 +6,8 @@
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
+class LiveAnalyzer;
+
 // optimizer需要保证，不修改fbegin和fend
 class DeadCodeOptimizer
 {
@@ -18,6 +20,8 @@ public:
 private:
     TACList::iterator _fbegin, _fend;
     TACListPtr _tacls;
+
+    bool hasSideEffect(SymbolPtr defSym, TACPtr tac);
 };
 
 }

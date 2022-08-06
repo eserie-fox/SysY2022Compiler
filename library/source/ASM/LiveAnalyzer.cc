@@ -111,9 +111,8 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
         std::queue<size_t> startQueue;
         for (auto n : useSet)
             startQueue.push(n);
-        // 目前先将单独的定值点(定值后没有使用的定值)作为一个活跃区间处理（优化后就不存在了）
-        // for (auto n : defSet)  
-        //     startQueue.push(n);
+        for (auto n : defSet)  
+            startQueue.push(n);
 
         // 一次循环，从一个终点(endDfn)开始，向上遍历，求出一个连续的活跃区间[startDfn, endDfn]
         while (!startQueue.empty())
@@ -151,6 +150,8 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
 
                     for (auto u : inNodeLs)
                     {
+                        // sym在cur入口活跃，自然在前驱的出口活跃
+                        nodeLiveInfo[u].outLive.insert(sym);
                         if (cfg->get_node_dfn(u) + 1 == cfg->get_node_dfn(cur))  // 找到dfn连续的前驱u
                         {
                             // 如果前驱u没有被访问过，继续向上遍历
@@ -159,17 +160,13 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
                             {
                                 nxtcur = u;
                                 flag = true;
-                                nodeLiveInfo[u].outLive.insert(sym);
                             }
                         }
                         // u不是dfn连续的前驱，而sym必在u活跃
                         // 本次循环只求1个连续区间，u不连续
                         // 所以，当u没访问过时，将其加入活跃点，后续的循环中再求从它开始的活跃区间
                         else if (vis.find(u) == vis.end())
-                        {
                             startQueue.push(u);
-                            nodeLiveInfo[u].outLive.insert(sym);
-                        }
                     }
                     cur = nxtcur;
                 }
