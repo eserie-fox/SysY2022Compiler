@@ -436,6 +436,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         //如果res被分配在栈上
         if (result->value_.Type() == SymbolValue::ValueType::Float) {
           if (symbol_reg(operand1) == -1) {
+            evit_float_reg(op1reg);
             resreg = op1reg;
             freeregid = (op1reg == func_context_.func_attr_.attr.used_regs.floatReservedReg);
           } else {
@@ -444,6 +445,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           }
         } else {
           if (symbol_reg(operand1) == -1) {
+            evit_int_reg(op1reg);
             resreg = op1reg;
             freeregid = (op1reg == func_context_.func_attr_.attr.used_regs.intReservedReg);
           } else {
