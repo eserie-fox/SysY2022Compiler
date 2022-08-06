@@ -98,7 +98,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     std::vector<bool> vis(cfg->get_nodes_number(), false);
 
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合，局部变量的集合
-    dfs(cfg->get_startNode(), vis);
+    bfs(cfg->get_startNode(), vis);
 
     // 对每个变量，求出它的活跃区间集合
     for (auto sym : symSet)
@@ -180,33 +180,39 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     }
 }
 
-void LiveAnalyzer::dfs(size_t n, std::vector<bool> &vis)
+void LiveAnalyzer::bfs(size_t start, std::vector<bool> &vis)
 {
-    if (vis[n])
-        return;
-    vis[n] = true;
-
-    auto tac = cfg->get_node_tac(n);
-
-    // 定值变量处理：加入函数中出现的变量集合，加入该变量的定值集合，如果是声明，则加入局部变量集合
-    auto defSym = tac->getDefineSym(); 
-    if (defSym)
+    std::queue<size_t> q;
+    q.push(start);
+    while (!q.empty())
     {
-        symSet.insert(defSym);
-        symDefMap[defSym].insert(n);
-    }
+        size_t n = q.front();
+        q.pop();
+        vis[n] = 1;
 
-    // 使用变量列表处理：对列表中每个使用变量，加入函数中出现的变量集合，加入该变量的使用集合
-    auto useSymLs = tac->getUseSym();
-    for (auto s : useSymLs)
-    {
-        symSet.insert(s);
-        symUseMap[s].insert(n);
-    }
+        auto tac = cfg->get_node_tac(n);
 
-    auto outLs = cfg->get_outNodeList(n);
-    for (auto u : outLs)
-        dfs(u, vis);
+        // 定值变量处理：加入函数中出现的变量集合，加入该变量的定值集合，如果是声明，则加入局部变量集合
+        auto defSym = tac->getDefineSym(); 
+        if (defSym)
+        {
+            symSet.insert(defSym);
+            symDefMap[defSym].insert(n);
+        }
+
+        // 使用变量列表处理：对列表中每个使用变量，加入函数中出现的变量集合，加入该变量的使用集合
+        auto useSymLs = tac->getUseSym();
+        for (auto s : useSymLs)
+        {
+            symSet.insert(s);
+            symUseMap[s].insert(n);
+        }
+
+        auto outLs = cfg->get_outNodeList(n);
+        for (auto u : outLs)
+            if (!vis[u])
+                q.push(u);
+    }
 }
 
 LiveAnalyzer::iterator LiveAnalyzer::get_fbegin() const

@@ -82,9 +82,8 @@ public:
         // 入口活跃集合
         // 出口活跃集合
 
+
         // 结点活跃gen和kill集合
-        SymPtr gen;
-        std::vector<SymPtr> kill;
     };
 
 public:
@@ -123,7 +122,7 @@ private:
 
 
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合
-    void dfs(size_t n, std::vector<bool> &vis);
+    void bfs(size_t start, std::vector<bool> &vis);
 
 };
 
