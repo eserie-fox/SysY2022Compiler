@@ -100,6 +100,8 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合，局部变量的集合
     bfs(cfg->get_startNode(), vis);
 
+    nodeLiveInfo.resize(cfg->get_nodes_number());
+
     // 对每个变量，求出它的活跃区间集合
     for (auto sym : symSet)
     {
@@ -143,25 +145,34 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
                 interval.first = cfg->get_node_dfn(cur);
 
                 // 当前结点cur不是定值，或同时是定值和使用，则应当继续向上遍历
+                // 并且将sym加入到cur的入口活跃集合中
                 if (defSet.find(cur) == defSet.end() || useSet.find(cur) != useSet.end())
                 {
                     size_t nxtcur;
                     auto inNodeLs = cfg->get_inNodeList(cur);
+                    nodeLiveInfo[cur].inLive.insert(sym);
+
                     for (auto u : inNodeLs)
                     {
                         if (cfg->get_node_dfn(u) + 1 == cfg->get_node_dfn(cur))  // 找到dfn连续的前驱u
                         {
-                            if (!vis[u])  // 如果前驱没有被访问过，继续向上遍历
+                            // 如果前驱u没有被访问过，继续向上遍历
+                            // 同时将sym加入到u的出口活跃集合中
+                            if (!vis[u])
                             {
                                 nxtcur = u;
                                 flag = true;
+                                nodeLiveInfo[u].outLive.insert(sym);
                             }
                         }
                         // u不是dfn连续的前驱，而sym必在u活跃
                         // 本次循环只求1个连续区间，u不连续
                         // 所以，当u没访问过时，将其加入活跃点，后续的循环中再求从它开始的活跃区间
                         else if (!vis[u])
+                        {
                             startQueue.push(u);
+                            nodeLiveInfo[u].outLive.insert(sym);
+                        }
                     }
                     cur = nxtcur;
                 }

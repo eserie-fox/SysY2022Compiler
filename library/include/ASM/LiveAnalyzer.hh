@@ -81,7 +81,7 @@ public:
     {
         // 入口活跃集合
         // 出口活跃集合
-
+        std::unordered_set<SymPtr> inLive, outLive;
 
         // 结点活跃gen和kill集合
     };
@@ -109,8 +109,8 @@ public:
 
 private:
 
-    // 暂时不记录流图的活跃信息
-
+    // 流图结点上的活跃信息
+    std::vector<NodeLiveInfo> nodeLiveInfo;
     // 所有变量对应的活跃信息
     std::unordered_map<SymPtr, SymLiveInfo> symLiveMap;
     // 变量的定值点和使用点集合（集合元素是流图中结点下标）
