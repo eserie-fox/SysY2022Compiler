@@ -15,9 +15,6 @@ void DeadCodeOptimizer::optimize()
     LiveAnalyzer liveAnalyzer(cfg);
     std::vector<TACList::iterator> deadCodes;
 
-    // test
-    cfg->printToDot();
-
     auto tacNum = cfg->get_nodes_number();
     for (size_t i = 0; i < tacNum; ++i)
     {
