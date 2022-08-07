@@ -469,14 +469,14 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     assert(tac->b_->value_.Type() == tac->c_->value_.Type());
     std::tuple<int, int, int, int> prepare_res;
     if (!(tac->a_->value_.Type() != SymbolValue::ValueType::Float &&
-          (tac->operation_ == TACOperationType::Div /*|| tac->operation_ == TACOperationType::Mod*/) &&
+          (tac->operation_ == TACOperationType::Div || tac->operation_ == TACOperationType::Mod) &&
           tac->c_->type_ == SymbolType::Constant && ArmHelper::IsPowerOf2(tac->c_->value_.GetInt()))) {
       //对于不可以优化的Div和Mod之外的操作才进行prepare
       prepare_res = prepare_binary_operation(tac->a_, tac->b_, tac->c_);
     }
 
     auto [resreg, op1reg, op2reg, freeregid] = prepare_res;
-    
+
     if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
       switch (tac->operation_) {
         case TACOperationType::Add: {
@@ -588,10 +588,39 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         }
         case TACOperationType::Div: {
           if (tac->c_->type_ == SymbolType::Constant && ArmHelper::IsPowerOf2(tac->c_->value_.GetInt())) {
-            int p = ArmHelper::Log2(tac->c_->value_.GetInt());
+            int imm = tac->c_->value_.GetInt();
+            int p = ArmHelper::Log2(imm);
+            int mask = imm - 1;
+
             int resreg = alloc_reg(tac->a_, -1, true);
             int op1reg = alloc_reg(tac->b_, resreg);
+            if (op1reg != 0 && op1reg != func_context_.func_attr_.attr.used_regs.intReservedReg) {
+              if (resreg == 0 || resreg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
+                func_context_.last_int_freereg_ = resreg;
+                evit_int_reg(!resreg);
+              }
+              int otherreg = get_free_int_reg();
+              emitln("mov " + IntRegIDToName(otherreg) + ", " + IntRegIDToName(op1reg));
+              op1reg = otherreg;
+            }
+
+            if (ArmHelper::IsImmediateValue(mask)) {
+              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" + std::to_string(mask));
+            } else {
+              emitln("ldr " + IntRegIDToName(resreg) + ", =" + std::to_string(mask));
+              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
+            }
+            emitln("cmp " + IntRegIDToName(op1reg) + ", #0");
+            emitln("movlt " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
+            // emitln("movge " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op1reg));
             emitln("asr " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" + std::to_string(p));
+            if (op1reg == 0 || op1reg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
+              if (op1reg == 0) {
+                func_context_.int_freereg1_ = nullptr;
+              } else {
+                func_context_.int_freereg2_ = nullptr;
+              }
+            }
           } else {
             evit_int_reg(0);
             evit_int_reg(1);
@@ -665,36 +694,80 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Mod: {
-          evit_int_reg(0);
-          evit_int_reg(1);
-          emitln("push {r1-r3, ip}");
-          if (op1reg < op2reg) {
-            emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
-          } else {
-            emitln("push {" + IntRegIDToName(op2reg) + "}");
-            emitln("push {" + IntRegIDToName(op1reg) + "}");
-          }
-          emitln("pop {r0, r1}");
-          bool padding = false;
-          {
-            size_t stacksize = 4 * 4ULL + func_context_.stack_size_for_args_ + func_context_.stack_size_for_regsave_ +
-                               func_context_.stack_size_for_vars_;
-            if (stacksize % 8 != 0) {
-              padding = true;
-              emitln("sub sp, sp, #4");
+          if (tac->c_->type_ == SymbolType::Constant && ArmHelper::IsPowerOf2(tac->c_->value_.GetInt())) {
+            int imm = tac->c_->value_.GetInt();
+            int mask = imm - 1;
+
+            int resreg = alloc_reg(tac->a_, -1, true);
+            int op1reg = alloc_reg(tac->b_, resreg);
+
+            if (op1reg != 0 && op1reg != func_context_.func_attr_.attr.used_regs.intReservedReg) {
+              if (resreg == 0 || resreg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
+                func_context_.last_int_freereg_ = resreg;
+                evit_int_reg(!resreg);
+              }
+              int otherreg = get_free_int_reg();
+              emitln("mov " + IntRegIDToName(otherreg) + ", " + IntRegIDToName(op1reg));
+              op1reg = otherreg;
             }
-          }
-          emitln("bl __aeabi_idivmod");
-          if (padding) {
-            emitln("add sp, sp, #4");
-          }
-          emitln("mov r0, r1");
-          emitln("pop {r1-r3, ip}");
-          int regid = symbol_reg(tac->a_);
-          if (regid == -1) {
-            func_context_.int_freereg1_ = tac->a_;
+
+            emitln("rsbs " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #0");
+            if (ArmHelper::IsImmediateValue(mask)) {
+              emitln("and " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op1reg) + ", #" + std::to_string(mask));
+              emitln("and " + IntRegIDToName(resreg) + ", " + IntRegIDToName(resreg) + ", #" + std::to_string(mask));
+            } else {
+              uint32_t invmask = ~((uint32_t)mask);
+              auto immvals = ArmHelper::DivideIntoImmediateValues(invmask);
+              for (auto imm_mask : immvals) {
+                emitln("bic " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op1reg) + ", #" +
+                       std::to_string(imm_mask));
+              }
+              for (auto imm_mask : immvals) {
+                emitln("bic " + IntRegIDToName(resreg) + ", " + IntRegIDToName(resreg) + ", #" +
+                       std::to_string(imm_mask));
+              }
+            }
+            emitln("rsbpl " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg) + ", #0");
+            emitln("mov " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg));
+            if (op1reg == 0 || op1reg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
+              if (op1reg == 0) {
+                func_context_.int_freereg1_ = nullptr;
+              } else {
+                func_context_.int_freereg2_ = nullptr;
+              }
+            }
           } else {
-            emitln("mov " + IntRegIDToName(regid) + ", r0");
+            evit_int_reg(0);
+            evit_int_reg(1);
+            emitln("push {r1-r3, ip}");
+            if (op1reg < op2reg) {
+              emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+            } else {
+              emitln("push {" + IntRegIDToName(op2reg) + "}");
+              emitln("push {" + IntRegIDToName(op1reg) + "}");
+            }
+            emitln("pop {r0, r1}");
+            bool padding = false;
+            {
+              size_t stacksize = 4 * 4ULL + func_context_.stack_size_for_args_ + func_context_.stack_size_for_regsave_ +
+                                 func_context_.stack_size_for_vars_;
+              if (stacksize % 8 != 0) {
+                padding = true;
+                emitln("sub sp, sp, #4");
+              }
+            }
+            emitln("bl __aeabi_idivmod");
+            if (padding) {
+              emitln("add sp, sp, #4");
+            }
+            emitln("mov r0, r1");
+            emitln("pop {r1-r3, ip}");
+            int regid = symbol_reg(tac->a_);
+            if (regid == -1) {
+              func_context_.int_freereg1_ = tac->a_;
+            } else {
+              emitln("mov " + IntRegIDToName(regid) + ", r0");
+            }
           }
 
           break;
