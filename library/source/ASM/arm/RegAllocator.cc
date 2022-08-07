@@ -29,7 +29,7 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
     std::unordered_set<SymPtr> tmpParams;
 
     // 提取参数列表
-    for (;it != fend && (*it)->operation_ != TACOperationType::Parameter; ++it);
+    for (int i = 0; i < 2 && it != fend; ++i, ++it);
     for (;it != fend && (*it)->operation_ == TACOperationType::Parameter; ++it)
     {
         auto &tac = *it;
