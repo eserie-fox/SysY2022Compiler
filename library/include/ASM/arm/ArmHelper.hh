@@ -16,6 +16,10 @@ class ArmHelper {
 
   static std::vector<uint32_t> DivideIntoImmediateValues(uint32_t value);
 
+  static bool IsPowerOf2(int value);
+
+  static int Log2(int value);
+
   static int CountLines(const std::string &str);
 
   //作为offset时的立即数
