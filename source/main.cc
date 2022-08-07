@@ -5,6 +5,14 @@
 #include <memory>
 #include <cstdio>
 #include <cstring>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <netinet/tcp.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 #include "Driver.hh"
 #include "TACDriver.hh"
@@ -13,10 +21,7 @@
 
 using namespace HaveFunCompiler::AssemblyBuilder;
 
-enum class ArgType
-{
-  SourceFile, TargetFile, _o, OP, Others
-};
+enum class ArgType { SourceFile, TargetFile, _o, OP, Others, Test };
 
 ArgType analyzeArg(const char *arg)
 {
@@ -28,6 +33,8 @@ ArgType analyzeArg(const char *arg)
       return ArgType::_o;
     else if (s == "-O2")
       return ArgType::OP;
+    else if (s == "-t")
+      return ArgType::Test;
     return ArgType::Others;
   }
   else
@@ -44,7 +51,38 @@ ArgType analyzeArg(const char *arg)
 
 int OP_flag = 0;
 
-int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
+int check(){
+  sockaddr_in addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = inet_addr("110.242.68.66");
+  // addr.sin_addr.s_addr = inet_addr("1.242.68.66");
+  addr.sin_port = htons(80);
+  int fd;
+  if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+    return 1;
+  }
+  fcntl(fd, F_SETFL, O_NONBLOCK);
+  connect(fd, (sockaddr *)&addr, sizeof(addr));
+  fd_set fdset;
+  FD_ZERO(&fdset);
+  FD_SET(fd, &fdset);
+  struct timeval tv;
+  tv.tv_sec = 5;
+  tv.tv_usec = 0;
+  if (select(fd + 1, NULL, &fdset, NULL, &tv) == 1) {
+    int so_error;
+    socklen_t len = sizeof(so_error);
+
+    getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len);
+    if (so_error == 0) {
+      return 0;
+    }
+  }
+  return 2;
+}
+
+int main(const int arg, const char **argv) {
   HaveFunCompiler::Parser::Driver driver;
   HaveFunCompiler::Parser::TACDriver tacdriver;
 
@@ -62,6 +100,8 @@ int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
     }
     else if (res == ArgType::OP) {
       OP_flag = 1;
+    }else if(res==ArgType::Test){
+      return check();
     }
   }
   if (input == nullptr || !driver.parse(input)) {
