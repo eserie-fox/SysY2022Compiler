@@ -38,6 +38,17 @@ bool ArmHelper::IsImmediateValue(uint32_t value) {
   return false;
 }
 
+bool ArmHelper::IsPowerOf2(int value) { return !(value & (value - 1)); }
+
+int ArmHelper::Log2(int value) {
+  int ret = -1;
+  while (value) {
+    value >>= 1;
+    ++ret;
+  }
+  return ret;
+}
+
 std::vector<uint32_t> ArmHelper::DivideIntoImmediateValues(uint32_t value) {
   if (value == 0) {
     return {0};

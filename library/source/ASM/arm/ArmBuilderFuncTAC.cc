@@ -467,8 +467,16 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   auto binary_operation = [&, this]() -> void {
     assert(tac->a_->value_.Type() == tac->b_->value_.Type());
     assert(tac->b_->value_.Type() == tac->c_->value_.Type());
+    std::tuple<int, int, int, int> prepare_res;
+    if (!(tac->a_->value_.Type() != SymbolValue::ValueType::Float &&
+          (tac->operation_ == TACOperationType::Div /*|| tac->operation_ == TACOperationType::Mod*/) &&
+          tac->c_->type_ == SymbolType::Constant && ArmHelper::IsPowerOf2(tac->c_->value_.GetInt()))) {
+      //对于不可以优化的Div和Mod之外的操作才进行prepare
+      prepare_res = prepare_binary_operation(tac->a_, tac->b_, tac->c_);
+    }
 
-    auto [resreg, op1reg, op2reg, freeregid] = prepare_binary_operation(tac->a_, tac->b_, tac->c_);
+    auto [resreg, op1reg, op2reg, freeregid] = prepare_res;
+    
     if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
       switch (tac->operation_) {
         case TACOperationType::Add: {
@@ -579,38 +587,44 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           break;
         }
         case TACOperationType::Div: {
-          evit_int_reg(0);
-          evit_int_reg(1);
-          emitln("push {r1-r3, ip}");
-          if (op1reg < op2reg) {
-            emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+          if (tac->c_->type_ == SymbolType::Constant && ArmHelper::IsPowerOf2(tac->c_->value_.GetInt())) {
+            int p = ArmHelper::Log2(tac->c_->value_.GetInt());
+            int resreg = alloc_reg(tac->a_, -1, true);
+            int op1reg = alloc_reg(tac->b_, resreg);
+            emitln("asr " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" + std::to_string(p));
           } else {
-            emitln("push {" + IntRegIDToName(op2reg) + "}");
-            emitln("push {" + IntRegIDToName(op1reg) + "}");
-          }
-          emitln("pop {r0, r1}");
-          bool padding = false;
-          {
-            size_t stacksize = 4 * 4ULL + func_context_.stack_size_for_args_ + func_context_.stack_size_for_regsave_ +
-                               func_context_.stack_size_for_vars_;
-            if (stacksize % 8 != 0) {
-              padding = true;
-              emitln("sub sp, sp, #4");
+            evit_int_reg(0);
+            evit_int_reg(1);
+            emitln("push {r1-r3, ip}");
+            if (op1reg < op2reg) {
+              emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+            } else {
+              emitln("push {" + IntRegIDToName(op2reg) + "}");
+              emitln("push {" + IntRegIDToName(op1reg) + "}");
+            }
+            emitln("pop {r0, r1}");
+            bool padding = false;
+            {
+              size_t stacksize = 4 * 4ULL + func_context_.stack_size_for_args_ + func_context_.stack_size_for_regsave_ +
+                                 func_context_.stack_size_for_vars_;
+              if (stacksize % 8 != 0) {
+                padding = true;
+                emitln("sub sp, sp, #4");
+              }
+            }
+            emitln("bl __aeabi_idiv");
+            if (padding) {
+              emitln("add sp, sp, #4");
+            }
+            emitln("pop {r1-r3, ip}");
+            int regid = symbol_reg(tac->a_);
+            if (regid == -1) {
+              func_context_.int_freereg1_ = tac->a_;
+            } else {
+              emitln("mov " + IntRegIDToName(regid) + ", r0");
             }
           }
-          emitln("bl __aeabi_idiv");
-          if (padding) {
-            emitln("add sp, sp, #4");
-          }
-          emitln("pop {r1-r3, ip}");
-          int regid = symbol_reg(tac->a_);
-          if (regid == -1) {
-            func_context_.int_freereg1_ = tac->a_;
-          } else {
-            emitln("mov " + IntRegIDToName(regid) + ", r0");
-          }
-          // func_context_.int_freereg1_ = tac->a_;
-          // emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
+
           break;
         }
         case TACOperationType::LessOrEqual:
@@ -682,6 +696,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
           } else {
             emitln("mov " + IntRegIDToName(regid) + ", r0");
           }
+
           break;
 
           // emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));

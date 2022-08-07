@@ -49,7 +49,7 @@ int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
   HaveFunCompiler::Parser::TACDriver tacdriver;
 
   // 分析命令行参数, 目前做IO重定向
-  const char *input;
+  const char *input = nullptr;
   for (int i = 0; i < arg; ++i) {
     auto res = analyzeArg(argv[i]);
     if (res == ArgType::SourceFile)
@@ -64,23 +64,24 @@ int main([[maybe_unused]] const int arg, [[maybe_unused]] const char **argv) {
       OP_flag = 1;
     }
   }
-  if (!driver.parse(input)) {
+  if (input == nullptr || !driver.parse(input)) {
     return -1;
   }
   std::stringstream ss;
   driver.print(ss) << "\n";
-  auto tss = ss.str();
+  // auto tss = ss.str();
   // std::cout << tss << std::endl;
   if (!tacdriver.parse(ss)) {
-    return -1;
+    return -2;
   }
   // tacdriver.print(std::cout) << std::endl;
 
   std::string output;
   ArmBuilder armBuilder(tacdriver.get_tacbuilder()->GetTACList());
   if (!armBuilder.Translate(&output)) {
-    return -1;
+    return -3;
   }
-  std::cout << output << std::endl;
+  printf("%s\n", output.c_str());
+  // std::cout << output << std::endl;
   return 0;
 }
