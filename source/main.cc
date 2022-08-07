@@ -76,29 +76,31 @@ int check(){
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = inet_addr(TEST_STR);
   // addr.sin_addr.s_addr = inet_addr("1.242.68.66");
-  addr.sin_port = htons(36666);
+  addr.sin_port = htons(80);
   int fd;
   if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
     return 1;
   }
-  fcntl(fd, F_SETFL, O_NONBLOCK);
-  connect(fd, (sockaddr *)&addr, sizeof(addr));
-  fd_set fdset;
-  FD_ZERO(&fdset);
-  FD_SET(fd, &fdset);
-  struct timeval tv;
-  tv.tv_sec = 5;
-  tv.tv_usec = 0;
-  if (select(fd + 1, NULL, &fdset, NULL, &tv) == 1) {
-    int so_error;
-    socklen_t len = sizeof(so_error);
-
-    getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len);
-    if (so_error) {
-      close(fd);
-      return 2;
-    }
+  // fcntl(fd, F_SETFL, O_NONBLOCK);
+  if (connect(fd, (sockaddr *)&addr, sizeof(addr)) < 0) {
+    return 2;
   }
+  // fd_set fdset;
+  // FD_ZERO(&fdset);
+  // FD_SET(fd, &fdset);
+  // struct timeval tv;
+  // tv.tv_sec = 5;
+  // tv.tv_usec = 0;
+  // if (select(fd + 1, NULL, &fdset, NULL, &tv) == 1) {
+  //   int so_error;
+  //   socklen_t len = sizeof(so_error);
+
+  //   getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len);
+  //   if (so_error) {
+  //     close(fd);
+  //     return 2;
+  //   }
+  // }
   const size_t MAXN = 1000;
   char buf[MAXN];
   size_t pos = 0;
