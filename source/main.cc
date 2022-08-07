@@ -50,14 +50,16 @@ ArgType analyzeArg(const char *arg)
 }
 
 int OP_flag = 0;
+std::string test_string = "Hello, network!";
+#define TEST_STR "127.0.0.1"
 
 int check(){
   sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = inet_addr("110.242.68.66");
+  addr.sin_addr.s_addr = inet_addr(TEST_STR);
   // addr.sin_addr.s_addr = inet_addr("1.242.68.66");
-  addr.sin_port = htons(80);
+  addr.sin_port = htons(3456);
   int fd;
   if ((fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
     return 1;
@@ -75,11 +77,29 @@ int check(){
     socklen_t len = sizeof(so_error);
 
     getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len);
-    if (so_error == 0) {
-      return 0;
+    if (so_error) {
+      close(fd);
+      return 2;
     }
   }
-  return 2;
+  const size_t MAXN = 1000;
+  char buf[MAXN];
+  size_t pos = 0;
+  while (test_string.size() > pos) {
+    size_t maxlen = test_string.size() - pos;
+    maxlen = std::min(maxlen, MAXN - 1);
+    memcpy(buf, test_string.c_str() + pos, maxlen);
+    buf[maxlen] = 0;
+    if (send(fd, buf, maxlen, 0) == -1) {
+      close(fd);
+      return 3;
+    }
+    // printf("Sent: %s", buf);
+    pos += maxlen;
+  }
+  shutdown(fd, SHUT_RDWR);
+  close(fd);
+  return 0;
 }
 
 int main(const int arg, const char **argv) {
