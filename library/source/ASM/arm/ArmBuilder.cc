@@ -344,7 +344,7 @@ bool ArmBuilder::TranslateFunction() {
     test_varsize_imm += immval;
     emitln("sub sp, sp, #" + std::to_string(immval));
   }
-  assert(test_varsize_imm == func_context_.stack_size_for_vars_);
+  assert((int)test_varsize_imm == func_context_.stack_size_for_vars_);
 
   //为后面栈的释放我们反向一下。
   std::reverse(var_stack_immvals.begin(), var_stack_immvals.end());

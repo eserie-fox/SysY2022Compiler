@@ -47,16 +47,16 @@ struct FunctionContext {
   std::vector<std::pair<uint32_t,uint32_t>> saveintregs_;
 
   //为寄存器保存用的栈空间，字节单位
-  uint32_t stack_size_for_regsave_;
+  int32_t stack_size_for_regsave_;
 
   //为额外参数分配的栈大小
-  uint32_t stack_size_for_args_;
+  int32_t stack_size_for_args_;
 
   //为变量分配的栈大小
-  uint32_t stack_size_for_vars_;
+  int32_t stack_size_for_vars_;
 
   //为形参分配的栈大小
-  uint32_t stack_size_for_params_;
+  int32_t stack_size_for_params_;
 
   // int形参数量
   uint32_t nint_param_;
