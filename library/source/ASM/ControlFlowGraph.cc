@@ -79,11 +79,14 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
     
     setDfn();
 
-    // 检查不可达代码并将不可达信息输出
+    // 检查不可达代码并将其结点从流图中删除(bug: 不删导致活跃分析访问到不可达前驱)
     for (size_t i = 0; i < nodes.size(); ++i)
     {
         if (nodes[i].dfn == 0)
+        {
             unreachableTACItrList.push_back(itrMap[i]);
+            eraseNode(i);
+        }
     }
 //    WarnUnreachable();
 }
@@ -106,6 +109,22 @@ size_t ControlFlowGraph::newNode(TACPtr tac)
     return nodes.size() - 1;
 }
 
+void ControlFlowGraph::eraseNode(size_t u)
+{
+    auto eraseInVec = [](std::vector<size_t> &vec, size_t val)
+    {
+        std::vector<std::vector<size_t>::iterator> its;  // 防止多重图，删不干净
+        for(auto it = vec.begin(); it != vec.end(); ++it)
+            if (*it == val)
+                its.push_back(it);
+        for (auto& it : its)
+            vec.erase(it);
+    };
+    for (auto v : nodes[u].inNodeList)
+        eraseInVec(nodes[v].outNodeList, u);
+    for (auto v : nodes[u].outNodeList)
+        eraseInVec(nodes[v].inNodeList, u);
+}
 
 inline std::string ControlFlowGraph::getJmpLabel(TACPtr tac)
 {

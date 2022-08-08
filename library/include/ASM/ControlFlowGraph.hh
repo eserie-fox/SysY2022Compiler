@@ -121,6 +121,7 @@ private:
     void setDfn();
 //    void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
 
+    inline void eraseNode(size_t u);
     void WarnUnreachable() const;
 
     void dfsPrintToDot(size_t n, std::vector<bool> &vis, std::ostream &os) const;

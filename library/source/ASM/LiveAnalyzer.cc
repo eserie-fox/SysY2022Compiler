@@ -194,6 +194,8 @@ void LiveAnalyzer::bfs()
     {
         size_t n = q.front();
         q.pop();
+
+        if (vis[n])  continue;
         vis[n] = 1;
 
         auto tac = cfg->get_node_tac(n);
@@ -214,7 +216,7 @@ void LiveAnalyzer::bfs()
             symUseMap[s].insert(n);
         }
 
-        auto outLs = cfg->get_outNodeList(n);
+        auto& outLs = cfg->get_outNodeList(n);
         for (auto u : outLs)
             if (!vis[u])
                 q.push(u);
