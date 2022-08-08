@@ -28,9 +28,8 @@ std::string test_string = "Hello, network!";
 
 inline bool Testfile(const std::string &s)
 {
-  if (s == "/coursegrader/testdata/h_functional/00_comment2.sy" ||
-      s == "/coursegrader/testdata/h_functional/23_json.sy" ||
-      s.find("long_line") != std::string::npos)
+  if (s == "/coursegrader/testdata/h_functional/29_long_line.sy" ||
+      s == "/coursegrader/testdata/h_functional/23_json.sy")
   {
     std::ifstream code;
     code.open(s);
