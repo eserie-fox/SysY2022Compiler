@@ -17,7 +17,7 @@ extern int OP_flag;
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
 using namespace ThreeAddressCode;
-ArmBuilder::ArmBuilder(TACListPtr tac_list) : data_pool_distance_(0), data_pool_id_(0), tac_list_(tac_list) {}
+ArmBuilder::ArmBuilder(TACListPtr tac_list) : data_pool_distance_(0), data_pool_id_(0), tac_list_(tac_list),counter(0) {}
 
 bool ArmBuilder::AppendPrefix() {
   std::string *pfunc_section;
@@ -361,6 +361,20 @@ bool ArmBuilder::TranslateFunction() {
   --end_;
   assert((*end_)->operation_ == TACOperationType::FunctionEnd);
   for (; current_ != end_; ++current_) {
+    if ((*current_)->operation_ == TACOperationType::Call) {
+      auto next = current_;
+      ++next;
+      if ((*next)->operation_ == TACOperationType::Return) {
+        if ((*current_)->a_ == (*next)->a_) {
+          TACPtr taccallret = std::make_shared<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>();
+          taccallret->operation_ = TACOperationType::CallAndReturn;
+          taccallret->b_ = (*current_)->b_;
+          emit(FuncTACToASMString(taccallret));
+          current_ = next;
+          continue;
+        }
+      }
+    }
     emit(FuncTACToASMString(*current_));
   }
   //还原fend

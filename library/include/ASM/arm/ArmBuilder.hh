@@ -86,9 +86,12 @@ class ArmBuilder : public AssemblyBuilder {
   int data_pool_distance_;
   int data_pool_id_;
 
+
   TACListPtr tac_list_;
   TACList::iterator current_;
   TACList::iterator end_;
+  
+  int counter;
 };
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

@@ -45,6 +45,8 @@ enum class TACOperationType {
   IntToFloat,
   BlockBegin,
   BlockEnd,
+  //尾递归优化
+  CallAndReturn,
 };
 
 struct ThreeAddressCode {

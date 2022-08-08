@@ -1429,6 +1429,348 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     emitln("bx lr");
   };
 
+  auto do_call_return = [&, this]() -> void {
+    //初始化一下
+    func_context_.stack_size_for_args_ = 0;
+    evit_all_freereg();
+    //先压栈吧
+    emitln("push {r1-r3}");
+    emitln("vpush {s1-s15}");
+    //全压！这是刚才压了的寄存器的大小
+    int save_reg_size = 3 * 4 + 15 * 4;
+    
+    func_context_.stack_size_for_args_ += save_reg_size;
+    int nstackarg = 0;
+    for (auto &record : func_context_.arg_records_) {
+      if (!record.storage_in_reg) {
+        nstackarg++;
+      }
+    }
+    // //计算一下总大小
+    // size_t sumstack = 0;
+    // bool padding = false;
+    // sumstack += nstackarg * 4;
+    // sumstack += func_context_.stack_size_for_args_;
+    // sumstack += func_context_.stack_size_for_regsave_;
+    // sumstack += func_context_.stack_size_for_vars_;
+    // //因为让栈8对齐，这里检查一下并对齐
+    // if (sumstack % 8 != 0) {
+    //   padding = true;
+    //   emitln("sub sp, sp, #4");
+    //   func_context_.stack_size_for_args_ += 4;
+    // }
+    //记录一下栈开头位置
+    int stack_start_of_args = func_context_.stack_size_for_args_;
+
+    //先把所有栈上的压了，反向压栈。
+    for (auto it = func_context_.arg_records_.rbegin(); it != func_context_.arg_records_.rend(); ++it) {
+      if (it->storage_in_reg) {
+        continue;
+      }
+      if (it->isaddr) {
+        //一定是数组才能取地址
+        assert(it->sym->value_.Type() == SymbolValue::ValueType::Array);
+        auto arrayDescriptor = it->sym->value_.GetArrayDescriptor();
+        auto basesym = arrayDescriptor->base_addr.lock();
+        auto offsym = arrayDescriptor->base_offset;
+        int basereg = alloc_reg(basesym);
+        int offreg = alloc_reg(offsym, basereg);
+        //如果basesym分配在栈空间，result可以复用basereg
+        if (symbol_reg(basesym) == -1) {
+          emitln("add " + IntRegIDToName(basereg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
+          emitln("push {" + IntRegIDToName(basereg) + "}");
+          func_context_.stack_size_for_args_ += 4;
+          if (basereg == 0) {
+            // assert(func_context_.int_freereg1_ == basesym);
+            func_context_.int_freereg1_ = nullptr;
+          } else {
+            // assert(func_context_.int_freereg2_ == basesym);
+            func_context_.int_freereg2_ = nullptr;
+          }
+        } else {
+          //否则basesym分配在寄存器，需要再申请一个reg储存结果
+          int resreg = (offreg == 0 ? func_context_.func_attr_.attr.used_regs.intReservedReg : 0);
+          evit_int_reg(resreg);
+          emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
+          emitln("push {" + IntRegIDToName(resreg) + "}");
+          func_context_.stack_size_for_args_ += 4;
+        }
+      } else {
+        int reg = alloc_reg(it->sym);
+        if (it->sym->value_.Type() == SymbolValue::ValueType::Float) {
+          emitln("vpush {" + FloatRegIDToName(reg) + "}");
+          func_context_.stack_size_for_args_ += 4;
+        } else {
+          emitln("push {" + IntRegIDToName(reg) + "}");
+          func_context_.stack_size_for_args_ += 4;
+        }
+      }
+    }
+
+    //然后处理寄存器
+    //先让float的全压了，因为是倒序，保证了s0最后处理
+    for (auto it = func_context_.arg_records_.rbegin(); it != func_context_.arg_records_.rend(); ++it) {
+      if (!it->storage_in_reg) {
+        continue;
+      }
+      if (it->sym->value_.Type() != SymbolValue::ValueType::Float) {
+        continue;
+      }
+      int reg = symbol_reg(it->sym);
+      if (reg == -1) {
+        reg = alloc_reg(it->sym);
+      }
+      //需要特殊处理会被寄存器传参用到的寄存器位置的变量
+      if (reg > 0 && reg < 16) {
+        //从栈上定位一下
+        int regoffset;
+        {
+          //压栈的顺序是倒过来的，所以是16 - reg ，前面的3是因为前面有3个通用寄存器压栈
+          int nth = 3 + 16 - reg;
+          regoffset = func_context_.stack_size_for_args_ - nth * 4;
+        }
+        if (ArmHelper::IsLDRSTRImmediateValue(regoffset)) {
+          emitln("vldr " + FloatRegIDToName(it->storage_pos) + ", [sp, #" + std::to_string(regoffset) + "]");
+        } else {
+          auto divides = ArmHelper::DivideIntoImmediateValues(regoffset);
+          for (auto val : divides) {
+            emitln("add sp, sp, #" + std::to_string(val));
+          }
+          emitln("vldr " + FloatRegIDToName(it->storage_pos) + ", [sp]");
+          for (auto val : divides) {
+            emitln("sub sp, sp, #" + std::to_string(val));
+          }
+        }
+      } else if (it->storage_pos != reg) {
+        emitln("vmov " + FloatRegIDToName(it->storage_pos) + ", " + FloatRegIDToName(reg));
+      }
+    }
+    auto read_intreg_from_stack = [&, this](int src_regid, int dst_regid) -> void {
+      //一定要是栈上的才行
+      assert(src_regid > 0 && src_regid < 4);
+      //压栈的顺序是倒过来的，所以是4 - reg
+      int nth = 4 - src_regid;
+      int offset = func_context_.stack_size_for_args_ - nth * 4;
+      if (ArmHelper::IsLDRSTRImmediateValue(offset)) {
+        emitln("ldr " + IntRegIDToName(dst_regid) + ", [sp, #" + std::to_string(offset) + "]");
+      } else {
+        emitln("ldr " + IntRegIDToName(dst_regid) + ", =" + std::to_string(offset));
+        emitln("ldr " + IntRegIDToName(dst_regid) + ", [sp, " + IntRegIDToName(dst_regid) + "]");
+      }
+    };
+    for (auto it = func_context_.arg_records_.rbegin(); it != func_context_.arg_records_.rend(); ++it) {
+      if (!it->storage_in_reg) {
+        continue;
+      }
+      if (it->sym->value_.Type() == SymbolValue::ValueType::Float) {
+        continue;
+      }
+      if (it->isaddr) {
+        assert(it->sym->value_.Type() == SymbolValue::ValueType::Array);
+        auto arrayDescriptor = it->sym->value_.GetArrayDescriptor();
+        auto basesym = arrayDescriptor->base_addr.lock();
+        auto offsym = arrayDescriptor->base_offset;
+        int basereg = symbol_reg(basesym);
+        bool basesym_on_stack = false;
+        if (basereg == -1) {
+          basesym_on_stack = true;
+          basereg = alloc_reg(it->sym);
+        }
+        int offreg = symbol_reg(offsym);
+        if (offreg == -1) {
+          offreg = alloc_reg(offsym, basereg);
+        }
+        //如果basesym分配在栈空间，result可以复用basereg
+        if (basesym_on_stack) {
+          //处理一下offreg从栈中读取
+          if (0 < offreg && offreg < 4) {
+            evit_int_reg(basereg == 0);
+            int freeintreg = get_free_int_reg();
+            read_intreg_from_stack(offreg, freeintreg);
+            offreg = freeintreg;
+          }
+          emitln("add " + IntRegIDToName(basereg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
+          if (basereg != it->storage_pos) {
+            emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(basereg));
+          }
+          if (basereg == 0) {
+            // assert(func_context_.int_freereg1_ == basesym);
+            func_context_.int_freereg1_ = nullptr;
+          } else {
+            // assert(func_context_.int_freereg2_ == basesym);
+            func_context_.int_freereg2_ = nullptr;
+          }
+        } else {
+          //否则basesym分配在寄存器，需要再申请一个reg储存结果
+          int resreg = (offreg == 0 ? func_context_.func_attr_.attr.used_regs.intReservedReg : 0);
+          evit_int_reg(resreg);
+
+          //处理一下basereg从栈中读取
+          if (0 < basereg && basereg < 4) {
+            read_intreg_from_stack(basereg, resreg);
+            basereg = resreg;
+          }
+
+          //处理一下offreg从栈中读取
+          if (0 < offreg && offreg < 4) {
+            evit_int_reg(resreg == 0);
+            int freeintreg = get_free_int_reg();
+            read_intreg_from_stack(offreg, freeintreg);
+            offreg = freeintreg;
+          }
+
+          emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
+          if (resreg != it->storage_pos) {
+            emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(resreg));
+          }
+        }
+      } else {
+        int reg = symbol_reg(it->sym);
+        if (reg == -1) {
+          reg = alloc_reg(it->sym);
+        }
+        //需要特殊处理会被寄存器传参用到的寄存器位置的变量
+        if (reg > 0 && reg < 4) {
+          read_intreg_from_stack(reg, it->storage_pos);
+        } else if (reg != it->storage_pos) {
+          emitln("mov " + IntRegIDToName(it->storage_pos) + ", " + IntRegIDToName(reg));
+        }
+      }
+    }
+
+    //挪一下栈。
+    func_context_.int_freereg1_ = nullptr;
+    func_context_.int_freereg2_ = nullptr;
+    func_context_.float_freereg1_ = nullptr;
+    func_context_.float_freereg2_ = nullptr;
+
+    //把当前所有栈都退掉，推到本函数保存寄存器处
+    {
+      int totalsize = func_context_.stack_size_for_args_ + func_context_.stack_size_for_vars_;
+
+      if (ArmHelper::IsImmediateValue(totalsize)) {
+        emitln("add sp, sp, #" + std::to_string(totalsize));
+      } else {
+        auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
+        for (auto val : pieces) {
+          emitln("add sp, sp, #" + std::to_string(val));
+        }
+      }
+    }
+
+    //还原寄存器
+    //还原浮点寄存器
+    for (auto regid : func_context_.savefloatregs_) {
+      if (regid.first == regid.second) {
+        emitln("vpop { " + FloatRegIDToName(regid.first) + " }");
+      } else {
+        emitln("vpop { " + FloatRegIDToName(regid.first) + "-" + FloatRegIDToName(regid.second) + " }");
+      }
+    }
+
+    //还原通用寄存器
+    for (auto regid : func_context_.saveintregs_) {
+      if (regid.first == regid.second) {
+        emitln("pop { " + IntRegIDToName(regid.first) + " }");
+      } else {
+        emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+      }
+    }
+
+    //回到函数参数前端，留三位置放寄存器
+    {
+      int totalsize =
+          func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args - 3 * 4;
+      if (ArmHelper::IsImmediateValue(totalsize)) {
+        emitln("sub sp, sp, #" + std::to_string(totalsize));
+      } else {
+        auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
+        for (auto val : pieces) {
+          emitln("sub sp, sp, #" + std::to_string(val));
+        }
+      }
+    }
+    //保存三寄存器用来临时倒腾
+    emitln("push {fp, ip, lr}");
+    stack_start_of_args -= 3 * 4;
+    
+    //这是真实参数栈大小
+    int real_stack_args_size = (int)func_context_.stack_size_for_args_ - stack_start_of_args;
+
+    bool padding = false;
+    //对齐一下
+    if (real_stack_args_size % 8 != 0) {
+      padding = true;
+      //补充一个空格
+      emitln("add sp, sp, #16");
+      stack_start_of_args -= 4;
+      real_stack_args_size += 4;
+    } else {
+      //把压的寄存器也算作arg
+      emitln("add sp, sp, #12");
+    }
+
+    //现在开始挪动，可以自由使用ip和fp寄存器
+    int count = real_stack_args_size / 4;
+    int move_distance =
+        (int)func_context_.stack_size_for_regsave_ + (int)func_context_.stack_size_for_vars_ + stack_start_of_args;
+
+    //将fp置为本函数开头位置
+    if (ArmHelper::IsImmediateValue(move_distance)) {
+      emitln("add fp, sp, #" + std::to_string(move_distance));
+    } else {
+      auto pieces = ArmHelper::DivideIntoImmediateValues(move_distance);
+      for (auto val : pieces) {
+        emitln("add fp, sp, #" + std::to_string(val));
+      }
+    }
+    if (count > 0) {
+      emitln("ldr lr, =" + std::to_string(count));
+      std::string loop_label = "_call_ret_loop_" + std::to_string(++this->counter);
+      emitln(loop_label + ":");
+      emitln("ldr ip, [sp, #-4]!");
+      emitln("str ip, [fp, #-4]!");
+      emitln("subs lr, #1");
+      emitln("bgt " + loop_label);
+    }
+    emitln("mov sp, fp");
+
+    //可以call了
+    emitln("bl " + tac->b_->get_tac_name(true));
+
+    //现在把sp放到参数后
+    {
+      int delta_distance = real_stack_args_size;
+      if (padding) {
+        delta_distance -= 16;
+      } else {
+        delta_distance -= 12;
+      }
+      if(ArmHelper::IsImmediateValue(delta_distance)){
+        emitln("sub sp, sp, #" + std::to_string(delta_distance));
+      }else{
+        emitln("ldr lr, =" + std::to_string(delta_distance));
+        emitln("sub sp, sp, lr");
+      }
+    }
+  
+
+    emitln("pop {fp, ip, lr}");
+    if (padding) {
+      emitln("add sp, sp, #4");
+    }
+    emitln("bx lr");
+
+    func_context_.arg_nfloatregs_ = 0;
+    func_context_.arg_nintregs_ = 0;
+    func_context_.arg_stacksize_ = 0;
+    func_context_.arg_records_.clear();    
+  };
+
   auto functionality = [&, this]() -> void {
     switch (tac->operation_) {
       case TACOperationType::Argument:
@@ -1570,7 +1912,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       func_context_.parameter_head_ = false;
       functionality();
       break;
-
+    case TACOperationType::CallAndReturn:
+      func_context_.parameter_head_ = false;
+      do_call_return();
+      break;
     case TACOperationType::Variable:
     case TACOperationType::Constant: {
       func_context_.parameter_head_ = false;

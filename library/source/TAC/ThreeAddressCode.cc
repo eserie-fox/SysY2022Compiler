@@ -109,6 +109,8 @@ std::string ThreeAddressCode::ToString() const {
       return "bend";
     case TACOperationType::ArgumentAddress:
       return "arg & " + a_->get_tac_name();
+    case TACOperationType::CallAndReturn:
+      return "retcall " + b_->get_tac_name(true);
     default:
       return "Undefined";
   }
