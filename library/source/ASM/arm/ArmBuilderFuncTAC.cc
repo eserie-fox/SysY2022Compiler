@@ -1742,7 +1742,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //可以call了
     emitln("bl " + tac->b_->get_tac_name(true));
 
-    //现在把sp放到参数后
+    //现在把sp放到参数前
     {
       int delta_distance = real_stack_args_size;
       if (padding) {
@@ -1751,10 +1751,10 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         delta_distance -= 12;
       }
       if(ArmHelper::IsImmediateValue(delta_distance)){
-        emitln("sub sp, sp, #" + std::to_string(delta_distance));
+        emitln("add sp, sp, #" + std::to_string(delta_distance));
       }else{
         emitln("ldr lr, =" + std::to_string(delta_distance));
-        emitln("sub sp, sp, lr");
+        emitln("add sp, sp, lr");
       }
     }
   
