@@ -470,6 +470,139 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   auto binary_operation = [&, this]() -> void {
     assert(tac->a_->value_.Type() == tac->b_->value_.Type());
     assert(tac->b_->value_.Type() == tac->c_->value_.Type());
+    
+    //此block尝试对常量加载进行优化
+    {
+      bool b_const = tac->b_->type_ == SymbolType::Constant;
+      bool c_const = tac->c_->type_ == SymbolType::Constant;
+      //不能俩都是const
+      assert(!(b_const && c_const));
+      if (tac->a_->value_.Type() != SymbolValue::ValueType::Float) {
+        //对于int常量，且其能被立即数表示，则可以优化
+        if (b_const && ArmHelper::IsImmediateValue(tac->b_->value_.GetInt())) {
+          int immvalue = tac->b_->value_.GetInt();
+          switch (tac->operation_) {
+            case TACOperationType::LessOrEqual:
+            case TACOperationType::LessThan:
+            case TACOperationType::NotEqual:
+            case TACOperationType::GreaterOrEqual:
+            case TACOperationType::GreaterThan:
+            case TACOperationType::Equal: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op2reg = alloc_reg(tac->c_, resreg);
+              emitln("cmp " + IntRegIDToName(op2reg) + ", #" + std::to_string(immvalue));
+              // GreaterThan<=>LessThan  GreaterOrEqual<=>LessOrEqual
+              switch (tac->operation_) {
+                case TACOperationType::GreaterOrEqual:
+                  emitln("movle " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::GreaterThan:
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movge " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::NotEqual:
+                  emitln("movne " + IntRegIDToName(resreg) + ", #1");
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::LessOrEqual:
+                  emitln("movge " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::LessThan:
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movle " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::Equal:
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movne " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                default:
+                  throw std::logic_error("Unreachable");
+              }
+              return;
+            }
+            case TACOperationType::Add: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op2reg = alloc_reg(tac->c_, resreg);
+              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            case TACOperationType::Sub: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op2reg = alloc_reg(tac->c_, resreg);
+              emitln("rsb " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            default:
+              break;
+          }
+        } else if (c_const && ArmHelper::IsImmediateValue(tac->c_->value_.GetInt())) {
+          int immvalue = tac->c_->value_.GetInt();
+          switch (tac->operation_) {
+            case TACOperationType::LessOrEqual:
+            case TACOperationType::LessThan:
+            case TACOperationType::NotEqual:
+            case TACOperationType::GreaterOrEqual:
+            case TACOperationType::GreaterThan:
+            case TACOperationType::Equal: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op1reg = alloc_reg(tac->b_, resreg);
+              emitln("cmp " + IntRegIDToName(op1reg) + ", #" + std::to_string(immvalue));
+
+              switch (tac->operation_) {
+                case TACOperationType::LessOrEqual:
+                  emitln("movle " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::LessThan:
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movge " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::NotEqual:
+                  emitln("movne " + IntRegIDToName(resreg) + ", #1");
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::GreaterOrEqual:
+                  emitln("movge " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::GreaterThan:
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movle " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::Equal:
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movne " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                default:
+                  throw std::logic_error("Unreachable");
+              }
+              return;
+            }
+            case TACOperationType::Add: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op1reg = alloc_reg(tac->b_, resreg);
+              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            case TACOperationType::Sub: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op1reg = alloc_reg(tac->b_, resreg);
+              emitln("sub " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            default:
+              break;
+          }
+        }
+      }
+    }
+
     std::tuple<int, int, int, int> prepare_res;
     if (!(tac->a_->value_.Type() != SymbolValue::ValueType::Float &&
           (tac->operation_ == TACOperationType::Div || tac->operation_ == TACOperationType::Mod) &&
@@ -958,12 +1091,22 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         emitln("str " + IntRegIDToName(valreg) + ", [" + IntRegIDToName(dstreg) + "]");
       }
     } else {
-      int valreg = alloc_reg(tac->b_);
-      int dstreg = alloc_reg(tac->a_, valreg, true);
-      if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-        emitln("vmov.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
+      if (tac->b_->value_.UnderlyingType() != SymbolValue::ValueType::Float && tac->b_->type_ == SymbolType::Constant) {
+        int dstreg = alloc_reg(tac->a_, -1, true);
+        int immvalue = tac->b_->value_.GetInt();
+        if (ArmHelper::IsImmediateValue(immvalue)) {
+          emitln("mov " + IntRegIDToName(dstreg) + ", #" + std::to_string(immvalue));
+        } else {
+          emitln("ldr " + IntRegIDToName(dstreg) + ", =" + std::to_string(immvalue));
+        }
       } else {
-        emitln("mov " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
+        int valreg = alloc_reg(tac->b_);
+        int dstreg = alloc_reg(tac->a_, valreg, true);
+        if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
+          emitln("vmov.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
+        } else {
+          emitln("mov " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
+        }
       }
     }
   };
