@@ -234,9 +234,10 @@ bool ArmBuilder::TranslateFunction() {
   {
     if (OP_flag)
     {
-      // 目前只进行死代码删除优化
-      DeadCodeOptimizer optimizer(tac_list_, current_, end_);
-      optimizer.optimize();
+      SimpleOptimizer optimizer1(tac_list_, current_, end_);
+        optimizer1.optimize();
+      DeadCodeOptimizer optimizer2(tac_list_, current_, end_);
+        optimizer2.optimize();
     }
 
     // 生成控制流图
