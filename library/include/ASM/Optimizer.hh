@@ -24,5 +24,20 @@ private:
     bool hasSideEffect(SymbolPtr defSym, TACPtr tac);
 };
 
-}
+//会将一些简单情况优化掉。
+// 情况1，+0会被优化成assign
+// 情况2，*1会被优化成assign
+// 情况3，自己对自己assign会被去掉。
+class SimpleOptimizer {
+  NONCOPYABLE(SimpleOptimizer)
+ public:
+  SimpleOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend);
+
+  void optimize();
+
+ private:
+  TACList::iterator fbegin_, fend_;
+  TACListPtr tacls_;
+};
+}  // namespace AssemblyBuilder
 }
