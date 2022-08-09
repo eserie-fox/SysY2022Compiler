@@ -179,9 +179,7 @@ bool ArmBuilder::TranslateGlobal() {
   emitln("push {r4-r12, lr}");
   emitln("vpush {s16-s31}");
   glob_context_.stack_size_for_regsave_ = 10 * 4 + 16 * 4;
-  if (ArmHelper::IsImmediateValue(glob_context_.stack_size_for_vars_)) {
-    emitln("sub sp, sp, #" + std::to_string(glob_context_.stack_size_for_vars_));
-  } else {
+  if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", glob_context_.stack_size_for_vars_)) {
     emitln("ldr ip, =" + std::to_string(glob_context_.stack_size_for_vars_));
     emitln("sub sp, sp, ip");
   }
@@ -211,9 +209,7 @@ bool ArmBuilder::TranslateGlobal() {
     std::cerr << e.what() << std::endl;
     return false;
   }
-  if (ArmHelper::IsImmediateValue(glob_context_.stack_size_for_vars_)) {
-    emitln("add sp, sp, #" + std::to_string(glob_context_.stack_size_for_vars_));
-  } else {
+  if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", glob_context_.stack_size_for_vars_)) {
     emitln("ldr ip, =" + std::to_string(glob_context_.stack_size_for_vars_));
     emitln("add sp, sp, ip");
   }
@@ -344,7 +340,8 @@ bool ArmBuilder::TranslateFunction() {
   size_t test_varsize_imm = 0;
   for (auto immval : var_stack_immvals) {
     test_varsize_imm += immval;
-    emitln("sub sp, sp, #" + std::to_string(immval));
+    bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", immval);
+    assert(check);
   }
   assert((int)test_varsize_imm == func_context_.stack_size_for_vars_);
 

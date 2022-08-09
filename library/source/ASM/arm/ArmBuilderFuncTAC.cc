@@ -96,7 +96,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
       //把sp减回去
       for (auto it = splitoffset.rbegin(); it != splitoffset.rend(); it++) {
-        emitln("sub sp, sp, #" + std::to_string(*it));
+        bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", *it);
+        assert(check);
       }
     }
     *target_sym = nullptr;
@@ -181,7 +182,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
       //把sp减回去
       for (auto it = splitoffset.rbegin(); it != splitoffset.rend(); it++) {
-        emitln("sub sp, sp, #" + std::to_string(*it));
+        bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", *it);
+        assert(check);
       }
     }
     *target_sym = nullptr;
@@ -604,10 +606,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
               emitln("mov " + IntRegIDToName(otherreg) + ", " + IntRegIDToName(op1reg));
               op1reg = otherreg;
             }
-
-            if (ArmHelper::IsImmediateValue(mask)) {
-              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" + std::to_string(mask));
-            } else {
+            if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", IntRegIDToName(resreg), IntRegIDToName(op1reg),
+                                                       mask)) {
               emitln("ldr " + IntRegIDToName(resreg) + ", =" + std::to_string(mask));
               emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
             }
@@ -1331,9 +1331,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //去掉所有栈上arg
     uint32_t toaddstack = padding ? 4 : 0;
     toaddstack += nstackarg * 4;
-    if (ArmHelper::IsImmediateValue(toaddstack)) {
-      emitln("add sp, sp, #" + std::to_string(toaddstack));
-    } else {
+    if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", toaddstack)) {
       auto splitaddstack = ArmHelper::DivideIntoImmediateValues(toaddstack);
       for (auto value : splitaddstack) {
         emitln("add sp, sp, #" + std::to_string(value));
@@ -1404,7 +1402,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
     //释放变量栈空间
     for (auto immval : func_context_.var_stack_immvals_) {
-      emitln("add sp, sp, #" + std::to_string(immval));
+      bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", immval);
+      assert(check);
     }
 
     //还原寄存器
@@ -1665,10 +1664,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //把当前所有栈都退掉，推到本函数保存寄存器处
     {
       int totalsize = func_context_.stack_size_for_args_ + func_context_.stack_size_for_vars_;
-
-      if (ArmHelper::IsImmediateValue(totalsize)) {
-        emitln("add sp, sp, #" + std::to_string(totalsize));
-      } else {
+      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", totalsize)) {
         auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
         for (auto val : pieces) {
           emitln("add sp, sp, #" + std::to_string(val));
@@ -1709,9 +1705,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         stack_start_of_args -= 4;
       }
       int totalsize = func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args;
-      if (ArmHelper::IsImmediateValue(totalsize)) {
-        emitln("sub sp, sp, #" + std::to_string(totalsize));
-      } else {
+      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", totalsize)) {
         auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
         for (auto val : pieces) {
           emitln("sub sp, sp, #" + std::to_string(val));
@@ -1733,9 +1727,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         (int)func_context_.stack_size_for_regsave_ + (int)func_context_.stack_size_for_vars_ + stack_start_of_args;
 
     //将fp置为本函数开头位置
-    if (ArmHelper::IsImmediateValue(move_distance)) {
-      emitln("add fp, sp, #" + std::to_string(move_distance));
-    } else {
+    if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "fp", "sp", move_distance)) {
       auto pieces = ArmHelper::DivideIntoImmediateValues(move_distance);
       for (auto val : pieces) {
         emitln("add fp, sp, #" + std::to_string(val));
@@ -1758,9 +1750,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //现在把sp放到参数前
     {
       int delta_distance = real_stack_args_size - 12;
-      if(ArmHelper::IsImmediateValue(delta_distance)){
-        emitln("add sp, sp, #" + std::to_string(delta_distance));
-      }else{
+      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", delta_distance)) {
         emitln("ldr lr, =" + std::to_string(delta_distance));
         emitln("add sp, sp, lr");
       }
@@ -1840,9 +1830,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     auto arrayAttr = func_context_.reg_alloc_->get_ArrayAttribute(tac->a_);
     int reg = alloc_reg(tac->a_);
     int32_t realoffset = arrayAttr.value + func_context_.stack_size_for_args_;
-    if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
-      emitln("add " + IntRegIDToName(reg) + ", sp, #" + std::to_string(realoffset));
-    } else {
+    if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", IntRegIDToName(reg), "sp", realoffset)) {
       emitln("ldr " + IntRegIDToName(reg) + ", =" + std::to_string(realoffset));
       emitln("add " + IntRegIDToName(reg) + ", sp, " + IntRegIDToName(reg));
     }
