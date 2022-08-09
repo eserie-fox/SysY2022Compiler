@@ -9,6 +9,7 @@
 #include "ASM/arm/RegAllocator.hh"
 #include "MagicEnum.hh"
 #include "TAC/TAC.hh"
+#include "Utility.hh"
 
 namespace HaveFunCompiler {
 using namespace ThreeAddressCode;
@@ -626,7 +627,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             evit_int_reg(1);
             emitln("push {r1-r3, ip}");
             if (op1reg < op2reg) {
-              emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+              emitln("push {" + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg) + "}");
             } else {
               emitln("push {" + IntRegIDToName(op2reg) + "}");
               emitln("push {" + IntRegIDToName(op1reg) + "}");
@@ -741,7 +742,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             evit_int_reg(1);
             emitln("push {r1-r3, ip}");
             if (op1reg < op2reg) {
-              emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+              emitln("push {" + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg) + "}");
             } else {
               emitln("push {" + IntRegIDToName(op2reg) + "}");
               emitln("push {" + IntRegIDToName(op1reg) + "}");
@@ -1417,16 +1418,29 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
 
     //还原通用寄存器
-    for (auto regid : func_context_.saveintregs_) {
-      if (regid.first == regid.second) {
-        emitln("pop { " + IntRegIDToName(regid.first) + " }");
-      } else {
-        emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
-      }
+    bool pop_pc = false;
+    if (Contains(func_context_.saveintregs_, LR_REGID) && !Contains(func_context_.saveintregs_, PC_REGID)) {
+      pop_pc = true;
     }
-
-    //这里没有用栈来pop lr到sp位置
-    emitln("bx lr");
+    if (!func_context_.saveintregs_.empty()) {
+      std::string inst = "pop {";
+      for (size_t i = 0; i < func_context_.saveintregs_.size(); i++) {
+        int regid = func_context_.saveintregs_[i];
+        if (pop_pc && regid == LR_REGID) {
+          regid = PC_REGID;
+        }
+        inst += IntRegIDToName(regid);
+        if (i + 1 < func_context_.saveintregs_.size()) {
+          inst += ", ";
+        }
+      }
+      inst += "}";
+      emitln(inst);
+    }
+    if (!pop_pc) {
+      //没有用栈来pop lr到sp位置
+      emitln("bx lr");
+    }
   };
 
   auto do_call_return = [&, this]() -> void {
@@ -1673,18 +1687,28 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
 
     //还原通用寄存器
-    for (auto regid : func_context_.saveintregs_) {
-      if (regid.first == regid.second) {
-        emitln("pop { " + IntRegIDToName(regid.first) + " }");
-      } else {
-        emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+    if (!func_context_.saveintregs_.empty()) {
+      std::string inst = "pop {";
+      for (size_t i = 0; i < func_context_.saveintregs_.size(); i++) {
+        inst += IntRegIDToName(func_context_.saveintregs_[i]);
+        if (i + 1 < func_context_.saveintregs_.size()) {
+          inst += ", ";
+        }
       }
+      inst += "}";
+      emitln(inst);
     }
 
+    // bool padding = false;
     //回到函数参数前端，留三位置放寄存器
     {
-      int totalsize =
-          func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args - 3 * 4;
+      stack_start_of_args -= 3 * 4;
+      //对齐一下
+      if ((func_context_.stack_size_for_args_ - stack_start_of_args) % 8 != 0) {
+        // padding = true;
+        stack_start_of_args -= 4;
+      }
+      int totalsize = func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args;
       if (ArmHelper::IsImmediateValue(totalsize)) {
         emitln("sub sp, sp, #" + std::to_string(totalsize));
       } else {
@@ -1696,23 +1720,12 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
     //保存三寄存器用来临时倒腾
     emitln("push {fp, ip, lr}");
-    stack_start_of_args -= 3 * 4;
-    
+    //重新回到顶部
+    emitln("add sp, sp, #12");
+
     //这是真实参数栈大小
     int real_stack_args_size = (int)func_context_.stack_size_for_args_ - stack_start_of_args;
 
-    bool padding = false;
-    //对齐一下
-    if (real_stack_args_size % 8 != 0) {
-      padding = true;
-      //补充一个空格
-      emitln("add sp, sp, #16");
-      stack_start_of_args -= 4;
-      real_stack_args_size += 4;
-    } else {
-      //把压的寄存器也算作arg
-      emitln("add sp, sp, #12");
-    }
 
     //现在开始挪动，可以自由使用ip和fp寄存器
     int count = real_stack_args_size / 4;
@@ -1744,12 +1757,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
     //现在把sp放到参数前
     {
-      int delta_distance = real_stack_args_size;
-      if (padding) {
-        delta_distance -= 16;
-      } else {
-        delta_distance -= 12;
-      }
+      int delta_distance = real_stack_args_size - 12;
       if(ArmHelper::IsImmediateValue(delta_distance)){
         emitln("add sp, sp, #" + std::to_string(delta_distance));
       }else{
@@ -1757,13 +1765,11 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         emitln("add sp, sp, lr");
       }
     }
-  
 
-    emitln("pop {fp, ip, lr}");
-    if (padding) {
-      emitln("add sp, sp, #4");
-    }
-    emitln("bx lr");
+    // pop pc 代替 pop lr  然后 bx lr
+    emitln("pop {fp, ip, pc}");
+
+    // emitln("bx lr");
 
     func_context_.arg_nfloatregs_ = 0;
     func_context_.arg_nintregs_ = 0;

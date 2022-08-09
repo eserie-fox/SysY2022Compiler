@@ -277,14 +277,14 @@ bool ArmBuilder::TranslateFunction() {
   //将要用到的寄存器保存起来
   func_context_.func_attr_ = func_context_.reg_alloc_->get_SymAttribute(func_label);
   //保存了的寄存器列表
-  std::vector<std::pair<uint32_t, uint32_t>> &saveintregs = func_context_.saveintregs_;
+  std::vector<uint32_t> &saveintregs = func_context_.saveintregs_;
   std::vector<std::pair<uint32_t, uint32_t>> &savefloatregs = func_context_.savefloatregs_;
   auto push_reg = [](std::vector<std::pair<uint32_t, uint32_t>> &reg_list, uint32_t newreg) -> void {
     if (reg_list.empty()) {
       reg_list.emplace_back(newreg, newreg);
       return;
     }
-    if (reg_list.back().second == newreg - 1) {
+    if (reg_list.back().second == newreg - 1 && (newreg - reg_list.back().first + 1) <= 16) {
       reg_list.back().second = newreg;
       return;
     }
@@ -296,26 +296,28 @@ bool ArmBuilder::TranslateFunction() {
     //如果第i号通用寄存器要用
     if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, i)) {
       //那么保存它
-      push_reg(saveintregs, i);
+      saveintregs.push_back(i);
       func_context_.stack_size_for_regsave_ += 4;
     }
   }
 
   //如果lr会被用到单独保存一下
   if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, LR_REGID)) {
-    push_reg(saveintregs, LR_REGID);
+    saveintregs.push_back(LR_REGID);
     func_context_.stack_size_for_regsave_ += 4;
   }
 
   //保存刚才确定好的通用寄存器
-  {
-    for (auto regid : saveintregs) {
-      if (regid.first == regid.second) {
-        emitln("push { " + IntRegIDToName(regid.first) + " }");
-      } else {
-        emitln("push { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+  if (!saveintregs.empty()) {
+    std::string inst = "push {";
+    for (size_t i = 0; i < saveintregs.size(); i++) {
+      inst += IntRegIDToName(saveintregs[i]);
+      if (i + 1 < saveintregs.size()) {
+        inst += ", ";
       }
     }
+    inst += "}";
+    emitln(inst);
   }
   //保存浮点寄存器
   for (int i = 16; i < 32; i++) {
@@ -349,7 +351,7 @@ bool ArmBuilder::TranslateFunction() {
   //为后面栈的释放我们反向一下。
   std::reverse(var_stack_immvals.begin(), var_stack_immvals.end());
   std::reverse(savefloatregs.begin(), savefloatregs.end());
-  std::reverse(saveintregs.begin(), saveintregs.end());
+  // std::reverse(saveintregs.begin(), saveintregs.end());
 
   //函数体翻译
   //跳过label和fbegin
