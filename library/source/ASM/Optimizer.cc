@@ -153,6 +153,26 @@ void SimpleOptimizer::optimize() {
         break;
       }
 
+      case TACOperationType::Mod: {
+        if (tac.b_->type_ == SymbolType::Constant) {
+          if (iszero(tac.b_)) {
+            change2assign(tac, tac.a_, tac.b_);
+            break;
+          }
+        }
+        if (tac.c_->type_ == SymbolType::Constant) {
+          if (isone(tac.c_)) {
+            if (tac.a_->value_.Type() != SymbolValue::ValueType::Float) {
+              auto sym = std::make_shared<Symbol>();
+              sym->type_ = SymbolType::Constant;
+              sym->value_ = SymbolValue(0);
+              change2assign(tac, tac.a_, sym);
+            }
+            break;
+          }
+        }
+        break;
+      }
     default:
       break;
     }
