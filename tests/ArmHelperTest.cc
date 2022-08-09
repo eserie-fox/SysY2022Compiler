@@ -5,8 +5,8 @@ using namespace HaveFunCompiler;
 using namespace HaveFunCompiler::AssemblyBuilder;
 
 TEST(ArmHelper, IsImmediateValue) {
-  std::vector<uint32_t> vals = {4000016, 3997696, 2320, 510, 1540096, static_cast<uint32_t>(-1540096)};
-  std::vector<char> ans = {0, 1, 1, 0, 1, 0};
+  std::vector<uint32_t> vals = {4000016, 3997696, 2320, 510, 1540096, static_cast<uint32_t>(-1540096), 32640, 65280};
+  std::vector<char> ans = {0, 1, 1, 0, 1, 0, 0, 1};
   for (unsigned i = 0; i < vals.size(); i++) {
     char res = ArmHelper::IsImmediateValue(vals[i]);
     EXPECT_EQ(ans[i], res);
