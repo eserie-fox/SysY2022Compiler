@@ -251,7 +251,7 @@ bool ArmBuilder::TranslateFunction() {
     for (auto it : deadCode) tac_list_->erase(it);
 
     // 解析寄存器分配
-    func_context_.reg_alloc_ = new RegAllocator(LiveAnalyzer(cfg));
+    func_context_.reg_alloc_ = new RegAllocator(LiveIntervalAnalyzer(cfg));
   }
   //开头label包含了函数名
   auto func_label = (*current_)->a_;

@@ -18,7 +18,7 @@ enum class TACOperationType;
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
-class LiveAnalyzer;
+class LiveIntervalAnalyzer;
 struct SymLiveInfo;
 
 using LiveInterval = std::pair<size_t, size_t>;
@@ -114,7 +114,7 @@ public:
 
     NONCOPYABLE(RegAllocator)
 
-    RegAllocator(const LiveAnalyzer&);
+    RegAllocator(const LiveIntervalAnalyzer&);
 
     SymAttribute get_SymAttribute(SymPtr sym);
     SymAttribute get_ArrayAttribute(SymPtr arrPtr);
@@ -198,7 +198,7 @@ public:
 
 private:
     // 得到局部变量、参数列表，建立指针到栈上数组的映射
-    void ContextInit(const LiveAnalyzer&);
+    void ContextInit(const LiveIntervalAnalyzer&);
 
     // 得到每个参数传入时占用的寄存器或栈空间
     // 保存在该参数SymPtr对应的SymAttribute中
@@ -211,7 +211,7 @@ private:
      * 保证参数地址的重定位不会产生循环引用。
      * 
     */
-    void LinearScan(const LiveAnalyzer& liveAnalyzer);
+    void LinearScan(const LiveIntervalAnalyzer& LiveIntervalAnalyzer);
 
     // 封装线性扫描时获取SymAttribute的过程
     // sym为参数，直接获取

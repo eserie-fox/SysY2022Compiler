@@ -26,7 +26,7 @@ std::ostream& operator<<(std::ostream& os, const SymLiveInfo& liveInfo)
     return os;
 }
 
-TEST(LiveAnalyzerTest, test)
+TEST(LiveIntervalAnalyzerTest, test)
 {
     HaveFunCompiler::Parser::Driver driver;
     HaveFunCompiler::Parser::TACDriver tacdriver;
@@ -46,14 +46,14 @@ TEST(LiveAnalyzerTest, test)
     std::shared_ptr<ControlFlowGraph> cfg = std::make_shared<ControlFlowGraph>(tac_list);
     cfg->printToDot();
 
-    LiveAnalyzer liveAnalyzer(cfg);
-    auto symSet = liveAnalyzer.get_allSymSet();
+    LiveIntervalAnalyzer LiveIntervalAnalyzer(cfg);
+    auto symSet = LiveIntervalAnalyzer.get_allSymSet();
 
     std::cout << "LiveInfo:\n";
     for (auto sym : symSet)
     {
         std::cout << "sym \"" << sym->get_tac_name(true) << "\":\n";
-        auto liveInfo = liveAnalyzer.get_symLiveInfo(sym);
+        auto liveInfo = LiveIntervalAnalyzer.get_symLiveInfo(sym);
         if (liveInfo)
             std::cout << *liveInfo;
     }

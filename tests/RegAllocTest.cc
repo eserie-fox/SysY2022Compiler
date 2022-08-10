@@ -87,9 +87,9 @@ TEST(RegAllocTest, test)
     std::shared_ptr<ControlFlowGraph> cfg = std::make_shared<ControlFlowGraph>(tac_list);
     cfg->printToDot();
 
-    LiveAnalyzer liveAnalyzer(cfg);
-    auto symSet = liveAnalyzer.get_allSymSet();
-    RegAllocator regAllocator(liveAnalyzer);
+    LiveIntervalAnalyzer LiveIntervalAnalyzer(cfg);
+    auto symSet = LiveIntervalAnalyzer.get_allSymSet();
+    RegAllocator regAllocator(LiveIntervalAnalyzer);
 
     // 统计信息，判断是否出现冲突的分配
     regAllocStatic r[RegAllocator::intRegPoolSize], s[RegAllocator::floatRegPoolSize];
@@ -99,7 +99,7 @@ TEST(RegAllocTest, test)
     {
         std::cout << "sym \"" << sym->get_tac_name(true) << "\":\n";
         std::cout << "LiveInfo:\n";
-        auto liveInfo = liveAnalyzer.get_symLiveInfo(sym);
+        auto liveInfo = LiveIntervalAnalyzer.get_symLiveInfo(sym);
         if (liveInfo)
             std::cout << *liveInfo;
 

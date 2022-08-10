@@ -19,13 +19,13 @@ using namespace HaveFunCompiler::ThreeAddressCode;
 
 // };
 
-void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
+void RegAllocator::ContextInit(const LiveIntervalAnalyzer& LiveIntervalAnalyzer)
 {
     if (intRegParamUsableNumber + 2 >= intRegPoolSize || floatRegParamUsableNumber + 2 >= floatRegPoolSize) 
         throw std::runtime_error("RegAllocator: Register config error");
 
-    auto it = liveAnalyzer.get_fbegin();
-    auto fend = liveAnalyzer.get_fend();
+    auto it = LiveIntervalAnalyzer.get_fbegin();
+    auto fend = LiveIntervalAnalyzer.get_fend();
     std::unordered_set<SymPtr> tmpParams;
 
     // 提取参数列表
@@ -40,7 +40,7 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
     }
 
     // 提取局部变量列表
-    auto& allSymSet = liveAnalyzer.get_allSymSet();
+    auto& allSymSet = LiveIntervalAnalyzer.get_allSymSet();
     for (auto sym : allSymSet)
     {
         if (tmpParams.find(sym) == tmpParams.end() && !sym->IsGlobal())
@@ -51,7 +51,7 @@ void RegAllocator::ContextInit(const LiveAnalyzer& liveAnalyzer)
         }
     }
 
-    // for (auto it = liveAnalyzer.get_fbegin(); it != liveAnalyzer.get_fend(); ++it)
+    // for (auto it = LiveIntervalAnalyzer.get_fbegin(); it != LiveIntervalAnalyzer.get_fend(); ++it)
     // {
     //     auto &tac = *it;
     //     if (tac->operation_ == TACOperationType::Parameter)  // tac是形参声明
@@ -159,7 +159,7 @@ SymAttribute& RegAllocator::fetchSymAttr(const SymInfo &symInfo)
     }
 }
 
-void RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
+void RegAllocator::LinearScan(const LiveIntervalAnalyzer& LiveIntervalAnalyzer)
 {
     // 得到参数传入时占用的地址，同时为每个参数创建了Attribute对象，保存在symAttrMap中
     getParamAddr();
@@ -169,17 +169,17 @@ void RegAllocator::LinearScan(const LiveAnalyzer& liveAnalyzer)
     std::priority_queue<SymInfo> syms;
     for (auto var : localSym)
     {
-        auto liveInfo = liveAnalyzer.get_symLiveInfo(var);
+        auto liveInfo = LiveIntervalAnalyzer.get_symLiveInfo(var);
         if (!liveInfo)
-            throw std::runtime_error("LiveAnalyzer fault: there are local variables that are not analyzed.");
+            throw std::runtime_error("LiveIntervalAnalyzer fault: there are local variables that are not analyzed.");
         syms.emplace(var, LOCAL_VAR, fetchSymValueType(var), &liveInfo->liveIntervalSet, SymInfo::calculateSpillCost(liveInfo->defCnt, liveInfo->useCnt));
     }
     
     for (auto param : paramLs)
     {
-        auto liveInfo = liveAnalyzer.get_symLiveInfo(param);
+        auto liveInfo = LiveIntervalAnalyzer.get_symLiveInfo(param);
         if (!liveInfo)
-            throw std::runtime_error("LiveAnalyzer fault: there are parameters that are not analyzed.");
+            throw std::runtime_error("LiveIntervalAnalyzer fault: there are parameters that are not analyzed.");
         syms.emplace(param, PARAM, fetchSymValueType(param), &liveInfo->liveIntervalSet, SymInfo::calculateSpillCost(liveInfo->defCnt, liveInfo->useCnt));
     }
 
@@ -368,14 +368,14 @@ bool RegAllocator::RegInfo::AllocToSym(const std::set<LiveInterval> &symRanges)
     return true;
 }
 
-RegAllocator::RegAllocator(const LiveAnalyzer& liveAnalyzer)
+RegAllocator::RegAllocator(const LiveIntervalAnalyzer& LiveIntervalAnalyzer)
 {
     // 得到函数中的局部变量、参数列表
-    ContextInit(liveAnalyzer);
+    ContextInit(LiveIntervalAnalyzer);
     // 线性扫描
-    LinearScan(liveAnalyzer);
+    LinearScan(LiveIntervalAnalyzer);
     // 在symAttrMap中添加函数属性
-    if (symAttrMap.emplace((*liveAnalyzer.get_fbegin())->a_, funcAttr).second == false)
+    if (symAttrMap.emplace((*LiveIntervalAnalyzer.get_fbegin())->a_, funcAttr).second == false)
         throw std::runtime_error("RegAllocator error: Unable to insert function attribute");
 }
 

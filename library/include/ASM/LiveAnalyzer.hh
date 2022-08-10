@@ -9,6 +9,7 @@
 #include <optional>
 #include "ASM/Common.hh"
 #include "MacroUtil.hh"
+#include "ASM/DataFlowAnalyzer.hh"
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {
@@ -19,23 +20,22 @@ enum class TACOperationType;
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
-class ControlFlowGraph;
 
 // 变量(std::shared_ptr<Symbol>)与整数下标(size_t)的映射
-class SymIdxMapping
-{
-private:
-    using SymPtr = std::shared_ptr<HaveFunCompiler::ThreeAddressCode::Symbol>;
+// class SymIdxMapping
+// {
+// private:
+//     using SymPtr = std::shared_ptr<HaveFunCompiler::ThreeAddressCode::Symbol>;
 
-    std::unordered_map<SymPtr, size_t> s2i;
-    std::vector<SymPtr> i2s;
+//     std::unordered_map<SymPtr, size_t> s2i;
+//     std::vector<SymPtr> i2s;
 
-public:
-    SymIdxMapping() {}
-    bool insert(SymPtr var);
-    std::optional<size_t> getSymIdx(SymPtr ptr) const;
-    std::optional<SymPtr> getSymPtr(size_t idx) const;
-};
+// public:
+//     SymIdxMapping() {}
+//     bool insert(SymPtr var);
+//     std::optional<size_t> getSymIdx(SymPtr ptr) const;
+//     std::optional<SymPtr> getSymPtr(size_t idx) const;
+// };
 
 using LiveInterval = std::pair<size_t, size_t>;
 
@@ -68,7 +68,19 @@ struct SymLiveInfo
     void updateIntervalEndPoint();
 };
 
-class LiveAnalyzer
+using LiveInfo = std::unordered_set<SymbolPtr>;
+class LiveAnalyzer : public DataFlowAnalyzerBackWard<LiveInfo>
+{
+public:
+    LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
+    NONCOPYABLE(LiveAnalyzer)
+
+private:
+    void transOp(size_t x, size_t y) override;
+    void transFunc(size_t u) override;
+};
+
+class LiveIntervalAnalyzer
 {
 public:
 
@@ -88,8 +100,8 @@ public:
 
 public:
 
-    NONCOPYABLE(LiveAnalyzer)
-    LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
+    NONCOPYABLE(LiveIntervalAnalyzer)
+    LiveIntervalAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
 
     iterator get_fbegin() const;
     iterator get_fend() const;

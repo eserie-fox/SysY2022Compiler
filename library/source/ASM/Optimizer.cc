@@ -12,7 +12,7 @@ using namespace ThreeAddressCode;
 void DeadCodeOptimizer::optimize()
 {
     auto cfg = std::make_shared<ControlFlowGraph>(_fbegin, _fend);
-    LiveAnalyzer liveAnalyzer(cfg);
+    LiveIntervalAnalyzer LiveIntervalAnalyzer(cfg);
     std::vector<TACList::iterator> deadCodes;
 
     auto tacNum = cfg->get_nodes_number();
@@ -22,7 +22,7 @@ void DeadCodeOptimizer::optimize()
         auto defSym = tac->getDefineSym();
         if (defSym)
         {
-            auto& nodeLiveInfo = liveAnalyzer.get_nodeLiveInfo(i);
+            auto& nodeLiveInfo = LiveIntervalAnalyzer.get_nodeLiveInfo(i);
             if (nodeLiveInfo.outLive.find(defSym) == nodeLiveInfo.outLive.end() && !hasSideEffect(defSym, tac))
                 deadCodes.push_back(cfg->get_node_itr(i));
         }

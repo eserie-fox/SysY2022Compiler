@@ -6,7 +6,7 @@
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
-class LiveAnalyzer;
+class LiveIntervalAnalyzer;
 
 // optimizer需要保证，不修改fbegin和fend
 class DeadCodeOptimizer

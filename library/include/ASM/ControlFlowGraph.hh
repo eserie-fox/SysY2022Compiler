@@ -49,6 +49,16 @@ public:
         return nodes[n].outNodeList;
     }
 
+    size_t get_inDegree(size_t n) const
+    {
+        return nodes[n].inNodeList.size();
+    }
+
+    size_t get_outDegree(size_t n) const
+    {
+        return nodes[n].outNodeList.size();
+    }
+
     static size_t get_startNode()
     {
         return startNode;
@@ -88,6 +98,11 @@ public:
         return unreachableTACItrList;
     }
 
+    void setDfn();
+//    void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
+
+    inline void eraseNode(size_t u);
+
     // 测试用
     void printToDot() const;
 
@@ -98,10 +113,12 @@ private:
         TACPtr tac;
         std::vector<size_t> inNodeList, outNodeList;
 
-        size_t dfn;  // 结点的dfs序
+        // 结点的dfs序
+        // 在没有dfs排序前，dfn代表该结点是否被删除（不为0存在，为0被删除）
+        size_t dfn;
 
-        Node() { dfn = 0; }
-        Node(TACPtr it) : tac(it) { dfn = 0; } 
+        Node() { dfn = 1; }
+        Node(TACPtr it) : tac(it) { dfn = 1; } 
     };
 
     std::vector<Node> nodes;
@@ -118,16 +135,35 @@ private:
 
     std::string getJmpLabel(TACPtr tac);
 
-    void setDfn();
-//    void doDfn(size_t &cnt, std::vector<bool> &vis, size_t u);
-
-    inline void eraseNode(size_t u);
     void WarnUnreachable() const;
 
     void dfsPrintToDot(size_t n, std::vector<bool> &vis, std::ostream &os) const;
 
 
     static const size_t startNode, endNode;
+
+
+public:
+
+    // 由于图采用懒惰删除，外部可使用这些接口直接迭代nodes数组下标
+    size_t beginIdx() const
+    {
+        return 0;
+    }
+
+    size_t endIdx() const
+    {
+        return nodes.size();
+    }
+
+    size_t nextIdx(size_t idx) const
+    {
+        do
+        {
+            ++idx;
+        } while (idx < nodes.size() && nodes[idx].dfn == 0);
+        return idx;
+    }
 };
 
 }  // namespace AssemblyBuilder

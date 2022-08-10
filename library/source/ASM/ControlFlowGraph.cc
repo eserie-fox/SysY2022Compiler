@@ -109,6 +109,7 @@ size_t ControlFlowGraph::newNode(TACPtr tac)
     return nodes.size() - 1;
 }
 
+// 目前只保证删除不可达结点时维持语义
 void ControlFlowGraph::eraseNode(size_t u)
 {
     auto eraseInVec = [](std::vector<size_t> &vec, size_t val)
@@ -124,6 +125,7 @@ void ControlFlowGraph::eraseNode(size_t u)
         eraseInVec(nodes[v].outNodeList, u);
     for (auto v : nodes[u].outNodeList)
         eraseInVec(nodes[v].inNodeList, u);
+    nodes[u].dfn = 0;
 }
 
 inline std::string ControlFlowGraph::getJmpLabel(TACPtr tac)
@@ -241,6 +243,8 @@ void ControlFlowGraph::dfsPrintToDot(size_t n, std::vector<bool> &vis, std::ostr
             dfsPrintToDot(u, vis, os);
     }
 }
+
+
 
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

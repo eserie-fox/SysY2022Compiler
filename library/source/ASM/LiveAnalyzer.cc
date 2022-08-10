@@ -7,33 +7,33 @@ namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 using HaveFunCompiler::ThreeAddressCode::TACOperationType;
 
-bool SymIdxMapping::insert(SymPtr var)
-{
-    if (i2s.size() == i2s.max_size())
-        throw std::runtime_error("too many variables!");
-    if (s2i.find(var) != s2i.end())
-        return false;
-    s2i.emplace(var, i2s.size());
-    i2s.push_back(var);
-    return true;
-}
+// bool SymIdxMapping::insert(SymPtr var)
+// {
+//     if (i2s.size() == i2s.max_size())
+//         throw std::runtime_error("too many variables!");
+//     if (s2i.find(var) != s2i.end())
+//         return false;
+//     s2i.emplace(var, i2s.size());
+//     i2s.push_back(var);
+//     return true;
+// }
 
-std::optional<size_t> SymIdxMapping::getSymIdx(SymPtr ptr) const
-{
-    auto it = s2i.find(ptr);
-    if (it == s2i.end())
-        return std::nullopt;
-    else
-        return it->second;
-}
+// std::optional<size_t> SymIdxMapping::getSymIdx(SymPtr ptr) const
+// {
+//     auto it = s2i.find(ptr);
+//     if (it == s2i.end())
+//         return std::nullopt;
+//     else
+//         return it->second;
+// }
 
-std::optional<SymIdxMapping::SymPtr> SymIdxMapping::getSymPtr(size_t idx) const
-{
-    if (idx >= i2s.size())
-        return std::nullopt;
-    else
-        return i2s[idx];
-}
+// std::optional<SymIdxMapping::SymPtr> SymIdxMapping::getSymPtr(size_t idx) const
+// {
+//     if (idx >= i2s.size())
+//         return std::nullopt;
+//     else
+//         return i2s[idx];
+// }
 
 void SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
 {
@@ -84,7 +84,7 @@ void SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
 void SymLiveInfo::updateIntervalEndPoint()
 {
     if (liveIntervalSet.empty())
-        throw std::runtime_error("LiveAnalyzer logic error: liveIntervalSet of sym is empty");
+        throw std::runtime_error("LiveIntervalAnalyzer logic error: liveIntervalSet of sym is empty");
     else
     {
         endPoints.first = liveIntervalSet.begin()->first;
@@ -93,7 +93,37 @@ void SymLiveInfo::updateIntervalEndPoint()
 }
 
 
-LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
+LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : DataFlowAnalyzerBackWard<LiveInfo>(controlFlowGraph)
+{
+}
+
+// 活跃信息结点间传递
+// 在结点u的入口活跃，则在结点u的所有前驱出口活跃
+// 框架调用时，y为x的一个后继，活跃信息从y.in传递到x.out
+void LiveAnalyzer::transOp(size_t x, size_t y)
+{
+    for (auto &e : _in[y])
+        _out[x].insert(e);
+}
+
+// 活跃信息在结点u内传递 out->in
+// in = gen ∪ (out - kill)
+// gen = useSet
+// kill = defSet
+void LiveAnalyzer::transFunc(size_t u)
+{
+    auto tac = cfg->get_node_tac(u);
+    auto gen = tac->getUseSym();
+    auto kill = tac->getDefineSym();
+    
+    _in[u] = _out[u];
+    if (_out[u].count(kill))
+        _in[u].erase(kill);
+    for (auto sym : gen)
+        _in[u].insert(sym);
+}
+
+LiveIntervalAnalyzer::LiveIntervalAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
 {
     // 遍历流图，得到每个变量的定值和使用集合，函数中出现的所有变量的集合，局部变量的集合
     bfs();
@@ -185,7 +215,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
     }
 }
 
-void LiveAnalyzer::bfs()
+void LiveIntervalAnalyzer::bfs()
 {
     std::vector<bool> vis(cfg->get_nodes_number(), false);
     std::queue<size_t> q;
@@ -223,12 +253,12 @@ void LiveAnalyzer::bfs()
     }
 }
 
-LiveAnalyzer::iterator LiveAnalyzer::get_fbegin() const
+LiveIntervalAnalyzer::iterator LiveIntervalAnalyzer::get_fbegin() const
 {
     return cfg->get_fbegin();
 }
 
-LiveAnalyzer::iterator LiveAnalyzer::get_fend() const
+LiveIntervalAnalyzer::iterator LiveIntervalAnalyzer::get_fend() const
 {
     return cfg->get_fend();
 }
