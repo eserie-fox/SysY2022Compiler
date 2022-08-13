@@ -21,6 +21,7 @@ class DataFlowManager
 {
 public:
     DataFlowManager(TACList::iterator fbegin, TACList::iterator fend);
+    virtual ~DataFlowManager() = default;
 
     // 修改了结点n对应的三地址码
     virtual void update(size_t n) = 0;
@@ -49,7 +50,18 @@ public:
         return arrivalAnalyzer;
     }
 
+    const TACList::iterator get_fbegin() const
+    {
+        return fbegin_;
+    }
+
+    const TACList::iterator get_fend() const
+    {
+        return fend_;
+    }
+
 protected:
+    TACList::iterator fbegin_, fend_;
     std::shared_ptr<ControlFlowGraph> cfg;
     std::shared_ptr<LiveAnalyzer> liveAnalyzer;
     std::shared_ptr<ArrivalAnalyzer> arrivalAnalyzer;

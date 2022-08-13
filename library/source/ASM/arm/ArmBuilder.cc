@@ -234,10 +234,8 @@ bool ArmBuilder::TranslateFunction() {
   {
     if (OP_flag)
     {
-      SimpleOptimizer optimizer1(tac_list_, current_, end_);
-        optimizer1.optimize();
-      DeadCodeOptimizer optimizer2(tac_list_, current_, end_);
-        optimizer2.optimize();
+      std::shared_ptr<OptimizeController> opController = std::make_shared<OptimizeController_Simple>(tac_list_, current_, end_);
+      opController->doOptimize();
     }
 
     // 生成控制流图

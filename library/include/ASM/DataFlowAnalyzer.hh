@@ -11,37 +11,48 @@
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
-class TopSorter
-{
-public:
-    TopSorter(std::shared_ptr<ControlFlowGraph> _cfg) : cfg(_cfg) {}
-    NONCOPYABLE(TopSorter)
+// class TopSorter
+// {
+// public:
+//     TopSorter(std::shared_ptr<const ControlFlowGraph> _cfg) : cfg(_cfg) {}
+//     NONCOPYABLE(TopSorter)
 
-    enum Dir {FORWARD, BACKWARD};
+//     enum Dir {FORWARD, BACKWARD};
 
-    std::vector<size_t> sort(Dir dir) const;
+//     std::vector<size_t> sort(Dir dir) const;
 
-private:
-    std::shared_ptr<ControlFlowGraph> cfg;
-};
+// private:
+//     std::shared_ptr<const ControlFlowGraph> cfg;
+// };
 
 template <typename S>
 class DataFlowAnalyzer
 {
 public:
-    DataFlowAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : 
+    DataFlowAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : 
         cfg(controlFlowGraph) 
     {
         auto siz = controlFlowGraph->get_nodes_number();
         _in.reserve(siz);
         _out.reserve(siz);
     }
+    virtual ~DataFlowAnalyzer() = default;
 
     NONCOPYABLE(DataFlowAnalyzer)
 
     // 从工作集workList开始数据流分析，直到收敛
     virtual void analyze(std::vector<size_t> &workList) = 0;
     virtual void analyze() = 0;  // 默认所有可达结点为工作集
+
+    const S& getIn(size_t n) const
+    {
+        return _in.at(n);
+    }
+
+    const S& getOut(size_t n) const
+    {
+        return _out.at(n);
+    }
 
 protected:
 
@@ -51,7 +62,7 @@ protected:
     // 结点内的传递函数
     virtual void transFunc(size_t u) = 0;
 
-    std::shared_ptr<ControlFlowGraph> cfg;
+    std::shared_ptr<const ControlFlowGraph> cfg;
     std::unordered_map<size_t, S> _in, _out;   // 每个结点的数据流信息
 };
 
@@ -60,13 +71,12 @@ template <typename S>
 class DataFlowAnalyzerForward : public DataFlowAnalyzer<S>
 {
 public:
-    DataFlowAnalyzerForward(std::shared_ptr<ControlFlowGraph> controlFlowGraph) :
+    DataFlowAnalyzerForward(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) :
         DataFlowAnalyzer<S>(controlFlowGraph)
     {
-        TopSorter topSorter(this->cfg);
-        auto sorted = topSorter.sort(TopSorter::FORWARD);
-        for (size_t i = 0; i < sorted.size(); ++i)
-            priority.emplace(sorted[i], i);
+        // 以dfs序为伪拓扑序
+        for (auto i = this->cfg->beginIdx(); i != this->cfg->endIdx(); i = this->cfg->nextIdx(i))
+            priority.emplace(i, this->cfg->get_node_dfn(i));
     }
 
     NONCOPYABLE(DataFlowAnalyzerForward)
@@ -88,7 +98,7 @@ public:
     }
 
 private:
-    std::unordered_map<size_t, size_t> priority;
+    std::unordered_map<size_t, size_t> priority;   // 结点n的计算优先级（拓扑序）map<n, pri>
 
     void do_analyze(std::set<std::pair<size_t, size_t>> &workSet)
     {
@@ -121,13 +131,12 @@ template <typename S>
 class DataFlowAnalyzerBackWard : public DataFlowAnalyzer<S>
 {
 public:
-    DataFlowAnalyzerBackWard(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : 
+    DataFlowAnalyzerBackWard(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : 
         DataFlowAnalyzer<S>(controlFlowGraph)
     {
-        TopSorter topSorter(this->cfg);
-        auto sorted = topSorter.sort(TopSorter::BACKWARD);
-        for (size_t i = 0; i < sorted.size(); ++i)
-            priority.emplace(sorted[i], i);
+        // 以逆dfs序为伪拓扑序
+        for (auto i = this->cfg->beginIdx(); i != this->cfg->endIdx(); i = this->cfg->nextIdx(i))
+            priority.emplace(i, SIZE_MAX - this->cfg->get_node_dfn(i));
     }
 
     NONCOPYABLE(DataFlowAnalyzerBackWard)

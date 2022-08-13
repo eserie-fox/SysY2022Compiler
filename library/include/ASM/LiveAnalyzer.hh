@@ -72,8 +72,10 @@ using LiveInfo = std::unordered_set<SymbolPtr>;
 class LiveAnalyzer : public DataFlowAnalyzerBackWard<LiveInfo>
 {
 public:
-    LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
+    LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
     NONCOPYABLE(LiveAnalyzer)
+
+    
 
 private:
     void transOp(size_t x, size_t y) override;

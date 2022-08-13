@@ -1,52 +1,66 @@
 #include "ASM/Optimizer.hh"
+#include <vector>
 #include "ASM/ControlFlowGraph.hh"
+#include "ASM/DataFlowManager.hh"
 #include "ASM/LiveAnalyzer.hh"
 #include "TAC/Symbol.hh"
-#include <vector>
 
-namespace HaveFunCompiler{
-namespace AssemblyBuilder{
+namespace HaveFunCompiler {
+namespace AssemblyBuilder {
 
 using namespace ThreeAddressCode;
 
-void DeadCodeOptimizer::optimize()
-{
-    auto cfg = std::make_shared<ControlFlowGraph>(_fbegin, _fend);
-    LiveIntervalAnalyzer LiveIntervalAnalyzer(cfg);
-    std::vector<TACList::iterator> deadCodes;
-
-    auto tacNum = cfg->get_nodes_number();
-    for (size_t i = 0; i < tacNum; ++i)
-    {
-        auto tac = cfg->get_node_tac(i);
-        auto defSym = tac->getDefineSym();
-        if (defSym)
-        {
-            auto& nodeLiveInfo = LiveIntervalAnalyzer.get_nodeLiveInfo(i);
-            if (nodeLiveInfo.outLive.find(defSym) == nodeLiveInfo.outLive.end() && !hasSideEffect(defSym, tac))
-                deadCodes.push_back(cfg->get_node_itr(i));
-        }
-    }
-
-    for (auto it : deadCodes)
-        _tacls->erase(it);
+OptimizeController_Simple::OptimizeController_Simple(TACListPtr tacList, TACList::iterator fbegin,
+                                                     TACList::iterator fend)
+    : tacls_(tacList) {
+  dataFlowManager = std::make_shared<DataFlowManager_simple>(fbegin, fend);
+  deadCodeOp = std::make_shared<DeadCodeOptimizer>(dataFlowManager, tacList);
 }
 
-bool DeadCodeOptimizer::hasSideEffect(SymbolPtr defSym, TACPtr tac)
-{
-    if (defSym->IsGlobal())  
-        return true;
-    if (tac->operation_ == TACOperationType::Call || tac->operation_ == TACOperationType::Parameter)
-        return true;
-    // if (tac->operation_ == TACOperationType::Constant || tac->operation_ == TACOperationType::Variable)
-    // {
-    //     auto liveInfo = la.get_symLiveInfo(defSym);
-    //     if (liveInfo->useCnt != 0)
-    //         return true;
-    //     else
-    //         return false;
-    // }
-    return false;
+void OptimizeController_Simple::doOptimize() { deadCodeOp->optimize(); }
+
+DeadCodeOptimizer::DeadCodeOptimizer(std::shared_ptr<DataFlowManager> dataFlowManager, TACListPtr tacList)
+    : _tacls(tacList), dfm(dataFlowManager) {
+  _fbegin = dfm->get_fbegin();
+  _fend = dfm->get_fend();
+}
+
+int DeadCodeOptimizer::optimize() {
+  auto cfg = dfm->get_controlFlowGraph();
+  auto liveAnalyzer = dfm->get_liveAnalyzer();
+
+  std::vector<TACList::iterator> deadCodes;
+
+  auto tacNum = cfg->get_nodes_number();
+  for (size_t i = 0; i < tacNum; ++i) {
+    auto tac = cfg->get_node_tac(i);
+    auto defSym = tac->getDefineSym();
+    if (defSym) {
+      auto &outLive = liveAnalyzer->getOut(i);
+      if (outLive.count(defSym) == 0 && !hasSideEffect(defSym, tac)) {
+        deadCodes.push_back(cfg->get_node_itr(i));
+        dfm->remove(i);
+      }
+    }
+  }
+
+  for (auto it : deadCodes) _tacls->erase(it);
+
+  return deadCodes.size();
+}
+
+bool DeadCodeOptimizer::hasSideEffect(SymbolPtr defSym, TACPtr tac) {
+  if (defSym->IsGlobal()) return true;
+  if (tac->operation_ == TACOperationType::Call || tac->operation_ == TACOperationType::Parameter) return true;
+  // if (tac->operation_ == TACOperationType::Constant || tac->operation_ == TACOperationType::Variable)
+  // {
+  //     auto liveInfo = la.get_symLiveInfo(defSym);
+  //     if (liveInfo->useCnt != 0)
+  //         return true;
+  //     else
+  //         return false;
+  // }
+  return false;
 }
 
 SimpleOptimizer::SimpleOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend)
@@ -119,7 +133,7 @@ void SimpleOptimizer::optimize() {
             change2assign(tac, tac.a_, tac.c_);
             break;
           }
-          if(iszero(tac.b_)){
+          if (iszero(tac.b_)) {
             change2assign(tac, tac.a_, tac.b_);
             break;
           }
@@ -129,7 +143,7 @@ void SimpleOptimizer::optimize() {
             change2assign(tac, tac.a_, tac.b_);
             break;
           }
-          if(iszero(tac.c_)){
+          if (iszero(tac.c_)) {
             change2assign(tac, tac.a_, tac.c_);
             break;
           }
@@ -173,8 +187,8 @@ void SimpleOptimizer::optimize() {
         }
         break;
       }
-    default:
-      break;
+      default:
+        break;
     }
     if (tac.operation_ == TACOperationType::Assign) {
       if (tac.a_ == tac.b_) {
@@ -183,9 +197,9 @@ void SimpleOptimizer::optimize() {
     }
     ++it;
   }
-  for(auto tac_it : rmls){
+  for (auto tac_it : rmls) {
     tacls_->erase(tac_it);
   }
 }
-}
-}
+}  // namespace AssemblyBuilder
+}  // namespace HaveFunCompiler

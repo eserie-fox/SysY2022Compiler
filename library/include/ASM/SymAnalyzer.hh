@@ -14,7 +14,7 @@ class ControlFlowGraph;
 class SymAnalyzer
 {
 public:
-    SymAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph);
+    SymAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
     NONCOPYABLE(SymAnalyzer)
 
     void analyze();
@@ -36,7 +36,7 @@ private:
     // 所有出现的变量的集合
     std::unordered_set<SymbolPtr> symSet;  
     // 控制流图
-    std::shared_ptr<ControlFlowGraph> cfg;
+    std::shared_ptr<const ControlFlowGraph> cfg;
 };
 
 

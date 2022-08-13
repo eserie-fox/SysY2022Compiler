@@ -93,7 +93,7 @@ void SymLiveInfo::updateIntervalEndPoint()
 }
 
 
-LiveAnalyzer::LiveAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : DataFlowAnalyzerBackWard<LiveInfo>(controlFlowGraph)
+LiveAnalyzer::LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : DataFlowAnalyzerBackWard<LiveInfo>(controlFlowGraph)
 {
 }
 

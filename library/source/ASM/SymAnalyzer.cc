@@ -6,7 +6,7 @@ namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
 
-SymAnalyzer::SymAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
+SymAnalyzer::SymAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
 {  }
 
 void SymAnalyzer::analyze()

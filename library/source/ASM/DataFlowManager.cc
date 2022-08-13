@@ -7,7 +7,7 @@
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
-DataFlowManager::DataFlowManager(TACList::iterator fbegin, TACList::iterator fend)
+DataFlowManager::DataFlowManager(TACList::iterator fbegin, TACList::iterator fend) : fbegin_(fbegin), fend_(fend)
 {
     cfg = std::make_shared<ControlFlowGraph>(fbegin, fend);
     liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg);
@@ -24,15 +24,15 @@ DataFlowManager_simple::DataFlowManager_simple(TACList::iterator fbegin, TACList
 {
 }
 
-void DataFlowManager_simple::update(size_t n)
+void DataFlowManager_simple::update([[maybe_unused]] size_t n)
 {
 }
 
-void DataFlowManager_simple::remove(size_t n)
+void DataFlowManager_simple::remove([[maybe_unused]] size_t n)
 {
 }
 
-void DataFlowManager_simple::add(TACList::iterator it)
+void DataFlowManager_simple::add([[maybe_unused]] TACList::iterator it)
 {
 }
 
