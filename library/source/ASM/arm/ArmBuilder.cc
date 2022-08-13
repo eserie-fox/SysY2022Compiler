@@ -179,9 +179,7 @@ bool ArmBuilder::TranslateGlobal() {
   emitln("push {r4-r12, lr}");
   emitln("vpush {s16-s31}");
   glob_context_.stack_size_for_regsave_ = 10 * 4 + 16 * 4;
-  if (ArmHelper::IsImmediateValue(glob_context_.stack_size_for_vars_)) {
-    emitln("sub sp, sp, #" + std::to_string(glob_context_.stack_size_for_vars_));
-  } else {
+  if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", glob_context_.stack_size_for_vars_)) {
     emitln("ldr ip, =" + std::to_string(glob_context_.stack_size_for_vars_));
     emitln("sub sp, sp, ip");
   }
@@ -211,9 +209,7 @@ bool ArmBuilder::TranslateGlobal() {
     std::cerr << e.what() << std::endl;
     return false;
   }
-  if (ArmHelper::IsImmediateValue(glob_context_.stack_size_for_vars_)) {
-    emitln("add sp, sp, #" + std::to_string(glob_context_.stack_size_for_vars_));
-  } else {
+  if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", glob_context_.stack_size_for_vars_)) {
     emitln("ldr ip, =" + std::to_string(glob_context_.stack_size_for_vars_));
     emitln("add sp, sp, ip");
   }
@@ -238,9 +234,10 @@ bool ArmBuilder::TranslateFunction() {
   {
     if (OP_flag)
     {
-      // 目前只进行死代码删除优化
-      DeadCodeOptimizer optimizer(tac_list_, current_, end_);
-      optimizer.optimize();
+      SimpleOptimizer optimizer1(tac_list_, current_, end_);
+        optimizer1.optimize();
+      DeadCodeOptimizer optimizer2(tac_list_, current_, end_);
+        optimizer2.optimize();
     }
 
     // 生成控制流图
@@ -277,14 +274,14 @@ bool ArmBuilder::TranslateFunction() {
   //将要用到的寄存器保存起来
   func_context_.func_attr_ = func_context_.reg_alloc_->get_SymAttribute(func_label);
   //保存了的寄存器列表
-  std::vector<std::pair<uint32_t, uint32_t>> &saveintregs = func_context_.saveintregs_;
+  std::vector<uint32_t> &saveintregs = func_context_.saveintregs_;
   std::vector<std::pair<uint32_t, uint32_t>> &savefloatregs = func_context_.savefloatregs_;
   auto push_reg = [](std::vector<std::pair<uint32_t, uint32_t>> &reg_list, uint32_t newreg) -> void {
     if (reg_list.empty()) {
       reg_list.emplace_back(newreg, newreg);
       return;
     }
-    if (reg_list.back().second == newreg - 1) {
+    if (reg_list.back().second == newreg - 1 && (newreg - reg_list.back().first + 1) <= 16) {
       reg_list.back().second = newreg;
       return;
     }
@@ -296,26 +293,28 @@ bool ArmBuilder::TranslateFunction() {
     //如果第i号通用寄存器要用
     if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, i)) {
       //那么保存它
-      push_reg(saveintregs, i);
+      saveintregs.push_back(i);
       func_context_.stack_size_for_regsave_ += 4;
     }
   }
 
   //如果lr会被用到单独保存一下
   if (ISSET_UINT(func_context_.func_attr_.attr.used_regs.intRegs, LR_REGID)) {
-    push_reg(saveintregs, LR_REGID);
+    saveintregs.push_back(LR_REGID);
     func_context_.stack_size_for_regsave_ += 4;
   }
 
   //保存刚才确定好的通用寄存器
-  {
-    for (auto regid : saveintregs) {
-      if (regid.first == regid.second) {
-        emitln("push { " + IntRegIDToName(regid.first) + " }");
-      } else {
-        emitln("push { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+  if (!saveintregs.empty()) {
+    std::string inst = "push {";
+    for (size_t i = 0; i < saveintregs.size(); i++) {
+      inst += IntRegIDToName(saveintregs[i]);
+      if (i + 1 < saveintregs.size()) {
+        inst += ", ";
       }
     }
+    inst += "}";
+    emitln(inst);
   }
   //保存浮点寄存器
   for (int i = 16; i < 32; i++) {
@@ -342,14 +341,15 @@ bool ArmBuilder::TranslateFunction() {
   size_t test_varsize_imm = 0;
   for (auto immval : var_stack_immvals) {
     test_varsize_imm += immval;
-    emitln("sub sp, sp, #" + std::to_string(immval));
+    bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", immval);
+    assert(check);
   }
-  assert(test_varsize_imm == func_context_.stack_size_for_vars_);
+  assert((int)test_varsize_imm == func_context_.stack_size_for_vars_);
 
   //为后面栈的释放我们反向一下。
   std::reverse(var_stack_immvals.begin(), var_stack_immvals.end());
   std::reverse(savefloatregs.begin(), savefloatregs.end());
-  std::reverse(saveintregs.begin(), saveintregs.end());
+  // std::reverse(saveintregs.begin(), saveintregs.end());
 
   //函数体翻译
   //跳过label和fbegin

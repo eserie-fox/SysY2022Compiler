@@ -1,6 +1,8 @@
 #include "ASM/arm/ArmHelper.hh"
 #include <algorithm>
+#include <iostream>
 #include <stdexcept>
+#include "Utility.hh"
 
 static int log2(uint32_t value) {
   int ret = 0;
@@ -91,6 +93,35 @@ int ArmHelper::CountLines(const std::string &str) {
     ret += (c == '\n');
   }
   return ret;
+}
+
+bool ArmHelper::EmitImmediateInstWithCheck(std::function<void(const std::string &)> emitln,
+                                           const std::string &operation, const std::string &operand1,
+                                           const std::string &operand2, int imm, const std::string suffix) {
+  enum OperationType { None, IgnoreZero };
+  OperationType type = None;
+  if (Contains(operation, "add") || Contains(operation, "sub")) {
+    type = IgnoreZero;
+  }
+  if (type == None) {
+    std::cerr << "Warning:EmitImmediateInstWithCheck" << std::endl;
+    return false;
+  }
+  if ((type == IgnoreZero && imm == 0)) {
+    if (operand1 != operand2) {
+      emitln("mov " + operand1 + ", " + operand2);
+    }
+    return true;
+  }
+  if (IsImmediateValue(imm)) {
+    std::string inst = operation + " " + operand1 + ", " + operand2 + ", #" + std::to_string(imm);
+    if (!suffix.empty()) {
+      inst += ", " + suffix;
+    }
+    emitln(inst);
+    return true;
+  }
+  return false;
 }
 
 }  // namespace AssemblyBuilder

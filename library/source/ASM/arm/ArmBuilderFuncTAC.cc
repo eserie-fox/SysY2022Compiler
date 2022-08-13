@@ -9,6 +9,7 @@
 #include "ASM/arm/RegAllocator.hh"
 #include "MagicEnum.hh"
 #include "TAC/TAC.hh"
+#include "Utility.hh"
 
 namespace HaveFunCompiler {
 using namespace ThreeAddressCode;
@@ -95,7 +96,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
       //把sp减回去
       for (auto it = splitoffset.rbegin(); it != splitoffset.rend(); it++) {
-        emitln("sub sp, sp, #" + std::to_string(*it));
+        bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", *it);
+        assert(check);
       }
     }
     *target_sym = nullptr;
@@ -180,7 +182,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
       //把sp减回去
       for (auto it = splitoffset.rbegin(); it != splitoffset.rend(); it++) {
-        emitln("sub sp, sp, #" + std::to_string(*it));
+        bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", *it);
+        assert(check);
       }
     }
     *target_sym = nullptr;
@@ -467,6 +470,139 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   auto binary_operation = [&, this]() -> void {
     assert(tac->a_->value_.Type() == tac->b_->value_.Type());
     assert(tac->b_->value_.Type() == tac->c_->value_.Type());
+    
+    //此block尝试对常量加载进行优化
+    {
+      bool b_const = tac->b_->type_ == SymbolType::Constant;
+      bool c_const = tac->c_->type_ == SymbolType::Constant;
+      //不能俩都是const
+      assert(!(b_const && c_const));
+      if (tac->a_->value_.Type() != SymbolValue::ValueType::Float) {
+        //对于int常量，且其能被立即数表示，则可以优化
+        if (b_const && ArmHelper::IsImmediateValue(tac->b_->value_.GetInt())) {
+          int immvalue = tac->b_->value_.GetInt();
+          switch (tac->operation_) {
+            case TACOperationType::LessOrEqual:
+            case TACOperationType::LessThan:
+            case TACOperationType::NotEqual:
+            case TACOperationType::GreaterOrEqual:
+            case TACOperationType::GreaterThan:
+            case TACOperationType::Equal: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op2reg = alloc_reg(tac->c_, resreg);
+              emitln("cmp " + IntRegIDToName(op2reg) + ", #" + std::to_string(immvalue));
+              // GreaterThan<=>LessThan  GreaterOrEqual<=>LessOrEqual
+              switch (tac->operation_) {
+                case TACOperationType::GreaterOrEqual:
+                  emitln("movle " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::GreaterThan:
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movge " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::NotEqual:
+                  emitln("movne " + IntRegIDToName(resreg) + ", #1");
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::LessOrEqual:
+                  emitln("movge " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::LessThan:
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movle " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::Equal:
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movne " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                default:
+                  throw std::logic_error("Unreachable");
+              }
+              return;
+            }
+            case TACOperationType::Add: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op2reg = alloc_reg(tac->c_, resreg);
+              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            case TACOperationType::Sub: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op2reg = alloc_reg(tac->c_, resreg);
+              emitln("rsb " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            default:
+              break;
+          }
+        } else if (c_const && ArmHelper::IsImmediateValue(tac->c_->value_.GetInt())) {
+          int immvalue = tac->c_->value_.GetInt();
+          switch (tac->operation_) {
+            case TACOperationType::LessOrEqual:
+            case TACOperationType::LessThan:
+            case TACOperationType::NotEqual:
+            case TACOperationType::GreaterOrEqual:
+            case TACOperationType::GreaterThan:
+            case TACOperationType::Equal: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op1reg = alloc_reg(tac->b_, resreg);
+              emitln("cmp " + IntRegIDToName(op1reg) + ", #" + std::to_string(immvalue));
+
+              switch (tac->operation_) {
+                case TACOperationType::LessOrEqual:
+                  emitln("movle " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::LessThan:
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movge " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::NotEqual:
+                  emitln("movne " + IntRegIDToName(resreg) + ", #1");
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::GreaterOrEqual:
+                  emitln("movge " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movlt " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::GreaterThan:
+                  emitln("movgt " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movle " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                case TACOperationType::Equal:
+                  emitln("moveq " + IntRegIDToName(resreg) + ", #1");
+                  emitln("movne " + IntRegIDToName(resreg) + ", #0");
+                  break;
+                default:
+                  throw std::logic_error("Unreachable");
+              }
+              return;
+            }
+            case TACOperationType::Add: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op1reg = alloc_reg(tac->b_, resreg);
+              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            case TACOperationType::Sub: {
+              int resreg = alloc_reg(tac->a_, -1, true);
+              int op1reg = alloc_reg(tac->b_, resreg);
+              emitln("sub " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" +
+                     std::to_string(immvalue));
+              return;
+            }
+            default:
+              break;
+          }
+        }
+      }
+    }
+
     std::tuple<int, int, int, int> prepare_res;
     if (!(tac->a_->value_.Type() != SymbolValue::ValueType::Float &&
           (tac->operation_ == TACOperationType::Div || tac->operation_ == TACOperationType::Mod) &&
@@ -603,10 +739,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
               emitln("mov " + IntRegIDToName(otherreg) + ", " + IntRegIDToName(op1reg));
               op1reg = otherreg;
             }
-
-            if (ArmHelper::IsImmediateValue(mask)) {
-              emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #" + std::to_string(mask));
-            } else {
+            if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", IntRegIDToName(resreg), IntRegIDToName(op1reg),
+                                                       mask)) {
               emitln("ldr " + IntRegIDToName(resreg) + ", =" + std::to_string(mask));
               emitln("add " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
             }
@@ -626,7 +760,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             evit_int_reg(1);
             emitln("push {r1-r3, ip}");
             if (op1reg < op2reg) {
-              emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+              emitln("push {" + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg) + "}");
             } else {
               emitln("push {" + IntRegIDToName(op2reg) + "}");
               emitln("push {" + IntRegIDToName(op1reg) + "}");
@@ -741,7 +875,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
             evit_int_reg(1);
             emitln("push {r1-r3, ip}");
             if (op1reg < op2reg) {
-              emitln("push {" + IntRegIDToName(op1reg) + "," + IntRegIDToName(op2reg) + "}");
+              emitln("push {" + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg) + "}");
             } else {
               emitln("push {" + IntRegIDToName(op2reg) + "}");
               emitln("push {" + IntRegIDToName(op1reg) + "}");
@@ -957,12 +1091,22 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         emitln("str " + IntRegIDToName(valreg) + ", [" + IntRegIDToName(dstreg) + "]");
       }
     } else {
-      int valreg = alloc_reg(tac->b_);
-      int dstreg = alloc_reg(tac->a_, valreg, true);
-      if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
-        emitln("vmov.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
+      if (tac->b_->value_.UnderlyingType() != SymbolValue::ValueType::Float && tac->b_->type_ == SymbolType::Constant) {
+        int dstreg = alloc_reg(tac->a_, -1, true);
+        int immvalue = tac->b_->value_.GetInt();
+        if (ArmHelper::IsImmediateValue(immvalue)) {
+          emitln("mov " + IntRegIDToName(dstreg) + ", #" + std::to_string(immvalue));
+        } else {
+          emitln("ldr " + IntRegIDToName(dstreg) + ", =" + std::to_string(immvalue));
+        }
       } else {
-        emitln("mov " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
+        int valreg = alloc_reg(tac->b_);
+        int dstreg = alloc_reg(tac->a_, valreg, true);
+        if (tac->b_->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
+          emitln("vmov.f32 " + FloatRegIDToName(dstreg) + ", " + FloatRegIDToName(valreg));
+        } else {
+          emitln("mov " + IntRegIDToName(dstreg) + ", " + IntRegIDToName(valreg));
+        }
       }
     }
   };
@@ -1330,9 +1474,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //去掉所有栈上arg
     uint32_t toaddstack = padding ? 4 : 0;
     toaddstack += nstackarg * 4;
-    if (ArmHelper::IsImmediateValue(toaddstack)) {
-      emitln("add sp, sp, #" + std::to_string(toaddstack));
-    } else {
+    if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", toaddstack)) {
       auto splitaddstack = ArmHelper::DivideIntoImmediateValues(toaddstack);
       for (auto value : splitaddstack) {
         emitln("add sp, sp, #" + std::to_string(value));
@@ -1403,7 +1545,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
 
     //释放变量栈空间
     for (auto immval : func_context_.var_stack_immvals_) {
-      emitln("add sp, sp, #" + std::to_string(immval));
+      bool check = ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", immval);
+      assert(check);
     }
 
     //还原寄存器
@@ -1417,16 +1560,29 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
 
     //还原通用寄存器
-    for (auto regid : func_context_.saveintregs_) {
-      if (regid.first == regid.second) {
-        emitln("pop { " + IntRegIDToName(regid.first) + " }");
-      } else {
-        emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
-      }
+    bool pop_pc = false;
+    if (Contains(func_context_.saveintregs_, LR_REGID) && !Contains(func_context_.saveintregs_, PC_REGID)) {
+      pop_pc = true;
     }
-
-    //这里没有用栈来pop lr到sp位置
-    emitln("bx lr");
+    if (!func_context_.saveintregs_.empty()) {
+      std::string inst = "pop {";
+      for (size_t i = 0; i < func_context_.saveintregs_.size(); i++) {
+        int regid = func_context_.saveintregs_[i];
+        if (pop_pc && regid == LR_REGID) {
+          regid = PC_REGID;
+        }
+        inst += IntRegIDToName(regid);
+        if (i + 1 < func_context_.saveintregs_.size()) {
+          inst += ", ";
+        }
+      }
+      inst += "}";
+      emitln(inst);
+    }
+    if (!pop_pc) {
+      //没有用栈来pop lr到sp位置
+      emitln("bx lr");
+    }
   };
 
   auto do_call_return = [&, this]() -> void {
@@ -1651,10 +1807,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //把当前所有栈都退掉，推到本函数保存寄存器处
     {
       int totalsize = func_context_.stack_size_for_args_ + func_context_.stack_size_for_vars_;
-
-      if (ArmHelper::IsImmediateValue(totalsize)) {
-        emitln("add sp, sp, #" + std::to_string(totalsize));
-      } else {
+      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", totalsize)) {
         auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
         for (auto val : pieces) {
           emitln("add sp, sp, #" + std::to_string(val));
@@ -1673,21 +1826,29 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
 
     //还原通用寄存器
-    for (auto regid : func_context_.saveintregs_) {
-      if (regid.first == regid.second) {
-        emitln("pop { " + IntRegIDToName(regid.first) + " }");
-      } else {
-        emitln("pop { " + IntRegIDToName(regid.first) + "-" + IntRegIDToName(regid.second) + " }");
+    if (!func_context_.saveintregs_.empty()) {
+      std::string inst = "pop {";
+      for (size_t i = 0; i < func_context_.saveintregs_.size(); i++) {
+        inst += IntRegIDToName(func_context_.saveintregs_[i]);
+        if (i + 1 < func_context_.saveintregs_.size()) {
+          inst += ", ";
+        }
       }
+      inst += "}";
+      emitln(inst);
     }
 
+    // bool padding = false;
     //回到函数参数前端，留三位置放寄存器
     {
-      int totalsize =
-          func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args - 3 * 4;
-      if (ArmHelper::IsImmediateValue(totalsize)) {
-        emitln("sub sp, sp, #" + std::to_string(totalsize));
-      } else {
+      stack_start_of_args -= 3 * 4;
+      //对齐一下
+      if ((func_context_.stack_size_for_args_ - stack_start_of_args) % 8 != 0) {
+        // padding = true;
+        stack_start_of_args -= 4;
+      }
+      int totalsize = func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args;
+      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", totalsize)) {
         auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
         for (auto val : pieces) {
           emitln("sub sp, sp, #" + std::to_string(val));
@@ -1696,23 +1857,12 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
     //保存三寄存器用来临时倒腾
     emitln("push {fp, ip, lr}");
-    stack_start_of_args -= 3 * 4;
-    
+    //重新回到顶部
+    emitln("add sp, sp, #12");
+
     //这是真实参数栈大小
     int real_stack_args_size = (int)func_context_.stack_size_for_args_ - stack_start_of_args;
 
-    bool padding = false;
-    //对齐一下
-    if (real_stack_args_size % 8 != 0) {
-      padding = true;
-      //补充一个空格
-      emitln("add sp, sp, #16");
-      stack_start_of_args -= 4;
-      real_stack_args_size += 4;
-    } else {
-      //把压的寄存器也算作arg
-      emitln("add sp, sp, #12");
-    }
 
     //现在开始挪动，可以自由使用ip和fp寄存器
     int count = real_stack_args_size / 4;
@@ -1720,9 +1870,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         (int)func_context_.stack_size_for_regsave_ + (int)func_context_.stack_size_for_vars_ + stack_start_of_args;
 
     //将fp置为本函数开头位置
-    if (ArmHelper::IsImmediateValue(move_distance)) {
-      emitln("add fp, sp, #" + std::to_string(move_distance));
-    } else {
+    if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "fp", "sp", move_distance)) {
       auto pieces = ArmHelper::DivideIntoImmediateValues(move_distance);
       for (auto val : pieces) {
         emitln("add fp, sp, #" + std::to_string(val));
@@ -1742,28 +1890,19 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //可以call了
     emitln("bl " + tac->b_->get_tac_name(true));
 
-    //现在把sp放到参数后
+    //现在把sp放到参数前
     {
-      int delta_distance = real_stack_args_size;
-      if (padding) {
-        delta_distance -= 16;
-      } else {
-        delta_distance -= 12;
-      }
-      if(ArmHelper::IsImmediateValue(delta_distance)){
-        emitln("sub sp, sp, #" + std::to_string(delta_distance));
-      }else{
+      int delta_distance = real_stack_args_size - 12;
+      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", delta_distance)) {
         emitln("ldr lr, =" + std::to_string(delta_distance));
-        emitln("sub sp, sp, lr");
+        emitln("add sp, sp, lr");
       }
     }
-  
 
-    emitln("pop {fp, ip, lr}");
-    if (padding) {
-      emitln("add sp, sp, #4");
-    }
-    emitln("bx lr");
+    // pop pc 代替 pop lr  然后 bx lr
+    emitln("pop {fp, ip, pc}");
+
+    // emitln("bx lr");
 
     func_context_.arg_nfloatregs_ = 0;
     func_context_.arg_nintregs_ = 0;
@@ -1834,9 +1973,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     auto arrayAttr = func_context_.reg_alloc_->get_ArrayAttribute(tac->a_);
     int reg = alloc_reg(tac->a_);
     int32_t realoffset = arrayAttr.value + func_context_.stack_size_for_args_;
-    if (ArmHelper::IsLDRSTRImmediateValue(realoffset)) {
-      emitln("add " + IntRegIDToName(reg) + ", sp, #" + std::to_string(realoffset));
-    } else {
+    if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", IntRegIDToName(reg), "sp", realoffset)) {
       emitln("ldr " + IntRegIDToName(reg) + ", =" + std::to_string(realoffset));
       emitln("add " + IntRegIDToName(reg) + ", sp, " + IntRegIDToName(reg));
     }
