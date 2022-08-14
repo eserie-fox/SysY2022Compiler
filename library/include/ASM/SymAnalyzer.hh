@@ -29,6 +29,11 @@ public:
         return symUseMap.at(sym);
     }
 
+    inline const std::unordered_set<SymbolPtr>& getSymSet() const
+    {
+        return symSet;
+    }
+
 private:
 
     // 变量的定值点和使用点集合（集合元素是流图中结点下标）

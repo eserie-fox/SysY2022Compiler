@@ -36,5 +36,23 @@ void ArrivalAnalyzer::transFunc(size_t u)
     }
 }
 
+void ArrivalAnalyzer::updateUseDefChain()
+{
+    FOR_EACH_NODE(i, cfg)
+    {
+        auto tac = cfg->get_node_tac(i);
+        auto& arrivalDefs = getIn(i);
+        auto useSyms = tac->getUseSym();
+        
+        for (auto sym : useSyms)
+        {
+        auto &symDefs = symAnalyzer->getSymDefPoints(sym);
+        for (auto d : symDefs)
+            if (arrivalDefs.count(d))
+            useDefChain[sym][i].insert(d);
+        }
+    }
+}
+
 }
 }

@@ -17,6 +17,7 @@ DataFlowManager::DataFlowManager(TACList::iterator fbegin, TACList::iterator fen
     liveAnalyzer->analyze();
     symAnalyzer->analyze();
     arrivalAnalyzer->analyze();
+    arrivalAnalyzer->updateUseDefChain();
 }
 
 DataFlowManager_simple::DataFlowManager_simple(TACList::iterator fbegin, TACList::iterator fend) :
@@ -49,6 +50,7 @@ void DataFlowManager_simple::commit()
     liveAnalyzer->analyze();
     symAnalyzer->analyze();
     arrivalAnalyzer->analyze();
+    arrivalAnalyzer->updateUseDefChain();
 }
 
 }

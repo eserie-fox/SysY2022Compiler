@@ -114,11 +114,11 @@ private:
         std::vector<size_t> inNodeList, outNodeList;
 
         // 结点的dfs序
-        // 在没有dfs排序前，dfn代表该结点是否被删除（不为0存在，为0被删除）
+        // 同时dfn代表该结点是否被删除（不为0存在，为0被删除）
         size_t dfn;
 
-        Node() { dfn = 1; }
-        Node(TACPtr it) : tac(it) { dfn = 1; } 
+        Node() { dfn = 0; }
+        Node(TACPtr it) : tac(it) { dfn = 0; } 
     };
 
     std::vector<Node> nodes;
@@ -165,6 +165,9 @@ public:
         return idx;
     }
 };
+
+#define FOR_EACH_NODE(idx, cfg) \
+    for (auto idx = (cfg)->beginIdx(); (idx) != (cfg)->endIdx(); (idx) = (cfg)->nextIdx(idx))
 
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

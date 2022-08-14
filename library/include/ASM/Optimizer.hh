@@ -2,6 +2,7 @@
 
 #include "ASM/Common.hh"
 #include "TAC/ThreeAddressCode.hh"
+#include <unordered_map>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -54,6 +55,18 @@ private:
     bool hasSideEffect(SymbolPtr defSym, TACPtr tac);
 };
 
+// 常量传播/复写传播优化器
+class PropagationOptimizer
+{
+public:
+    PropagationOptimizer(std::shared_ptr<DataFlowManager> dataFlowManager);
+    NONCOPYABLE(PropagationOptimizer)
+
+    int optimize();
+
+private:
+    std::shared_ptr<DataFlowManager> dfm;
+};
 
 
 //会将一些简单情况优化掉。

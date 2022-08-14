@@ -4,8 +4,6 @@
 #include <queue>
 #include <cassert>
 
-#define DEBUG_CHECK
-
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
