@@ -141,11 +141,6 @@ int PropagationOptimizer::optimize()
         }
 
         // 否则，可能是其他形式的def（类型转换、调用返回值等）
-        // 此时只有在
-        else if (useTac->operation_ == TACOperationType::Assign && )
-        {
-
-        }
 
       }
     }
