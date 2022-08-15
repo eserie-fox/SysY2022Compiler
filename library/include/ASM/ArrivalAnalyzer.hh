@@ -93,7 +93,7 @@ using ExprItr = std::unordered_set<ExprInfo>::iterator;
 
 struct ArrivalExprInfo
 {
-    std::unordered_map<ExprItr, size_t> exps;
+    std::unordered_map<size_t, size_t> exps;
     char isUnvSet;   // 标志是否为全集
 
     ArrivalExprInfo() : isUnvSet(1) {}
@@ -120,8 +120,9 @@ private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
 
-    std::unordered_set<ExprInfo> exprSet;
-    std::unordered_map<SymbolPtr, std::vector<ExprItr>> symExpLink;  // sym映射到包含它的表达式
+    std::unordered_map<ExprInfo, size_t> exprMap;
+    std::vector<ExprInfo> idxMap;
+    std::unordered_map<SymbolPtr, std::vector<size_t>> symExpLink;  // sym映射到包含它的表达式
 };
 
 }
