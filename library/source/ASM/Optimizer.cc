@@ -73,83 +73,79 @@ PropagationOptimizer::PropagationOptimizer(std::shared_ptr<DataFlowManager> data
 
 int PropagationOptimizer::optimize()
 {
-  auto isDecl = [](TACPtr tac)
-  {
-    switch (tac->operation_)
-    {
-    case TACOperationType::Variable:
-    case TACOperationType::Constant:
-    case TACOperationType::Parameter:
-      return true;
-      break;
+  // auto isDecl = [](TACPtr tac)
+  // {
+  //   switch (tac->operation_)
+  //   {
+  //   case TACOperationType::Variable:
+  //   case TACOperationType::Constant:
+  //   case TACOperationType::Parameter:
+  //     return true;
+  //     break;
     
-    default:
-      return false;
-      break;
-    }
-  };
+  //   default:
+  //     return false;
+  //     break;
+  //   }
+  // };
 
-  auto replace = [](TACPtr tac, SymbolPtr oldSym, SymbolPtr newSym)
-  {
-    SymbolPtr* arr[3] = {&tac->a_, &tac->b_, &tac->c_};
-    for (auto p : arr)
-      if (*p == oldSym)
-        *p = newSym;
-  };
+  // auto replace = [](TACPtr tac, SymbolPtr oldSym, SymbolPtr newSym)
+  // {
+  //   SymbolPtr* arr[3] = {&tac->a_, &tac->b_, &tac->c_};
+  //   for (auto p : arr)
+  //     if (*p == oldSym)
+  //       *p = newSym;
+  // };
 
-  auto cfg = dfm->get_controlFlowGraph();
-  auto &symSet = dfm->get_symAnalyzer()->getSymSet();
-  auto &useDefChain = dfm->get_arrivalAnalyzer()->get_useDefChain();
+  // auto cfg = dfm->get_controlFlowGraph();
+  // auto &symSet = dfm->get_symAnalyzer()->getSymSet();
+  // auto &useDefChain = dfm->get_arrivalAnalyzer()->get_useDefChain();
 
-  for (auto& [sym, chain] : useDefChain)
-  {
-    // sym的使用点(usePos)只有一个定值能到达，则尝试优化
-    for (auto& [usePos, defs] : chain)
-    {
-      if (defs.size() == 1)
-      {
-        size_t defPos = *(defs.begin());
-        auto defTac = cfg->get_node_tac(defPos);
-        auto useTac = cfg->get_node_tac(usePos);
+  // for (auto& [sym, chain] : useDefChain)
+  // {
+  //   // sym的使用点(usePos)只有一个定值能到达，则尝试优化
+  //   for (auto& [usePos, defs] : chain)
+  //   {
+  //     if (defs.size() == 1)
+  //     {
+  //       size_t defPos = *(defs.begin());
+  //       auto defTac = cfg->get_node_tac(defPos);
+  //       auto useTac = cfg->get_node_tac(usePos);
 
-        #ifdef DEBUG_CHECK__
-        if (defTac->getDefineSym() != sym)
-          throw std::logic_error("useDefChain def logic error!");
-        auto useSyms = useTac->getUseSym();
-        auto it = useSyms.begin();
-        for (; it != useSyms.end(); ++it)
-          if (*it == sym)  break;
-        if (it == useSyms.end())
-          throw std::logic_error("useDefChain use logic error!");
-        #endif
+  //       #ifdef DEBUG_CHECK__
+  //       if (defTac->getDefineSym() != sym)
+  //         throw std::logic_error("useDefChain def logic error!");
+  //       auto useSyms = useTac->getUseSym();
+  //       auto it = useSyms.begin();
+  //       for (; it != useSyms.end(); ++it)
+  //         if (*it == sym)  break;
+  //       if (it == useSyms.end())
+  //         throw std::logic_error("useDefChain use logic error!");
+  //       #endif
 
-        // 声明也算作定值，如果defTac是声明则略过
-        if (isDecl(defTac))
-          continue;
+  //       // 声明也算作定值，如果defTac是声明则略过
+  //       if (isDecl(defTac))
+  //         continue;
         
-        // 形如a = b的defTac，不管useTac是什么，直接替换a的使用为b
-        if (defTac->operation_ == TACOperationType::Assign && defTac->b_->value_.IsNumericType())
-        {
-          #ifdef DEBUG_CHECK__
-          printf("propagation optimize log:\n");
-          printf("def tac(No.%d, dfn.%d): %s\n", defPos, cfg->get_node_dfn(defPos), defTac->ToString().c_str());
-          printf("use tac(No.%d, dfn.%d): %s\n", usePos, cfg->get_node_dfn(usePos), useTac->ToString().c_str());
-          #endif
+  //       // 形如a = b的defTac，不管useTac是什么，直接替换a的使用为b
+  //       if (defTac->operation_ == TACOperationType::Assign && defTac->b_->value_.IsNumericType())
+  //       {
+  //         #ifdef DEBUG_CHECK__
+  //         printf("propagation optimize log:\n");
+  //         printf("def tac(No.%ld, dfn.%ld): %s\n", defPos, cfg->get_node_dfn(defPos), defTac->ToString().c_str());
+  //         printf("use tac(No.%ld, dfn.%ld): %s\n", usePos, cfg->get_node_dfn(usePos), useTac->ToString().c_str());
+  //         #endif
 
-          replace(useTac, sym, defTac->b_);
-          dfm->update(usePos);
-        }
+  //         replace(useTac, sym, defTac->b_);
+  //         dfm->update(usePos);
+  //       }
 
-        // 否则，可能是其他形式的def（类型转换、调用返回值等）
-        // 此时只有在
-        else if (useTac->operation_ == TACOperationType::Assign && )
-        {
+  //       // 否则，可能是其他形式的def（类型转换、调用返回值等）
 
-        }
-
-      }
-    }
-  }
+  //     }
+  //   }
+  // }
+  return 0;
 }
 
 SimpleOptimizer::SimpleOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend)

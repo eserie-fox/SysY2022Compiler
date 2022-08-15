@@ -25,11 +25,11 @@ public:
 
     // 修改了结点n对应的三地址码
     virtual void update(size_t n) = 0;
-    virtual void update(TACPtr oldTac) = 0;
+//    virtual void update(TACPtr oldTac) = 0;
 
     // 删除了结点n对应的tac
     virtual void remove(size_t n) = 0;
-    virtual void remove(TACPtr tac) = 0;
+//    virtual void remove(TACPtr tac) = 0;
 
     // 增加了一条指令，位于it位置
     virtual void add(TACList::iterator it) = 0;
