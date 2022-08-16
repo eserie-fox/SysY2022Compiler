@@ -29,7 +29,7 @@ void OptimizeController_Simple::doOptimize()
   do
   {
     cnt = 0;
-//    cnt += simpleOp->optimize();
+    cnt += simpleOp->optimize();
     cnt += PropagationOp->optimize();
     cnt += deadCodeOp->optimize();
     ++round;

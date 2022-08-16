@@ -20,7 +20,7 @@ ControlFlowGraph::ControlFlowGraph(TACList::iterator fbegin, TACList::iterator f
     if (fbegin == fend)
         throw std::runtime_error("ControlFlowGraph error: empty tac list");
     --fend;
-    if ((*fbegin)->operation_ != TACOperationType::Label || (*fend)->operation_ != TACOperationType::FunctionEnd)
+    if ((*fbegin)->operation_ != TACOperationType::FunctionBegin || (*fend)->operation_ != TACOperationType::FunctionEnd)
         throw std::runtime_error("ControlFLowGraph error: unrecognized function TAClist");
 
     f_begin = fbegin;
