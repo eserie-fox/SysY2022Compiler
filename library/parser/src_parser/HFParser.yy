@@ -393,7 +393,9 @@ InitVal
     if($1->ret->value_.Type() == ValueType::Array)
     {
       auto arrayDescriptor = $1->ret->value_.GetArrayDescriptor();
-      if($1->ret->type_ == SymbolType::Constant)
+      if($1->ret->type_ == SymbolType::Constant && 
+        arrayDescriptor->base_addr.lock()->type_ == SymbolType::Constant &&
+        arrayDescriptor->base_offset->type_ == SymbolType::Constant)
       {
         assert(arrayDescriptor->dimensions.empty());
         if (!arrayDescriptor->subarray->empty()) {
@@ -771,7 +773,28 @@ WHILEUP : WHILE
 }
 ;
 
-Exp : AddExp ;
+Exp : AddExp
+{
+  $$ = $1;
+  if($1->ret->value_.Type() == ValueType::Array)
+  {
+    auto arrayDescriptor = $1->ret->value_.GetArrayDescriptor();
+    if($1->ret->type_ == SymbolType::Constant && 
+      arrayDescriptor->base_addr.lock()->type_ == SymbolType::Constant &&
+      arrayDescriptor->base_offset->type_ == SymbolType::Constant)
+    {
+      assert(arrayDescriptor->dimensions.empty());
+      if (arrayDescriptor->subarray->empty()) {
+        if (arrayDescriptor->value_type == SymbolValue::ValueType::Int){
+          $$ = tacbuilder->CreateConstExp(0);
+        }
+        else{
+          $$ = tacbuilder->CreateConstExp(static_cast<float>(0));
+        }
+      }
+    }
+  }
+}
 
 Cond : LOrExp ;
 

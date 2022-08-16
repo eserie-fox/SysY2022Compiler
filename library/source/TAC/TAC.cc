@@ -47,8 +47,8 @@ ArrayDescriptorPtr TACFactory::NewArrayDescriptor() {
 
 TACListPtr TACFactory::MakeFunction(const location *plocation_, SymbolPtr func_head, TACListPtr body) {
   auto tac_list = NewTACList();
-  (*tac_list) += NewTAC(TACOperationType::Label, func_head);
   (*tac_list) += NewTAC(TACOperationType::FunctionBegin);
+  (*tac_list) += NewTAC(TACOperationType::Label, func_head);
   auto params = func_head->value_.GetParameters();
   if (params == nullptr) {
     throw NULL_EXCEPTION(__FILE__, __LINE__, "'params' is null");
@@ -408,7 +408,8 @@ ExpressionPtr TACBuilder::AccessArray(ExpressionPtr array, std::vector<Expressio
   auto idx_exp = pos.front();
   pos.erase(pos.cbegin());
   if (array->ret->type_ == SymbolType::Constant && idx_exp->ret->type_ == SymbolType::Constant &&
-      arrayDescriptor->base_offset->type_ == SymbolType::Constant) {
+      arrayDescriptor->base_offset->type_ == SymbolType::Constant &&
+      arrayDescriptor->base_addr.lock()->type_ == SymbolType::Constant) {
     int idx = idx_exp->ret->value_.GetInt();
     if (idx < 0) {
       throw RUNTIME_EXCEPTION("Array index must be non-negative, but encountered " + std::to_string(idx));
