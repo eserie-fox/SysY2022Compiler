@@ -352,9 +352,9 @@ bool ArmBuilder::TranslateFunction() {
 
   //函数体翻译
   //跳过label和fbegin
-  assert((*current_)->operation_ == TACOperationType::Label);
-  ++current_;
   assert((*current_)->operation_ == TACOperationType::FunctionBegin);
+  ++current_;
+  assert((*current_)->operation_ == TACOperationType::Label);
   ++current_;
   //去掉fend
   --end_;
@@ -395,21 +395,20 @@ bool ArmBuilder::TranslateFunctions() {
   //记录函数头部位置
   TACList::iterator func_begin;
   for (; it != end; ++it) {
-    if ((*it)->operation_ == TACOperationType::Label) {
+    if ((*it)->operation_ == TACOperationType::FunctionBegin) {
       // label 后面接funcbegin标志着函数开始
       auto prev_it = it++;
-      if (it != end_ && (*it)->operation_ == TACOperationType::FunctionBegin) {
+      if (it != end_ && (*it)->operation_ == TACOperationType::Label) {
         func_level++;
         assert(func_level < 2);
         //是函数，我们储存其开头位置
         func_begin = prev_it;
       } else {
-        //不满足条件的话就不要让它多加一次了，进入下一次循环再处理
-        it = prev_it;
+        //不满足条件的话是错误
+        throw std::runtime_error("Unexpected " +
+                                 std::string(magic_enum::enum_name<TACOperationType>((*it)->operation_)) +
+                                 " after function begin");
       }
-    } else if ((*it)->operation_ == TACOperationType::FunctionBegin) {
-      //除非在第一种情况下，我们断言不会出现funcbegin，否则为错误
-      throw std::runtime_error("Unexpected function begin");
     } else if ((*it)->operation_ == TACOperationType::FunctionEnd) {
       func_level--;
       assert(func_level >= 0);

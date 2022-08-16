@@ -47,8 +47,8 @@ ArrayDescriptorPtr TACFactory::NewArrayDescriptor() {
 
 TACListPtr TACFactory::MakeFunction(const location *plocation_, SymbolPtr func_head, TACListPtr body) {
   auto tac_list = NewTACList();
-  (*tac_list) += NewTAC(TACOperationType::Label, func_head);
   (*tac_list) += NewTAC(TACOperationType::FunctionBegin);
+  (*tac_list) += NewTAC(TACOperationType::Label, func_head);
   auto params = func_head->value_.GetParameters();
   if (params == nullptr) {
     throw NULL_EXCEPTION(__FILE__, __LINE__, "'params' is null");
