@@ -18,6 +18,12 @@ public:
     virtual void doOptimize() = 0;
 };
 
+class ControlFlowGraph;
+class LiveAnalyzer;
+class SymAnalyzer;
+class ArrivalAnalyzer;
+class ArrivalExprAnalyzer;
+class PropagationOptimizer;
 
 class DeadCodeOptimizer;
 class SimpleOptimizer;
@@ -32,9 +38,12 @@ public:
     void doOptimize() override;
 
 private:
-    TACListPtr tacls_;
-    std::shared_ptr<DataFlowManager> dataFlowManager;
+    std::shared_ptr<SimpleOptimizer> simpleOp;
+    std::shared_ptr<PropagationOptimizer> PropagationOp;
     std::shared_ptr<DeadCodeOptimizer> deadCodeOp;
+
+    const size_t MAX_ROUND = 3;
+    const ssize_t MIN_OP_THRESHOLD = 3;
 };
 
 // optimizer需要保证，不修改fbegin和fend
@@ -42,7 +51,7 @@ private:
 class DeadCodeOptimizer
 {
 public:
-    DeadCodeOptimizer(std::shared_ptr<DataFlowManager> dataFlowManager, TACListPtr tacList);
+    DeadCodeOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend);
     NONCOPYABLE(DeadCodeOptimizer)
 
     int optimize();
@@ -50,7 +59,9 @@ public:
 private:
     TACList::iterator _fbegin, _fend;
     TACListPtr _tacls;
-    std::shared_ptr<DataFlowManager> dfm;
+    
+    std::shared_ptr<ControlFlowGraph> cfg;
+    std::shared_ptr<LiveAnalyzer> liveAnalyzer;
 
     bool hasSideEffect(SymbolPtr defSym, TACPtr tac);
 };
@@ -59,13 +70,19 @@ private:
 class PropagationOptimizer
 {
 public:
-    PropagationOptimizer(std::shared_ptr<DataFlowManager> dataFlowManager);
+    PropagationOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend);
     NONCOPYABLE(PropagationOptimizer)
 
     int optimize();
 
 private:
-    std::shared_ptr<DataFlowManager> dfm;
+    std::shared_ptr<ControlFlowGraph> cfg;
+    std::shared_ptr<SymAnalyzer> symAnalyzer;
+    std::shared_ptr<ArrivalAnalyzer> arrivalValAnalyzer;
+    std::shared_ptr<ArrivalExprAnalyzer> arrivalExpAnalyzer;
+
+    TACListPtr tacLs_;
+    TACList::iterator fbegin_, fend_;
 };
 
 

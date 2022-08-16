@@ -52,11 +52,6 @@ public:
         return arrivalAnalyzer;
     }
 
-    std::shared_ptr<const SymAnalyzer> get_symAnalyzer() const
-    {
-        return symAnalyzer;
-    }
-
     const TACList::iterator get_fbegin() const
     {
         return fbegin_;
@@ -72,7 +67,6 @@ protected:
     std::shared_ptr<ControlFlowGraph> cfg;
     std::shared_ptr<LiveAnalyzer> liveAnalyzer;
     std::shared_ptr<ArrivalAnalyzer> arrivalAnalyzer;
-    std::shared_ptr<SymAnalyzer> symAnalyzer;
 };
 
 

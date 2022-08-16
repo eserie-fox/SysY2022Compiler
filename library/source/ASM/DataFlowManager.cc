@@ -11,11 +11,9 @@ DataFlowManager::DataFlowManager(TACList::iterator fbegin, TACList::iterator fen
 {
     cfg = std::make_shared<ControlFlowGraph>(fbegin, fend);
     liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg);
-    symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
-    arrivalAnalyzer = std::make_shared<ArrivalAnalyzer>(cfg, symAnalyzer);
+    arrivalAnalyzer = std::make_shared<ArrivalAnalyzer>(cfg);
 
     liveAnalyzer->analyze();
-    symAnalyzer->analyze();
     arrivalAnalyzer->analyze();
     arrivalAnalyzer->updateUseDefChain();
 }
@@ -44,11 +42,9 @@ void DataFlowManager_simple::commit()
 
     cfg = std::make_shared<ControlFlowGraph>(fbegin, fend);
     liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg);
-    symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
-    arrivalAnalyzer = std::make_shared<ArrivalAnalyzer>(cfg, symAnalyzer);
+    arrivalAnalyzer = std::make_shared<ArrivalAnalyzer>(cfg);
 
     liveAnalyzer->analyze();
-    symAnalyzer->analyze();
     arrivalAnalyzer->analyze();
     arrivalAnalyzer->updateUseDefChain();
 }

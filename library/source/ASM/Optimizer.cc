@@ -7,8 +7,7 @@
 #include "ASM/ArrivalAnalyzer.hh"
 #include "TAC/Symbol.hh"
 #include <iostream>
-
-#define DEBUG_CHECK__
+#include <cassert>
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
@@ -17,22 +16,34 @@ using namespace ThreeAddressCode;
 
 OptimizeController_Simple::OptimizeController_Simple(TACListPtr tacList, TACList::iterator fbegin,
                                                      TACList::iterator fend)
-    : tacls_(tacList) {
-  dataFlowManager = std::make_shared<DataFlowManager_simple>(fbegin, fend);
-  deadCodeOp = std::make_shared<DeadCodeOptimizer>(dataFlowManager, tacList);
+{
+  simpleOp = std::make_shared<SimpleOptimizer>(tacList, fbegin, fend);
+  PropagationOp = std::make_shared<PropagationOptimizer>(tacList, fbegin, fend);
+  deadCodeOp = std::make_shared<DeadCodeOptimizer>(tacList, fbegin, fend);
 }
 
-void OptimizeController_Simple::doOptimize() { deadCodeOp->optimize(); }
-
-DeadCodeOptimizer::DeadCodeOptimizer(std::shared_ptr<DataFlowManager> dataFlowManager, TACListPtr tacList)
-    : _tacls(tacList), dfm(dataFlowManager) {
-  _fbegin = dfm->get_fbegin();
-  _fend = dfm->get_fend();
+void OptimizeController_Simple::doOptimize()
+{
+  size_t round = 0;
+  ssize_t cnt = 0;
+  do
+  {
+    cnt = 0;
+//    cnt += simpleOp->optimize();
+    cnt += PropagationOp->optimize();
+    cnt += deadCodeOp->optimize();
+    ++round;
+  } while (round <= MAX_ROUND && cnt > MIN_OP_THRESHOLD);
+  
 }
+
+DeadCodeOptimizer::DeadCodeOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend)
+    : _fbegin(fbegin), _fend(fend), _tacls(tacList) {}
 
 int DeadCodeOptimizer::optimize() {
-  auto cfg = dfm->get_controlFlowGraph();
-  auto liveAnalyzer = dfm->get_liveAnalyzer();
+  cfg = std::make_shared<ControlFlowGraph>(_fbegin, _fend);
+  liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg);
+  liveAnalyzer->analyze();
 
   std::vector<TACList::iterator> deadCodes;
 
@@ -42,14 +53,13 @@ int DeadCodeOptimizer::optimize() {
     auto defSym = tac->getDefineSym();
     if (defSym) {
       auto &outLive = liveAnalyzer->getOut(i);
-      if (outLive.count(defSym) == 0 && !hasSideEffect(defSym, tac)) {
+      if (outLive.count(defSym) == 0 && !hasSideEffect(defSym, tac))
         deadCodes.push_back(cfg->get_node_itr(i));
-        dfm->remove(i);
-      }
     }
   }
 
-  for (auto it : deadCodes) _tacls->erase(it);
+  for (auto it : deadCodes) 
+    _tacls->erase(it);
 
   return deadCodes.size();
 }
@@ -68,84 +78,68 @@ bool DeadCodeOptimizer::hasSideEffect(SymbolPtr defSym, TACPtr tac) {
   return false;
 }
 
-PropagationOptimizer::PropagationOptimizer(std::shared_ptr<DataFlowManager> dataFlowManager) :
-  dfm(dataFlowManager) {}
+PropagationOptimizer::PropagationOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend) :
+  tacLs_(tacList), fbegin_(fbegin), fend_(fend) {}
 
 int PropagationOptimizer::optimize()
 {
-  // auto isDecl = [](TACPtr tac)
-  // {
-  //   switch (tac->operation_)
-  //   {
-  //   case TACOperationType::Variable:
-  //   case TACOperationType::Constant:
-  //   case TACOperationType::Parameter:
-  //     return true;
-  //     break;
-    
-  //   default:
-  //     return false;
-  //     break;
-  //   }
-  // };
+  auto isVarAssign = [](TACPtr tac)
+  {
+    return tac->operation_ == TACOperationType::Assign && tac->b_->value_.IsNumericType();
+  };
 
-  // auto replace = [](TACPtr tac, SymbolPtr oldSym, SymbolPtr newSym)
-  // {
-  //   SymbolPtr* arr[3] = {&tac->a_, &tac->b_, &tac->c_};
-  //   for (auto p : arr)
-  //     if (*p == oldSym)
-  //       *p = newSym;
-  // };
+  auto replace = [](TACPtr tac, SymbolPtr oldSym, SymbolPtr newSym)
+  {
+    SymbolPtr* arr[3] = {&tac->a_, &tac->b_, &tac->c_};
+    for (auto p : arr)
+      if (*p == oldSym)
+        *p = newSym;
+  };
 
-  // auto cfg = dfm->get_controlFlowGraph();
-  // auto &symSet = dfm->get_symAnalyzer()->getSymSet();
-  // auto &useDefChain = dfm->get_arrivalAnalyzer()->get_useDefChain();
+  cfg = std::make_shared<ControlFlowGraph>(fbegin_, fend_);
+  arrivalValAnalyzer = std::make_shared<ArrivalAnalyzer>(cfg);
+  arrivalExpAnalyzer = std::make_shared<ArrivalExprAnalyzer>(cfg);
+  arrivalValAnalyzer->analyze();
+  arrivalExpAnalyzer->analyze();
 
-  // for (auto& [sym, chain] : useDefChain)
-  // {
-  //   // sym的使用点(usePos)只有一个定值能到达，则尝试优化
-  //   for (auto& [usePos, defs] : chain)
-  //   {
-  //     if (defs.size() == 1)
-  //     {
-  //       size_t defPos = *(defs.begin());
-  //       auto defTac = cfg->get_node_tac(defPos);
-  //       auto useTac = cfg->get_node_tac(usePos);
+  auto &useDefChain = arrivalValAnalyzer->get_useDefChain();
+  int cnt = 0;
 
-  //       #ifdef DEBUG_CHECK__
-  //       if (defTac->getDefineSym() != sym)
-  //         throw std::logic_error("useDefChain def logic error!");
-  //       auto useSyms = useTac->getUseSym();
-  //       auto it = useSyms.begin();
-  //       for (; it != useSyms.end(); ++it)
-  //         if (*it == sym)  break;
-  //       if (it == useSyms.end())
-  //         throw std::logic_error("useDefChain use logic error!");
-  //       #endif
+  FOR_EACH_NODE(n, cfg)
+  {
+    auto tac = cfg->get_node_tac(n);
+    auto useSyms = tac->getUseSym();
+    for (auto sym : useSyms)
+    {
+      auto &arrivalDefs = useDefChain.at(sym).at(n);
 
-  //       // 声明也算作定值，如果defTac是声明则略过
-  //       if (isDecl(defTac))
-  //         continue;
-        
-  //       // 形如a = b的defTac，不管useTac是什么，直接替换a的使用为b
-  //       if (defTac->operation_ == TACOperationType::Assign && defTac->b_->value_.IsNumericType())
-  //       {
-  //         #ifdef DEBUG_CHECK__
-  //         printf("propagation optimize log:\n");
-  //         printf("def tac(No.%ld, dfn.%ld): %s\n", defPos, cfg->get_node_dfn(defPos), defTac->ToString().c_str());
-  //         printf("use tac(No.%ld, dfn.%ld): %s\n", usePos, cfg->get_node_dfn(usePos), useTac->ToString().c_str());
-  //         #endif
+      // 能到达的只有1个定值
+      if (arrivalDefs.size() == 1)
+      {
+        // 获取定值tac
+        auto defTac = cfg->get_node_tac(*arrivalDefs.begin());
 
-  //         replace(useTac, sym, defTac->b_);
-  //         dfm->update(usePos);
-  //       }
+        // 正确性 DEBUG用
+        assert(defTac->a_ == sym);
 
-  //       // 否则，可能是其他形式的def（类型转换、调用返回值等）
+        // 当该定值是单赋值(a = b)形式时，尝试进行传播，无论b是字面量或单变量都可以
+        if (isVarAssign(defTac))
+        {
+          // 如果b是一个变量，必须保证它在n可用
+          auto &usableExpr = arrivalExpAnalyzer->getIn(n).exps;
+          size_t id = arrivalExpAnalyzer->getIdOfExpr(ExprInfo(defTac->b_));
 
-  //     }
-  //   }
-  // }
-  return 0;
+          // 若deftac处的b到达n，则可以进行传播
+          if (usableExpr.count(id))
+          {
+            replace(tac, sym, defTac->b_);
+            ++cnt;
+          }
+        }
+      }
+    }
+  }
+  return cnt;
 }
 
 SimpleOptimizer::SimpleOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend)

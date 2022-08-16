@@ -18,7 +18,7 @@ using ArrivalInfo = std::unordered_set<size_t>;
 class ArrivalAnalyzer : public DataFlowAnalyzerForward<ArrivalInfo>
 {
 public:
-    ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph, std::shared_ptr<const SymAnalyzer> _symAnalyzer);
+    ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
     NONCOPYABLE(ArrivalAnalyzer)
     
     using UseDefChain_T = std::unordered_map<SymbolPtr, std::unordered_map<size_t, std::unordered_set<size_t>>>;
@@ -30,7 +30,7 @@ private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
 
-    std::shared_ptr<const SymAnalyzer> symAnalyzer;
+    std::shared_ptr<SymAnalyzer> symAnalyzer;
 
     UseDefChain_T useDefChain;
 };
@@ -74,15 +74,6 @@ namespace std
                 return hash<SymbolPtr>()(o.a);
         }
     };
-
-    template<>
-    struct hash<std::unordered_set<ExprInfo>::iterator>
-    {
-        size_t operator()(const std::unordered_set<ExprInfo>::iterator& o) const
-        {
-            return hash<ExprInfo>()(*o);
-        }
-    };
 }
 
 namespace HaveFunCompiler{
@@ -115,6 +106,11 @@ class ArrivalExprAnalyzer : public DataFlowAnalyzerForward<ArrivalExprInfo>
 public:
     ArrivalExprAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
     NONCOPYABLE(ArrivalExprAnalyzer)
+
+    size_t getIdOfExpr(ExprInfo expr) const
+    {
+        return exprMap.at(expr);
+    }
 
 private:
     void transOp(size_t x, size_t y) override;

@@ -7,9 +7,11 @@ namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
 
-ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph, std::shared_ptr<const SymAnalyzer> _symAnalyzer) : 
-    DataFlowAnalyzerForward<ArrivalInfo>(controlFlowGraph), symAnalyzer(_symAnalyzer)
+ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : 
+    DataFlowAnalyzerForward<ArrivalInfo>(controlFlowGraph)
 {
+    symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
+    symAnalyzer->analyze();
 }
 
 // 到达定值信息结点间传递
