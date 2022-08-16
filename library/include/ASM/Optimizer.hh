@@ -1,5 +1,5 @@
 #pragma once
-
+#include <unistd.h>
 #include "ASM/Common.hh"
 #include "TAC/ThreeAddressCode.hh"
 #include <unordered_map>
@@ -101,5 +101,18 @@ class SimpleOptimizer {
   TACList::iterator fbegin_, fend_;
   TACListPtr tacls_;
 };
+
+class ConstantFoldingOptimizer {
+  NONCOPYABLE(ConstantFoldingOptimizer)
+ public:
+  ConstantFoldingOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend);
+
+  int optimize();
+
+ private:
+  TACList::iterator fbegin_, fend_;
+  TACListPtr tacls_;
+};
+
 }  // namespace AssemblyBuilder
 }

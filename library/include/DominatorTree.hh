@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <stack>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
@@ -94,7 +95,7 @@ class DominatorTree {
     sdom_.clear();
     uni_.clear();
     mn_.clear();
-    Dfs(root_);
+    Traverse(root_);
     for (IndexType i = cur_dfn_; i >= 2; --i) {
       IndexType cur_x = ord_[i];
       for (auto to : edge_sets_[static_cast<uint8_t>(EdgeType::ReversedMap)][cur_x]) {
@@ -123,17 +124,39 @@ class DominatorTree {
     }
   }
 
-  void Dfs(IndexType x) {
-    ++cur_dfn_;
-    dfn_[x] = cur_dfn_;
-    ord_[cur_dfn_] = x;
-    auto &edge_set = edge_sets_[static_cast<uint8_t>(EdgeType::OriginalMap)];
-    auto &edges = edge_set[x];
-    for (auto to : edges) {
-      if (!dfn_.count(to)) {
-        parent_[to] = x;
-        Dfs(to);
+  void Traverse(IndexType x) {
+    std::stack<IndexType> stk;
+    std::stack<std::pair<IndexType, IndexType>> loop_stk;
+    stk.push(x);
+    auto &original_edge_set = edge_sets_[static_cast<uint8_t>(EdgeType::OriginalMap)];
+    auto do_loop_once = [&]() -> void {
+      if (!loop_stk.empty()) {
+        auto [x, to] = loop_stk.top();
+        loop_stk.pop();
+        if (!dfn_.count(to)) {
+          parent_[to] = x;
+          stk.push(to);
+        }
       }
+    };
+    while (!stk.empty() || !loop_stk.empty()) {
+      if (!stk.empty()) {
+        x = stk.top();
+        stk.pop();
+        ++cur_dfn_;
+        dfn_[x] = cur_dfn_;
+        ord_[cur_dfn_] = x;
+        auto &edges = original_edge_set[x];
+        if (!edges.empty()) {
+          for (auto it = edges.rbegin(); it != edges.rend(); ++it) {
+            auto to = *it;
+            loop_stk.emplace(x, to);
+          }
+          do_loop_once();
+        }
+        continue;
+      }
+      do_loop_once();
     }
   }
 
