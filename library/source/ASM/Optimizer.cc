@@ -145,15 +145,18 @@ int PropagationOptimizer::optimize()
 SimpleOptimizer::SimpleOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend)
     : fbegin_(fbegin), fend_(fend), tacls_(tacList) {}
 
-void SimpleOptimizer::optimize() {
+int SimpleOptimizer::optimize() {
   auto it = fbegin_;
   std::vector<decltype(it)> rmls;
+  int opt_count = 0;
   // a = b;
-  auto change2assign = [](HaveFunCompiler::ThreeAddressCode::ThreeAddressCode &tac, SymbolPtr a, SymbolPtr b) -> void {
+  auto change2assign = [&opt_count](HaveFunCompiler::ThreeAddressCode::ThreeAddressCode &tac, SymbolPtr a,
+                                    SymbolPtr b) -> void {
     tac.operation_ = TACOperationType::Assign;
     tac.a_ = a;
     tac.b_ = b;
     tac.c_ = nullptr;
+    opt_count++;
   };
   auto iszero = [](SymbolPtr sym) -> bool {
     if (sym->value_.UnderlyingType() == SymbolValue::ValueType::Float) {
@@ -272,6 +275,7 @@ void SimpleOptimizer::optimize() {
     if (tac.operation_ == TACOperationType::Assign) {
       if (tac.a_ == tac.b_) {
         rmls.push_back(it);
+        opt_count++;
       }
     }
     ++it;
@@ -279,6 +283,7 @@ void SimpleOptimizer::optimize() {
   for (auto tac_it : rmls) {
     tacls_->erase(tac_it);
   }
+  return opt_count;
 }
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler
