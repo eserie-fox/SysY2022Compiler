@@ -78,7 +78,7 @@ class SimpleOptimizer {
  public:
   SimpleOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend);
 
-  void optimize();
+  int optimize();
 
  private:
   TACList::iterator fbegin_, fend_;
