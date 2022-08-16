@@ -375,7 +375,7 @@ RegAllocator::RegAllocator(const LiveIntervalAnalyzer& LiveIntervalAnalyzer)
     // 线性扫描
     LinearScan(LiveIntervalAnalyzer);
     // 在symAttrMap中添加函数属性
-    if (symAttrMap.emplace((*LiveIntervalAnalyzer.get_fbegin())->a_, funcAttr).second == false)
+    if (symAttrMap.emplace((*(++LiveIntervalAnalyzer.get_fbegin()))->a_, funcAttr).second == false)
         throw std::runtime_error("RegAllocator error: Unable to insert function attribute");
 }
 

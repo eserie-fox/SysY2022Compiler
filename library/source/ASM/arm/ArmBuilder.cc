@@ -249,7 +249,9 @@ bool ArmBuilder::TranslateFunction() {
     func_context_.reg_alloc_ = new RegAllocator(LiveIntervalAnalyzer(cfg));
   }
   //开头label包含了函数名
-  auto func_label = (*current_)->a_;
+  auto func_label_itr = current_;
+  ++func_label_itr;
+  auto func_label = (*func_label_itr)->a_;
   std::string func_name = func_label->get_name();
   //添加一个新函数在列表
   func_sections_.emplace_back(func_name);

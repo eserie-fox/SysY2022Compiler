@@ -100,6 +100,7 @@ int PropagationOptimizer::optimize()
   arrivalValAnalyzer = std::make_shared<ArrivalAnalyzer>(cfg);
   arrivalExpAnalyzer = std::make_shared<ArrivalExprAnalyzer>(cfg);
   arrivalValAnalyzer->analyze();
+  arrivalValAnalyzer->updateUseDefChain();
   arrivalExpAnalyzer->analyze();
 
   auto &useDefChain = arrivalValAnalyzer->get_useDefChain();
@@ -125,15 +126,25 @@ int PropagationOptimizer::optimize()
         // 当该定值是单赋值(a = b)形式时，尝试进行传播，无论b是字面量或单变量都可以
         if (isVarAssign(defTac))
         {
-          // 如果b是一个变量，必须保证它在n可用
-          auto &usableExpr = arrivalExpAnalyzer->getIn(n).exps;
-          size_t id = arrivalExpAnalyzer->getIdOfExpr(ExprInfo(defTac->b_));
-
-          // 若deftac处的b到达n，则可以进行传播
-          if (usableExpr.count(id))
+          // 如果b是一个常量，直接传播
+          if (defTac->b_->IsLiteral())
           {
             replace(tac, sym, defTac->b_);
             ++cnt;
+          }
+
+          // 如果b是一个变量，必须保证它在n可用
+          else
+          {
+            auto &usableExpr = arrivalExpAnalyzer->getIn(n).exps;
+            size_t id = arrivalExpAnalyzer->getIdOfExpr(ExprInfo(defTac->b_));
+
+            // 若deftac处的b到达n，则可以进行传播
+            if (usableExpr.count(id))
+            {
+              replace(tac, sym, defTac->b_);
+              ++cnt;
+            }
           }
         }
       }
