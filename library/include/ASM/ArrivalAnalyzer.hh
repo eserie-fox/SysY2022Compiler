@@ -25,6 +25,7 @@ public:
 
     void updateUseDefChain();
     const UseDefChain_T& get_useDefChain() const { return useDefChain; }
+    // const std::unordered_set<size_t>& get_symDefs(SymbolPtr sym, size_t u);
 
 private:
     void transOp(size_t x, size_t y) override;

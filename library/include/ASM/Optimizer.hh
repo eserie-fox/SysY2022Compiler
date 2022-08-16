@@ -24,9 +24,9 @@ class SymAnalyzer;
 class ArrivalAnalyzer;
 class ArrivalExprAnalyzer;
 class PropagationOptimizer;
-
 class DeadCodeOptimizer;
 class SimpleOptimizer;
+class ConstantFoldingOptimizer;
 class DataFlowManager;
 
 class OptimizeController_Simple : public OptimizeController
@@ -41,8 +41,9 @@ private:
     std::shared_ptr<SimpleOptimizer> simpleOp;
     std::shared_ptr<PropagationOptimizer> PropagationOp;
     std::shared_ptr<DeadCodeOptimizer> deadCodeOp;
+    std::shared_ptr<ConstantFoldingOptimizer> constFoldOp;
 
-    const size_t MAX_ROUND = 3;
+    const size_t MAX_ROUND = 2;
     const ssize_t MIN_OP_THRESHOLD = 3;
 };
 

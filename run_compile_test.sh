@@ -38,7 +38,7 @@ do
             cp $file ./build/source/test.sy
             prog=$(calc 100*$id/$totnum)
             echo "[$prog%] Compiling ${filename}..."
-            ./build/source/hfb -o ./build/source/out.s ./build/source/test.sy
+            ./build/source/hfb -o ./build/source/out.s ./build/source/test.sy -O2
             retcode=$?
             if [ $retcode == 0 ]
             then 

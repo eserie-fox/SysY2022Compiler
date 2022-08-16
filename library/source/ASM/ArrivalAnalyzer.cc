@@ -51,6 +51,7 @@ void ArrivalAnalyzer::updateUseDefChain()
         for (auto sym : useSyms)
         {
         auto &symDefs = symAnalyzer->getSymDefPoints(sym);
+        useDefChain[sym][i];   // 确保映射中sym存在，即使它的定值链为空
         for (auto d : symDefs)
             if (arrivalDefs.count(d))
             useDefChain[sym][i].insert(d);
@@ -110,12 +111,15 @@ void ArrivalExprAnalyzer::transOp(size_t x, size_t y)
     else  // 都不是全集
     {
         auto &exps = _in[x].exps;
-        for (auto it = exps.begin(); it != exps.end(); ++it)
+        for (auto it = exps.begin(); it != exps.end(); )
         {
             // it -> <expid, 上一个计算exp的点下标>
             // 求交集
+            // BUG: erase的参数迭代器会被非法化，使用it = erase(it)
             if (_out[y].exps.count(it->first) == 0)
-                exps.erase(it);
+                it = exps.erase(it);
+            else
+                ++it;
         }
     }
 }

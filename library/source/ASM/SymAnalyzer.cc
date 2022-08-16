@@ -45,6 +45,16 @@ void SymAnalyzer::analyze()
             if (!vis[u])
                 q.push(u);
     }
+
+    // bug: 全局变量可能不在函数内被定值，Defmap.at抛出异常
+    // 所有变量都加入集合
+    for (auto sym : symSet)
+    {
+        if (symDefMap.count(sym) == 0)
+            symDefMap.emplace(sym, std::unordered_set<size_t>());
+        if (symUseMap.count(sym) == 0)
+            symUseMap.emplace(sym, std::unordered_set<size_t>());
+    }
 }
 
 }

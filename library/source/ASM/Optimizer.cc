@@ -20,6 +20,7 @@ OptimizeController_Simple::OptimizeController_Simple(TACListPtr tacList, TACList
   simpleOp = std::make_shared<SimpleOptimizer>(tacList, fbegin, fend);
   PropagationOp = std::make_shared<PropagationOptimizer>(tacList, fbegin, fend);
   deadCodeOp = std::make_shared<DeadCodeOptimizer>(tacList, fbegin, fend);
+  constFoldOp = std::make_shared<ConstantFoldingOptimizer>(tacList, fbegin, fend);
 }
 
 void OptimizeController_Simple::doOptimize()
@@ -32,9 +33,10 @@ void OptimizeController_Simple::doOptimize()
     cnt += simpleOp->optimize();
     cnt += PropagationOp->optimize();
     cnt += deadCodeOp->optimize();
+    cnt += constFoldOp->optimize();
     ++round;
-  } while (round <= MAX_ROUND && cnt > MIN_OP_THRESHOLD);
-  
+  } while (round < MAX_ROUND && cnt > MIN_OP_THRESHOLD);
+  constFoldOp->optimize();   // 翻译时不能出现未折叠的常量运算
 }
 
 DeadCodeOptimizer::DeadCodeOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend)
