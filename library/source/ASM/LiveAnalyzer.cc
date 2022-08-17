@@ -1,7 +1,9 @@
 #include "ASM/LiveAnalyzer.hh"
 #include "ASM/ControlFlowGraph.hh"
+#include "ASM/SymAnalyzer.hh"
 #include <stdexcept>
 #include <queue>
+#include <array>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -122,6 +124,90 @@ void LiveAnalyzer::transFunc(size_t u)
     for (auto sym : gen)
         _in[u].insert(sym);
 }
+
+UseDefAnalyzer::UseDefAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph)
+{
+    cfg = controlFlowGraph;
+    symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
+}
+
+const std::unordered_set<SymbolPtr>& UseDefAnalyzer::get_symSet() const
+{
+    return symAnalyzer->getSymSet();
+}
+
+void UseDefAnalyzer::analyze()
+{
+    auto getPriority = [this](size_t n)
+    {
+        return SIZE_MAX - cfg->get_node_dfn(n);
+    };
+
+    symAnalyzer->analyze();
+
+    auto &symSet = symAnalyzer->getSymSet();
+    for (auto sym : symSet)
+    {
+        // 每个结点的数据流信息，0为入口，1为出口
+        // useInfo: 变量sym的使用点集合
+        std::unordered_map<size_t, std::array<UseInfo, 2>> nodeUseInfo;
+
+        // 工作集：<结点优先级，结点号>
+        std::set<std::pair<size_t, size_t>> workSet;
+
+        // 得到变量的定值集合，使用集合
+        auto &defSet = symAnalyzer->getSymDefPoints(sym);
+        auto &useSet = symAnalyzer->getSymUsePoints(sym);
+
+        // 初始化工作集
+        for (auto n : useSet)
+            workSet.emplace(getPriority(n), n);
+    
+        while (!workSet.empty())
+        {
+            auto node = workSet.begin()->second;
+            workSet.erase(workSet.begin());
+
+            auto &in = nodeUseInfo[node][0];
+            auto &out = nodeUseInfo[node][1];
+
+            // 结点间传递
+            for (auto sucNode : cfg->get_outNodeList(node))
+            {
+                auto &sucIn = nodeUseInfo[sucNode][0];
+                for (auto n : sucIn)
+                    out.insert(n);
+            }
+
+            // 结点内传递
+            UseInfo oldIn = std::move(in);
+            in = out;
+            // 如果是一个定值点
+            // 杀死sym的所有到达的使用点
+            if (defSet.count(node))
+                in.clear(); 
+            // 如果是一个使用点，添加上
+            if (useSet.count(node))
+                in.insert(node);
+            
+            if (in != oldIn)
+                for (auto preNode : cfg->get_inNodeList(node))
+                    workSet.emplace(getPriority(preNode), preNode);
+        }
+
+        for (auto def : defSet)
+        {
+            UseInfo &usePoints = nodeUseInfo[def][1];
+            defUseChain[sym][def];
+            for (auto use : usePoints)
+            {
+                defUseChain[sym][def].insert(use);
+                useDefChain[sym][use].insert(def);
+            }
+        }
+    }
+}
+
 
 LiveIntervalAnalyzer::LiveIntervalAnalyzer(std::shared_ptr<ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
 {

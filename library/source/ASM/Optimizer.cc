@@ -19,7 +19,7 @@ OptimizeController_Simple::OptimizeController_Simple(TACListPtr tacList, TACList
 {
   simpleOp = std::make_shared<SimpleOptimizer>(tacList, fbegin, fend);
   PropagationOp = std::make_shared<PropagationOptimizer>(tacList, fbegin, fend);
-  deadCodeOp = std::make_shared<DeadCodeOptimizer>(tacList, fbegin, fend);
+  deadCodeOp = std::make_shared<DeadCodeOptimizer_UseDef>(tacList, fbegin, fend);
   constFoldOp = std::make_shared<ConstantFoldingOptimizer>(tacList, fbegin, fend);
 }
 
@@ -31,7 +31,7 @@ void OptimizeController_Simple::doOptimize()
   {
     cnt = 0;
     cnt += simpleOp->optimize();
-    cnt += PropagationOp->optimize();
+//    cnt += PropagationOp->optimize();
     cnt += deadCodeOp->optimize();
     cnt += constFoldOp->optimize();
     ++round;
@@ -79,6 +79,48 @@ bool DeadCodeOptimizer::hasSideEffect(SymbolPtr defSym, TACPtr tac) {
   // }
   return false;
 }
+
+DeadCodeOptimizer_UseDef::DeadCodeOptimizer_UseDef(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend) :
+_fbegin(fbegin), _fend(fend), _tacls(tacList) { }
+
+bool DeadCodeOptimizer_UseDef::hasSideEffect(SymbolPtr defSym, TACPtr tac) {
+  if (defSym->IsGlobal()) return true;
+  if (tac->operation_ == TACOperationType::Call || tac->operation_ == TACOperationType::Parameter) return true;
+  // if (tac->operation_ == TACOperationType::Constant || tac->operation_ == TACOperationType::Variable)
+  // {
+  //     auto liveInfo = la.get_symLiveInfo(defSym);
+  //     if (liveInfo->useCnt != 0)
+  //         return true;
+  //     else
+  //         return false;
+  // }
+  return false;
+}
+
+int DeadCodeOptimizer_UseDef::optimize()
+{
+  cfg = std::make_shared<ControlFlowGraph>(_fbegin, _fend);
+  useDefAnalyzer = std::make_shared<UseDefAnalyzer>(cfg);
+  useDefAnalyzer->analyze();
+
+  std::vector<TACList::iterator> deadCodes;
+  auto &symSet = useDefAnalyzer->get_symSet();
+  for (auto sym : symSet)
+  {
+    auto &duChain = useDefAnalyzer->get_defUseChain(sym);
+    for (auto& [n, uses] : duChain)
+    {
+      if (uses.size() == 0 && !hasSideEffect(sym, cfg->get_node_tac(n)))
+        deadCodes.push_back(cfg->get_node_itr(n));
+    }
+  }
+
+  for (auto it : deadCodes) 
+    _tacls->erase(it);
+
+  return deadCodes.size();
+}
+
 
 PropagationOptimizer::PropagationOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend) :
   tacLs_(tacList), fbegin_(fbegin), fend_(fend) {}
