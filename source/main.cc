@@ -21,22 +21,21 @@
 
 using namespace HaveFunCompiler::AssemblyBuilder;
 
-enum class ArgType { SourceFile, TargetFile, _o, OP, Others };
+enum class ArgType { SourceFile, TargetFile, _o, OP, ThreeAddressCode, Others };
 
 ArgType analyzeArg(const char *arg)
 {
   std::string s(arg);
   auto pos = s.rfind('.');
-  if (pos == std::string::npos)
-  {
+  if (pos == std::string::npos) {
     if (s == "-o")
       return ArgType::_o;
     else if (s == "-O2")
       return ArgType::OP;
+    else if (s == "-M")
+      return ArgType::ThreeAddressCode;
     return ArgType::Others;
-  }
-  else
-  {
+  } else {
     auto suffix = s.substr(pos);
     if (suffix == ".sy")
       return ArgType::SourceFile;
@@ -53,6 +52,8 @@ int main(const int arg, const char **argv) {
   HaveFunCompiler::Parser::Driver driver;
   HaveFunCompiler::Parser::TACDriver tacdriver;
 
+  bool tac_only = false;
+
   // 分析命令行参数, 目前做IO重定向
   const char *input = nullptr;
   for (int i = 0; i < arg; ++i) {
@@ -64,9 +65,10 @@ int main(const int arg, const char **argv) {
         ++i;
         freopen(argv[i], "w", stdout);
       }
-    }
-    else if (res == ArgType::OP) {
+    } else if (res == ArgType::OP) {
       OP_flag = 1;
+    } else if (res == ArgType::ThreeAddressCode) {
+      tac_only = true;
     }
   }
   if (input == nullptr || !driver.parse(input)) {
@@ -79,14 +81,17 @@ int main(const int arg, const char **argv) {
   if (!tacdriver.parse(ss)) {
     return -2;
   }
-  // tacdriver.print(std::cout) << std::endl;
+  if (tac_only) {
+    tacdriver.print(std::cout) << std::endl;
+    return 0;
+  }
 
   std::string output;
   ArmBuilder armBuilder(tacdriver.get_tacbuilder()->GetTACList());
   if (!armBuilder.Translate(&output)) {
     return -3;
   }
-  printf("%s\n", output.c_str());
-  // std::cout << output << std::endl;
+  // printf("%s\n", output.c_str());
+  std::cout << output << std::endl;
   return 0;
 }

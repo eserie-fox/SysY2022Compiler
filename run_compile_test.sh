@@ -22,6 +22,7 @@ read_dir(){
 read_dir ./tests/compile_test_cases
 
 failed_tests=()
+disabled_tests=()
 declare -i id=0
 declare -i totnum=${#file_list[@]}
 
@@ -34,6 +35,13 @@ do
     then
         if [ "${filename##*.}" = "sy" ];
         then 
+            if [[ "$file" =~ .*_DISABLED_.* ]]
+            then
+                echo "Disabled Test: ${filename}, ignored." 
+                disabled_tests+=("DisabledTest:${filename}")
+                continue
+            fi
+
             id=$id+1
             cp $file ./build/source/test.sy
             prog=$(calc 100*$id/$totnum)
@@ -65,6 +73,21 @@ else
         echo "[$id] $failure"
     done
 fi
+
+
+id=0
+if [ ${#disabled_tests[@]} -eq 0 ]
+then
+    echo "No disabled test case."
+else
+    echo "Disabled test cases(${#disabled_tests[@]}):"
+    for disable in ${disabled_tests[@]}
+    do
+        id=$id+1
+        echo "[$id] $disable"
+    done
+fi
+
 
 # fullfilename=$1
 # filename=$(basename "$fullfilename")
