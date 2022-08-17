@@ -1,8 +1,12 @@
 #include "ASM/ControlFlowGraph.hh"
-#include "TAC/Symbol.hh"
-#include <unordered_map>
-#include <string>
+#include <algorithm>
 #include <fstream>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include "TAC/Symbol.hh"
+#include "Utility.hh"
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -112,19 +116,23 @@ size_t ControlFlowGraph::newNode(TACPtr tac)
 // 目前只保证删除不可达结点时维持语义
 void ControlFlowGraph::eraseNode(size_t u)
 {
-    auto eraseInVec = [](std::vector<size_t> &vec, size_t val)
-    {
-        std::vector<std::vector<size_t>::iterator> its;  // 防止多重图，删不干净
-        for(auto it = vec.begin(); it != vec.end(); ++it)
-            if (*it == val)
-                its.push_back(it);
-        for (auto& it : its)
-            vec.erase(it);
-    };
-    for (auto v : nodes[u].inNodeList)
-        eraseInVec(nodes[v].outNodeList, u);
-    for (auto v : nodes[u].outNodeList)
-        eraseInVec(nodes[v].inNodeList, u);
+    // auto eraseInVec = [](std::vector<size_t> &vec, size_t val)
+    // {
+    //     std::vector<std::vector<size_t>::iterator> its;  // 防止多重图，删不干净
+    //     for(auto it = vec.begin(); it != vec.end(); ++it)
+    //         if (*it == val)
+    //             its.push_back(it);
+    //     for (auto& it : its)
+    //         vec.erase(it);
+    // };
+    for (auto v : nodes[u].inNodeList) {
+        Erase(nodes[v].outNodeList, u);
+        // eraseInVec(nodes[v].outNodeList, u);
+    }
+    for (auto v : nodes[u].outNodeList) {
+        Erase(nodes[v].outNodeList, u);
+        // eraseInVec(nodes[v].inNodeList, u);
+    }
     nodes[u].dfn = 0;
 }
 

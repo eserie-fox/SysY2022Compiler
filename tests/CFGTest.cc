@@ -32,8 +32,8 @@ public:
         x = tacBuilder.NewSymbol(SymbolType::Variable, "a", 2);
         y = tacBuilder.NewSymbol(SymbolType::Variable, "a", 2);
         tacList = tacBuilder.NewTACList();
-        tacList += tacBuilder.NewTAC(TACOperationType::Label, tacBuilder.NewSymbol(SymbolType::Label, "funcName"));
         tacList += tacBuilder.NewTAC(TACOperationType::FunctionBegin);
+        tacList += tacBuilder.NewTAC(TACOperationType::Label, tacBuilder.NewSymbol(SymbolType::Label, "funcName"));
     }
     ~CFGTest() {}
 };
