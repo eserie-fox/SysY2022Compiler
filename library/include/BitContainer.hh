@@ -87,6 +87,7 @@ class BitContainer {
     }
     return *this;
   }
+
   BitContainer &operator|=(const BitContainer &rhs) {
     std::vector<InnerPairType> addls;
     for (auto it = rhs.container_.cbegin(); it != rhs.container_.cend(); ++it) {
@@ -113,6 +114,13 @@ class BitContainer {
       return false;
     }
     return it->second._Unchecked_test(SEC(pos));
+  }
+
+  bool only_one() const {
+    if (container_.empty() || container_.size() > 1) {
+      return false;
+    }
+    return container_.begin()->second.count() == 1;
   }
 
  private:
