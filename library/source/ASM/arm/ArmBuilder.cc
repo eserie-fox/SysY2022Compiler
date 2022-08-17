@@ -13,6 +13,7 @@
 #include "TAC/TAC.hh"
 
 extern int OP_flag;
+extern bool tac_only;
 
 namespace HaveFunCompiler {
 namespace AssemblyBuilder {
@@ -236,6 +237,13 @@ bool ArmBuilder::TranslateFunction() {
     {
       std::shared_ptr<OptimizeController> opController = std::make_shared<OptimizeController_Simple>(tac_list_, current_, end_);
       opController->doOptimize();
+    }
+
+    if (tac_only)
+    {
+      target_output_->append(tac_list_->ToString());
+      target_output_->append("\n\n");
+      return true;
     }
 
     // 生成控制流图

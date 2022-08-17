@@ -114,6 +114,10 @@ int PropagationOptimizer::optimize()
     auto useSyms = tac->getUseSym();
     for (auto sym : useSyms)
     {
+      // 全局变量和字面量，无法进行传播
+      if (sym->IsGlobal() || sym->IsLiteral())
+        continue;
+
       auto &arrivalDefs = useDefChain.at(sym).at(n);
 
       // 能到达的只有1个定值

@@ -47,12 +47,12 @@ ArgType analyzeArg(const char *arg)
 }
 
 int OP_flag = 0;
+bool tac_only = false;
 
 int main(const int arg, const char **argv) {
   HaveFunCompiler::Parser::Driver driver;
   HaveFunCompiler::Parser::TACDriver tacdriver;
 
-  bool tac_only = false;
 
   // 分析命令行参数, 目前做IO重定向
   const char *input = nullptr;
@@ -80,10 +80,6 @@ int main(const int arg, const char **argv) {
   // std::cout << tss << std::endl;
   if (!tacdriver.parse(ss)) {
     return -2;
-  }
-  if (tac_only) {
-    tacdriver.print(std::cout) << std::endl;
-    return 0;
   }
 
   std::string output;
