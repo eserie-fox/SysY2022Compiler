@@ -130,7 +130,7 @@ void ControlFlowGraph::eraseNode(size_t u)
         // eraseInVec(nodes[v].outNodeList, u);
     }
     for (auto v : nodes[u].outNodeList) {
-        Erase(nodes[v].outNodeList, u);
+        Erase(nodes[v].inNodeList, u);
         // eraseInVec(nodes[v].inNodeList, u);
     }
     nodes[u].dfn = 0;
