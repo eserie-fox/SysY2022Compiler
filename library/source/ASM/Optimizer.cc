@@ -203,13 +203,13 @@ int SimpleOptimizer::optimize() {
     auto &tac = *(*it);
     switch (tac.operation_) {
       case TACOperationType::Add: {
-        if (tac.b_->type_ == SymbolType::Constant) {
+        if (tac.b_->IsLiteral()) {
           if (iszero(tac.b_)) {
             change2assign(tac, tac.a_, tac.c_);
             break;
           }
         }
-        if (tac.c_->type_ == SymbolType::Constant) {
+        if (tac.c_->IsLiteral()) {
           if (iszero(tac.c_)) {
             change2assign(tac, tac.a_, tac.b_);
             break;
@@ -217,8 +217,9 @@ int SimpleOptimizer::optimize() {
         }
         break;
       }
+
       case TACOperationType::Sub: {
-        if (tac.c_->type_ == SymbolType::Constant) {
+        if (tac.c_->IsLiteral()) {
           if (iszero(tac.c_)) {
             change2assign(tac, tac.a_, tac.b_);
             break;
@@ -226,8 +227,9 @@ int SimpleOptimizer::optimize() {
         }
         break;
       }
+
       case TACOperationType::Mul: {
-        if (tac.b_->type_ == SymbolType::Constant) {
+        if (tac.b_->IsLiteral()) {
           if (isone(tac.b_)) {
             change2assign(tac, tac.a_, tac.c_);
             break;
@@ -237,7 +239,7 @@ int SimpleOptimizer::optimize() {
             break;
           }
         }
-        if (tac.c_->type_ == SymbolType::Constant) {
+        if (tac.c_->IsLiteral()) {
           if (isone(tac.c_)) {
             change2assign(tac, tac.a_, tac.b_);
             break;
@@ -251,13 +253,13 @@ int SimpleOptimizer::optimize() {
       }
 
       case TACOperationType::Div: {
-        if (tac.b_->type_ == SymbolType::Constant) {
+        if (tac.b_->IsLiteral()) {
           if (iszero(tac.b_)) {
             change2assign(tac, tac.a_, tac.b_);
             break;
           }
         }
-        if (tac.c_->type_ == SymbolType::Constant) {
+        if (tac.c_->IsLiteral()) {
           if (isone(tac.c_)) {
             change2assign(tac, tac.a_, tac.b_);
             break;
@@ -267,13 +269,13 @@ int SimpleOptimizer::optimize() {
       }
 
       case TACOperationType::Mod: {
-        if (tac.b_->type_ == SymbolType::Constant) {
+        if (tac.b_->IsLiteral()) {
           if (iszero(tac.b_)) {
             change2assign(tac, tac.a_, tac.b_);
             break;
           }
         }
-        if (tac.c_->type_ == SymbolType::Constant) {
+        if (tac.c_->IsLiteral()) {
           if (isone(tac.c_)) {
             if (tac.a_->value_.Type() != SymbolValue::ValueType::Float) {
               auto sym = std::make_shared<Symbol>();
@@ -286,6 +288,20 @@ int SimpleOptimizer::optimize() {
         }
         break;
       }
+
+      case TACOperationType::IfZero: {
+        if (tac.b_->IsLiteral()) {
+          if (iszero(tac.b_)) {
+            tac.operation_ = TACOperationType::Goto;
+            tac.b_ = nullptr;
+          } else {
+            rmls.push_back(it);
+          }
+          opt_count++;
+        }
+        break;
+      }
+
       default:
         break;
     }
