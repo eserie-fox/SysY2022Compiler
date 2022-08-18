@@ -49,14 +49,12 @@ int DeadCodeOptimizer::optimize() {
 
   std::vector<TACList::iterator> deadCodes;
 
-  auto tacNum = cfg->get_nodes_number();
-  for (size_t i = 0; i < tacNum; ++i) {
+  FOR_EACH_NODE(i, cfg) {
     auto tac = cfg->get_node_tac(i);
     auto defSym = tac->getDefineSym();
     if (defSym) {
       auto &outLive = liveAnalyzer->getOut(i);
-      if (outLive.count(defSym) == 0 && !hasSideEffect(defSym, tac))
-        deadCodes.push_back(cfg->get_node_itr(i));
+      if (outLive.count(defSym) == 0 && !hasSideEffect(defSym, tac)) deadCodes.push_back(cfg->get_node_itr(i));
     }
   }
 
