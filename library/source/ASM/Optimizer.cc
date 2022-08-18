@@ -31,7 +31,7 @@ void OptimizeController_Simple::doOptimize()
   {
     cnt = 0;
     cnt += simpleOp->optimize();
-//    cnt += PropagationOp->optimize();
+    cnt += PropagationOp->optimize();
     cnt += deadCodeOp->optimize();
     cnt += constFoldOp->optimize();
     ++round;
