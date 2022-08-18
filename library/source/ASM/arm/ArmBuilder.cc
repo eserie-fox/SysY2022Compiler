@@ -384,6 +384,10 @@ bool ArmBuilder::TranslateFunction() {
         }
       }
     }
+    int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
+    if (count <= 4) {
+      return false;
+    }
     return true;
   };
 
