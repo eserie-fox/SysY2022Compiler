@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <stdexcept>
+#include <cassert>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -96,6 +97,30 @@ public:
     const std::vector<TACList::iterator>& get_unreachableTACItrList() const
     {
         return unreachableTACItrList;
+    }
+
+    size_t get_node_lino(size_t nodeid) const {
+      assert(startNode == 0);
+      assert(endNode == 1);
+      if (nodeid == startNode) {
+        return 1;
+      }
+      if (nodeid == endNode) {
+        return nodes.size();
+      }
+      return nodeid;
+    }
+
+    size_t get_node_id(size_t node_lino) const {
+      assert(startNode == 0);
+      assert(endNode == 1);
+      if (node_lino == nodes.size()) {
+        return endNode;
+      }
+      if (node_lino == 1) {
+        return startNode;
+      }
+      return node_lino;
     }
 
     void setDfn();

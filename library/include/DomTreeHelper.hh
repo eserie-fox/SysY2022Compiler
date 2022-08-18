@@ -3,22 +3,37 @@
 
 namespace HaveFunCompiler {
 using IndexType = size_t;
+// template <typename IndexType = size_t>
 class DomTreeHelper {
   NONCOPYABLE(DomTreeHelper)
  public:
-  DomTreeHelper(DominatorTree<IndexType> *dom_tree) {
-    auto allnodes = dom_tree->get_all_nodes();
-    TreeType tree = BuildTempTree(dom_tree, allnodes);
-    auto max_dep = BuildDepthInfo(tree, dom_tree->get_root());
+  using TreeType = std::unordered_map<IndexType, std::vector<IndexType>>;
+  using DepthType = std::unordered_map<IndexType, IndexType>;
+  DomTreeHelper(std::shared_ptr<DominatorTree<IndexType>> dom_tree) : dom_tree_(dom_tree), has_aux_info_(false) {
+    all_nodes_ = dom_tree->get_all_nodes();
+    BuildTree(dom_tree, all_nodes_);
+    auto max_dep = BuildDepthInfo(tree_, dom_tree->get_root());
     max_depth_level_ = 1;
     while (((static_cast<IndexType>(1)) << static_cast<IndexType>(max_depth_level_)) < max_dep) {
       ++max_depth_level_;
     }
-    CalcAuxInfo(dom_tree, tree, allnodes);
+  }
+
+  void CalcAuxInfo() {
+    if (!has_aux_info_) {
+      has_aux_info_ = true;
+      CalcAuxInfo(dom_tree_, tree_, all_nodes_);
+      dom_tree_ = nullptr;
+      all_nodes_.clear();
+    }
   }
 
   // Check if the 'ancestor' is the real ancestor of the 'offsprint'. One is its own ancestor.
   bool IsAncestorOf(IndexType ancestor, IndexType offspring) {
+    if (!has_aux_info_) {
+      CalcAuxInfo();
+      // throw std::logic_error("Haven't calc aux info yet");
+    }
     auto dep1 = depth_info_[ancestor];
     auto dep2 = depth_info_[offspring];
     if (dep1 > dep2) {
@@ -34,16 +49,17 @@ class DomTreeHelper {
     return ancestor == offspring;
   }
 
+  const TreeType &get_tree() const { return tree_; }
+
+  IndexType get_depth(IndexType node) const { return depth_info_.at(node); }
+
  private:
-  using TreeType = std::unordered_map<IndexType, std::vector<IndexType>>;
-  using DepthType = std::unordered_map<IndexType, IndexType>;
   using AuxiliaryInfoType = std::unordered_map<IndexType, std::vector<IndexType>>;
-  TreeType BuildTempTree(DominatorTree<IndexType> *dom_tree, const std::vector<IndexType> &all_nodes) {
-    TreeType edges;
+  void BuildTree(std::shared_ptr<DominatorTree<IndexType>> dom_tree, const std::vector<IndexType> &all_nodes) {
+    tree_.clear();
     for (auto x : all_nodes) {
-      edges[dom_tree->get_dominator(x)].push_back(x);
+      tree_[dom_tree->get_dominator(x)].push_back(x);
     }
-    return edges;
   }
 
   // return max depth
@@ -70,7 +86,8 @@ class DomTreeHelper {
     return max_dep;
   }
 
-  void CalcAuxInfo(DominatorTree<IndexType> *dom_tree, const TreeType &tree, const std::vector<IndexType> &all_nodes) {
+  void CalcAuxInfo(std::shared_ptr<DominatorTree<IndexType>> dom_tree, const TreeType &tree,
+                   const std::vector<IndexType> &all_nodes) {
     auto root = dom_tree->get_root();
     {
       auto &rootinfo = aux_info_[root];
@@ -102,7 +119,10 @@ class DomTreeHelper {
       }
     }
   }
-
+  std::shared_ptr<DominatorTree<IndexType>> dom_tree_;
+  bool has_aux_info_;
+  std::vector<size_t> all_nodes_;
+  TreeType tree_;
   DepthType depth_info_;
   int max_depth_level_;
   AuxiliaryInfoType aux_info_;
