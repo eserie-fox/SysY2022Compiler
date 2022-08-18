@@ -6,6 +6,8 @@
 #include "ASM/SymAnalyzer.hh"
 #include "ASM/ArrivalAnalyzer.hh"
 #include "TAC/Symbol.hh"
+#include "ASM/CFG2DomTreeBuilder.hh"
+#include "DomTreeHelper.hh"
 #include <iostream>
 #include <cassert>
 
@@ -132,19 +134,40 @@ int PropagationOptimizer::optimize()
 
   auto replace = [](TACPtr tac, SymbolPtr oldSym, SymbolPtr newSym)
   {
-    SymbolPtr* arr[3] = {&tac->a_, &tac->b_, &tac->c_};
+    // 提取tac中的使用变量指针
+    SymbolPtr* arr[3] = {nullptr};
+    size_t i = 0;
+    if (tac->a_)
+    {
+      if (tac->a_->value_.Type() == SymbolValue::ValueType::Array)
+        arr[i++] = &(tac->a_->value_.GetArrayDescriptor()->base_offset);
+      else
+        arr[i++] = &tac->a_;
+    }
+    if (tac->b_)
+    {
+      if (tac->b_->value_.Type() == SymbolValue::ValueType::Array)
+        arr[i++] = &(tac->b_->value_.GetArrayDescriptor()->base_offset);
+      else
+        arr[i++] = &tac->b_;
+    }
+    if (tac->c_)
+      arr[i++] = &tac->c_;
+
     for (auto p : arr)
-      if (*p == oldSym)
+      if (p && *p == oldSym)
         *p = newSym;
   };
 
   cfg = std::make_shared<ControlFlowGraph>(fbegin_, fend_);
   arrivalValAnalyzer = std::make_shared<ArrivalAnalyzer>(cfg);
-  arrivalExpAnalyzer = std::make_shared<ArrivalExprAnalyzer>(cfg);
   arrivalValAnalyzer->analyze();
   arrivalValAnalyzer->updateUseDefChain();
-  arrivalExpAnalyzer->analyze();
 
+  auto domTree = BuildDomTreeFromCFG(cfg);
+  DomTreeHelper domTreeHelper(domTree);
+
+  auto symAnalyzer = arrivalValAnalyzer->get_symAnalyzer();
   auto &useDefChain = arrivalValAnalyzer->get_useDefChain();
   int cnt = 0;
 
@@ -163,8 +186,10 @@ int PropagationOptimizer::optimize()
       // 能到达的只有1个定值
       if (arrivalDefs.size() == 1)
       {
+        auto defNode = *arrivalDefs.begin();
+
         // 获取定值tac
-        auto defTac = cfg->get_node_tac(*arrivalDefs.begin());
+        auto defTac = cfg->get_node_tac(defNode);
 
         // 正确性 DEBUG用
         assert(defTac->a_ == sym);
@@ -180,13 +205,32 @@ int PropagationOptimizer::optimize()
           }
 
           // 如果b是一个变量，必须保证它在n可用
+          // 可用性条件：
+          // 到达n和defNode的，变量b的定值，必须完全相同，否则在n点，a的值不一定和b相同
+          // defNode，必须是n的必经结点，否则运行到n点时，程序不一定经过了defNode，b的值也不一定和a的相同
           else
           {
-            auto &usableExpr = arrivalExpAnalyzer->getIn(n).exps;
-            size_t id = arrivalExpAnalyzer->getIdOfExpr(ExprInfo(defTac->b_));
+            // 得到到达结点node的变量sym的定值集合
+            auto getSymReachableDefs = [this, &symAnalyzer](SymbolPtr sym, size_t node)
+            {
+              auto &rDefs = arrivalValAnalyzer->getIn(node);
+              auto &symDefs = symAnalyzer->getSymDefPoints(sym);
+              std::unordered_set<size_t> res;
+              for (auto d : symDefs)
+                if (rDefs.count(d))
+                  res.insert(d);
+              return res;
+            };
 
-            // 若deftac处的b到达n，则可以进行传播
-            if (usableExpr.count(id))
+            // defNode不是n的必经结点，则不能传播
+            if (domTreeHelper.IsAncestorOf(defNode, n) == false)
+              continue;
+
+            auto bDefsAtDefNode = getSymReachableDefs(defTac->b_, defNode);
+            auto bDefsAtn = getSymReachableDefs(defTac->b_, n);
+
+            // 如果定值集合相等，可以进行传播
+            if (bDefsAtDefNode == bDefsAtn)
             {
               replace(tac, sym, defTac->b_);
               ++cnt;

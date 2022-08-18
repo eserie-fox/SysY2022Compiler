@@ -3,6 +3,8 @@
 #include <ext/rope>
 #include <vector>
 
+namespace HaveFunCompiler {
+
 template<typename IndexType = size_t>
 class RopeContainer
 {
@@ -119,3 +121,6 @@ private:
     using RopeContainerType = __gnu_cxx::rope<size_t>;
     RopeContainerType ropeBitmap;
 };
+
+
+}

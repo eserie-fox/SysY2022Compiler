@@ -45,7 +45,7 @@ private:
     std::shared_ptr<DeadCodeOptimizer_UseDef> deadCodeOp;
     std::shared_ptr<ConstantFoldingOptimizer> constFoldOp;
 
-    const size_t MAX_ROUND = 2;
+    const size_t MAX_ROUND = 3;
     const ssize_t MIN_OP_THRESHOLD = 3;
 };
 
@@ -100,9 +100,7 @@ public:
 
 private:
     std::shared_ptr<ControlFlowGraph> cfg;
-    std::shared_ptr<SymAnalyzer> symAnalyzer;
     std::shared_ptr<ArrivalAnalyzer> arrivalValAnalyzer;
-    std::shared_ptr<ArrivalExprAnalyzer> arrivalExpAnalyzer;
 
     TACListPtr tacLs_;
     TACList::iterator fbegin_, fend_;
