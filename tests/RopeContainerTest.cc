@@ -15,13 +15,23 @@ TEST(RopeContainer, ConstructTest) {
     }
   }
   std::vector<RopeContainer<int>> rcs{rc};
+  std::vector<int> posvec;
   for (int i = 0; i < 3000; i++) {
     rcs.emplace_back(rcs.back());
     int pos = rand() % MAXN;
+    posvec.push_back(pos);
     if (rcs.back().test(pos)) {
       rcs.back().reset(pos);
     } else {
       rcs.back().set(pos);
     }
   }
+  for (auto x : posvec) {
+    if (rc.test(x)) {
+      rc.reset(x);
+    } else {
+      rc.set(x);
+    }
+  }
+  ASSERT_EQ(rc, rcs.back());
 }
