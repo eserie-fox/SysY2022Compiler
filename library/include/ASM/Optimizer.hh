@@ -45,7 +45,7 @@ private:
     std::shared_ptr<DeadCodeOptimizer> deadCodeOp;
     std::shared_ptr<ConstantFoldingOptimizer> constFoldOp;
 
-    const size_t MAX_ROUND = 3;
+    const size_t MAX_ROUND = 2;
     const ssize_t MIN_OP_THRESHOLD = 3;
 };
 
