@@ -368,11 +368,17 @@ bool ArmBuilder::TranslateFunction() {
   //去掉fend
   --end_;
   assert((*end_)->operation_ == TACOperationType::FunctionEnd);
+  auto save_end_ = **end_;
+  (*end_)->operation_ = TACOperationType::Return;
+  (*end_)->a_ = nullptr;
+  (*end_)->b_ = nullptr;
+  (*end_)->c_ = nullptr;
+  ++end_;
   for (; current_ != end_; ++current_) {
     if ((*current_)->operation_ == TACOperationType::Call) {
       auto next = current_;
       ++next;
-      if ((*next)->operation_ == TACOperationType::Return) {
+      if (next != end_ && (*next)->operation_ == TACOperationType::Return) {
         if ((*current_)->a_ == (*next)->a_) {
           TACPtr taccallret = std::make_shared<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>();
           taccallret->operation_ = TACOperationType::CallAndReturn;
@@ -385,6 +391,8 @@ bool ArmBuilder::TranslateFunction() {
     }
     emit(FuncTACToASMString(*current_));
   }
+  --end_;
+  **end_ = save_end_;
   //还原fend
   ++end_;
 

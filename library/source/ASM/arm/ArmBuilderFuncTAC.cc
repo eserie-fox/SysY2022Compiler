@@ -470,7 +470,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
   auto binary_operation = [&, this]() -> void {
     assert(tac->a_->value_.Type() == tac->b_->value_.Type());
     assert(tac->b_->value_.Type() == tac->c_->value_.Type());
-    
+
     //此block尝试对常量加载进行优化
     {
       bool b_const = tac->b_->type_ == SymbolType::Constant;
@@ -1252,6 +1252,66 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     }
   };
 
+  auto need_call_stk = [&, this]() -> bool {
+    for (auto it = func_context_.arg_records_.rbegin(); it != func_context_.arg_records_.rend(); ++it) {
+      if (!it->storage_in_reg) {
+        continue;
+      }
+      if (it->sym->value_.Type() != SymbolValue::ValueType::Float) {
+        continue;
+      }
+      int reg = symbol_reg(it->sym);
+      //需要特殊处理会被寄存器传参用到的寄存器位置的变量
+      if (reg > 0 && reg < 16) {
+        return true;
+      }
+    }
+    for (auto it = func_context_.arg_records_.rbegin(); it != func_context_.arg_records_.rend(); ++it) {
+      if (!it->storage_in_reg) {
+        continue;
+      }
+      if (it->sym->value_.Type() == SymbolValue::ValueType::Float) {
+        continue;
+      }
+      if (it->isaddr) {
+        assert(it->sym->value_.Type() == SymbolValue::ValueType::Array);
+        auto arrayDescriptor = it->sym->value_.GetArrayDescriptor();
+        auto basesym = arrayDescriptor->base_addr.lock();
+        auto offsym = arrayDescriptor->base_offset;
+        int basereg = symbol_reg(basesym);
+        bool basesym_on_stack = false;
+        if (basereg == -1) {
+          basesym_on_stack = true;
+        }
+        int offreg = symbol_reg(offsym);
+        //如果basesym分配在栈空间，result可以复用basereg
+        if (basesym_on_stack) {
+          //处理一下offreg从栈中读取
+          if (0 < offreg && offreg < 4) {
+            return true;
+          }
+        } else {
+
+          //处理一下basereg从栈中读取
+          if (0 < basereg && basereg < 4) {
+            return true;
+          }
+
+          //处理一下offreg从栈中读取
+          if (0 < offreg && offreg < 4) {
+            return true;
+          }
+        }
+      } else {
+        int reg = symbol_reg(it->sym);
+        //需要特殊处理会被寄存器传参用到的寄存器位置的变量
+        if (reg > 0 && reg < 4) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
   auto do_call = [&, this]() -> void {
     //初始化一下
     func_context_.stack_size_for_args_ = 0;
@@ -1589,12 +1649,17 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     //初始化一下
     func_context_.stack_size_for_args_ = 0;
     evit_all_freereg();
-    //先压栈吧
-    emitln("push {r1-r3}");
-    emitln("vpush {s1-s15}");
-    //全压！这是刚才压了的寄存器的大小
-    int save_reg_size = 3 * 4 + 15 * 4;
     
+    int save_reg_size = 0;
+    bool need_call_stack = need_call_stk();
+    if (need_call_stack) {
+      //先压栈吧
+      emitln("push {r1-r3}");
+      emitln("vpush {s1-s15}");
+      //全压！这是刚才压了的寄存器的大小
+      save_reg_size += 3 * 4 + 15 * 4;
+    }
+
     func_context_.stack_size_for_args_ += save_reg_size;
     int nstackarg = 0;
     for (auto &record : func_context_.arg_records_) {
@@ -1804,7 +1869,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     func_context_.float_freereg1_ = nullptr;
     func_context_.float_freereg2_ = nullptr;
 
-    //把当前所有栈都退掉，推到本函数保存寄存器处
+    //把当前所有栈都退掉，退到本函数保存寄存器处
     {
       int totalsize = func_context_.stack_size_for_args_ + func_context_.stack_size_for_vars_;
       if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", totalsize)) {
@@ -1837,77 +1902,80 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       inst += "}";
       emitln(inst);
     }
-
-    // bool padding = false;
-    //回到函数参数前端，留三位置放寄存器
-    {
-      stack_start_of_args -= 3 * 4;
-      //对齐一下
-      if ((func_context_.stack_size_for_args_ - stack_start_of_args) % 8 != 0) {
-        // padding = true;
-        stack_start_of_args -= 4;
-      }
-      int totalsize = func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args;
-      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", totalsize)) {
-        auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
-        for (auto val : pieces) {
-          emitln("sub sp, sp, #" + std::to_string(val));
+    //对于无需压栈的函数(对于库函数需要保存ip，也不能直接b)
+    if (func_context_.stack_size_for_args_ == stack_start_of_args && tac->b_->IsGlobal()) {
+      //可以call了
+      emitln("b " + tac->b_->get_tac_name(true));
+    } else {
+      // bool padding = false;
+      //回到函数参数前端，留三位置放寄存器
+      {
+        stack_start_of_args -= 3 * 4;
+        //对齐一下
+        if ((func_context_.stack_size_for_args_ - stack_start_of_args) % 8 != 0) {
+          // padding = true;
+          stack_start_of_args -= 4;
+        }
+        int totalsize =
+            func_context_.stack_size_for_regsave_ + func_context_.stack_size_for_vars_ + stack_start_of_args;
+        if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "sub", "sp", "sp", totalsize)) {
+          auto pieces = ArmHelper::DivideIntoImmediateValues(totalsize);
+          for (auto val : pieces) {
+            emitln("sub sp, sp, #" + std::to_string(val));
+          }
         }
       }
-    }
-    //保存三寄存器用来临时倒腾
-    emitln("push {fp, ip, lr}");
-    //重新回到顶部
-    emitln("add sp, sp, #12");
+      //保存三寄存器用来临时倒腾
+      emitln("push {fp, ip, lr}");
+      //重新回到顶部
+      emitln("add sp, sp, #12");
 
-    //这是真实参数栈大小
-    int real_stack_args_size = (int)func_context_.stack_size_for_args_ - stack_start_of_args;
+      //这是真实参数栈大小
+      int real_stack_args_size = (int)func_context_.stack_size_for_args_ - stack_start_of_args;
 
+      //现在开始挪动，可以自由使用ip和fp寄存器
+      int count = real_stack_args_size / 4;
+      int move_distance =
+          (int)func_context_.stack_size_for_regsave_ + (int)func_context_.stack_size_for_vars_ + stack_start_of_args;
 
-    //现在开始挪动，可以自由使用ip和fp寄存器
-    int count = real_stack_args_size / 4;
-    int move_distance =
-        (int)func_context_.stack_size_for_regsave_ + (int)func_context_.stack_size_for_vars_ + stack_start_of_args;
-
-    //将fp置为本函数开头位置
-    if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "fp", "sp", move_distance)) {
-      auto pieces = ArmHelper::DivideIntoImmediateValues(move_distance);
-      for (auto val : pieces) {
-        emitln("add fp, sp, #" + std::to_string(val));
+      //将fp置为本函数开头位置
+      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "fp", "sp", move_distance)) {
+        auto pieces = ArmHelper::DivideIntoImmediateValues(move_distance);
+        for (auto val : pieces) {
+          emitln("add fp, sp, #" + std::to_string(val));
+        }
       }
-    }
-    if (count > 0) {
-      emitln("ldr lr, =" + std::to_string(count));
-      std::string loop_label = "_call_ret_loop_" + std::to_string(++this->counter);
-      emitln(loop_label + ":");
-      emitln("ldr ip, [sp, #-4]!");
-      emitln("str ip, [fp, #-4]!");
-      emitln("subs lr, #1");
-      emitln("bgt " + loop_label);
-    }
-    emitln("mov sp, fp");
-
-    //可以call了
-    emitln("bl " + tac->b_->get_tac_name(true));
-
-    //现在把sp放到参数前
-    {
-      int delta_distance = real_stack_args_size - 12;
-      if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", delta_distance)) {
-        emitln("ldr lr, =" + std::to_string(delta_distance));
-        emitln("add sp, sp, lr");
+      if (count > 0) {
+        emitln("ldr lr, =" + std::to_string(count));
+        std::string loop_label = "_call_ret_loop_" + std::to_string(++this->counter);
+        emitln(loop_label + ":");
+        emitln("ldr ip, [sp, #-4]!");
+        emitln("str ip, [fp, #-4]!");
+        emitln("subs lr, #1");
+        emitln("bgt " + loop_label);
       }
+      emitln("mov sp, fp");
+
+      //可以call了
+      emitln("bl " + tac->b_->get_tac_name(true));
+
+      //现在把sp放到参数前
+      {
+        int delta_distance = real_stack_args_size - 12;
+        if (!ArmHelper::EmitImmediateInstWithCheck(emitln, "add", "sp", "sp", delta_distance)) {
+          emitln("ldr lr, =" + std::to_string(delta_distance));
+          emitln("add sp, sp, lr");
+        }
+      }
+
+      // pop pc 代替 pop lr  然后 bx lr
+      emitln("pop {fp, ip, pc}");
     }
-
-    // pop pc 代替 pop lr  然后 bx lr
-    emitln("pop {fp, ip, pc}");
-
-    // emitln("bx lr");
 
     func_context_.arg_nfloatregs_ = 0;
     func_context_.arg_nintregs_ = 0;
     func_context_.arg_stacksize_ = 0;
-    func_context_.arg_records_.clear();    
+    func_context_.arg_records_.clear();
   };
 
   auto functionality = [&, this]() -> void {
