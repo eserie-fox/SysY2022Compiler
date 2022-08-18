@@ -21,7 +21,7 @@ OptimizeController_Simple::OptimizeController_Simple(TACListPtr tacList, TACList
 {
   simpleOp = std::make_shared<SimpleOptimizer>(tacList, fbegin, fend);
   PropagationOp = std::make_shared<PropagationOptimizer>(tacList, fbegin, fend);
-  deadCodeOp = std::make_shared<DeadCodeOptimizer_UseDef>(tacList, fbegin, fend);
+  deadCodeOp = std::make_shared<DeadCodeOptimizer>(tacList, fbegin, fend);
   constFoldOp = std::make_shared<ConstantFoldingOptimizer>(tacList, fbegin, fend);
 }
 
@@ -55,8 +55,8 @@ int DeadCodeOptimizer::optimize() {
     auto tac = cfg->get_node_tac(i);
     auto defSym = tac->getDefineSym();
     if (defSym) {
-      auto &outLive = liveAnalyzer->getOut(i);
-      if (outLive.count(defSym) == 0 && !hasSideEffect(defSym, tac)) deadCodes.push_back(cfg->get_node_itr(i));
+      if (liveAnalyzer->isOutLive(defSym, i) && !hasSideEffect(defSym, tac)) 
+        deadCodes.push_back(cfg->get_node_itr(i));
     }
   }
 
@@ -217,7 +217,7 @@ int PropagationOptimizer::optimize()
               auto &symDefs = symAnalyzer->getSymDefPoints(sym);
               std::unordered_set<size_t> res;
               for (auto d : symDefs)
-                if (rDefs.count(d))
+                if (rDefs.test(d))
                   res.insert(d);
               return res;
             };

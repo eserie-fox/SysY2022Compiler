@@ -53,7 +53,7 @@ struct SymLiveInfo
     void updateIntervalEndPoint();
 };
 
-using LiveInfo = std::unordered_set<SymbolPtr>;
+using LiveInfo = RopeContainer<size_t>;
 class LiveAnalyzer : public DataFlowAnalyzerBackWard<LiveInfo>
 {
 public:
@@ -63,9 +63,14 @@ public:
     LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph, std::shared_ptr<SymAnalyzer> symAnalyzer_);
     NONCOPYABLE(LiveAnalyzer)
 
+    bool isOutLive(SymbolPtr sym, size_t node) const;
+
 private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
+
+    void initLiveInfo();
+    LiveInfo initInfo;
 
     std::shared_ptr<SymAnalyzer> symAnalyzer;
 };

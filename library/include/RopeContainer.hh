@@ -2,6 +2,7 @@
 
 #include <ext/rope>
 #include <vector>
+#include <cassert>
 
 namespace HaveFunCompiler {
 
@@ -10,8 +11,8 @@ class RopeContainer
 {
 public:
     RopeContainer() = default;
-    RopeContainer(const RopeContainer &) = default;
-    RopeContainer(RopeContainer &&) = default;
+    RopeContainer(const RopeContainer &o)  { ropeBitmap = o.ropeBitmap; }
+    RopeContainer(RopeContainer &&o) { ropeBitmap = o.ropeBitmap; }
     RopeContainer(size_t elementNumber) : 
         ropeBitmap(FIR(elementNumber) + (SEC(elementNumber) ? 1 : 0)) {}
 
@@ -31,7 +32,10 @@ public:
                 ropeBitmap.replace(i, s1 | s2);
         }
         if (it != o.ropeBitmap.end())
+        {
+            assert(false);
             ropeBitmap.append(it, o.ropeBitmap.end());
+        }
         return *this;
     }
 
@@ -44,8 +48,11 @@ public:
             if (s1 != s2)
                 ropeBitmap.replace(i, s1 & s2);
         }
-       if (i < ropeBitmap.size())
-           ropeBitmap.erase(i, ropeBitmap.size() - i);
+        if (i < ropeBitmap.size())
+        {
+            assert(false); 
+            ropeBitmap.erase(i, ropeBitmap.size() - i);
+        }
         return *this;
     }
 
@@ -104,6 +111,11 @@ public:
     bool test(IndexType id) const
     {
         return test_bit(ropeBitmap[FIR(id)], SEC(id));
+    }
+
+    size_t get_innerContainerSize() const
+    {
+        return ropeBitmap.size();
     }
 
 private:
