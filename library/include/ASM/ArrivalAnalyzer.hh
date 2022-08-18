@@ -34,6 +34,13 @@ public:
         return symAnalyzer;
     }
 
+    size_t getDefId(size_t def) const
+    {
+        return defIdMap.at(def);
+    }
+
+    bool isReachableDef(size_t def, size_t node) const;
+
 private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
@@ -42,7 +49,8 @@ private:
     std::shared_ptr<LiveAnalyzer> liveAnalyzer;
 
     ArrivalInfo initInfo;
-    std::vector<size_t> defsOfGlobal;
+    std::vector<size_t> defIDsOfGlobal;
+    std::unordered_map<size_t, size_t> defIdMap;
     UseDefChain_T useDefChain;
 };
 

@@ -25,12 +25,12 @@ ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> control
         auto defSym = tac->getDefineSym();
         if (defSym)
         {
-            ++defCnt;
+            defIdMap[n] = defCnt++;
             if (defSym->IsGlobal())
-                defsOfGlobal.push_back(n);
+                defIDsOfGlobal.push_back(defCnt - 1);
         }
         else if (tac->operation_ == TACOperationType::Parameter)  // 参数声明需要算作定值
-            ++defCnt;
+            defIdMap[n] = defCnt++;
     }
 
     initInfo = ArrivalInfo(defCnt);
@@ -79,17 +79,17 @@ void ArrivalAnalyzer::transFunc(size_t u)
         auto defSet = symAnalyzer->getSymDefPoints(def);
         std::vector<size_t> defVec;
         for (auto n : defSet)
-            defVec.push_back(n);
+            defVec.push_back(defIdMap[n]);
         _out[u].reset(defVec);
         
         // 仅当当前变量在出口仍然活跃，才需要继续传递定值
         if (liveAnalyzer->isOutLive(def, u))
-            _out[u].set(u);
+            _out[u].set(defIdMap[u]);
     }
 
     // 如果当前tac有副作用(call)，删除全部全局变量的定值
     if (tac->operation_ == TACOperationType::Call)
-        _out[u].reset(defsOfGlobal);
+        _out[u].reset(defIDsOfGlobal);
 }
 
 void ArrivalAnalyzer::updateUseDefChain()
@@ -105,10 +105,16 @@ void ArrivalAnalyzer::updateUseDefChain()
             auto &symDefs = symAnalyzer->getSymDefPoints(sym);
             useDefChain[sym][i];   // 确保映射中sym存在，即使它的定值链为空
             for (auto d : symDefs)
-                if (arrivalDefs.test(d))
+                if (arrivalDefs.test(defIdMap[d]))
                     useDefChain[sym][i].insert(d);
         }
     }
+}
+
+bool ArrivalAnalyzer::isReachableDef(size_t def, size_t node) const
+{
+    auto &inDefIds = getIn(node);
+    return inDefIds.test(defIdMap.at(def));
 }
 
 bool ExprInfo::operator==(const ExprInfo& o) const
