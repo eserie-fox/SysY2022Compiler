@@ -10,6 +10,7 @@
 #include "ASM/Common.hh"
 #include "MacroUtil.hh"
 #include "ASM/DataFlowAnalyzer.hh"
+#include "RopeContainer.hh"
 
 namespace HaveFunCompiler {
 namespace ThreeAddressCode {

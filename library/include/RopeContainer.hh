@@ -54,12 +54,12 @@ public:
         auto oldS = ropeBitmap[FIR(id)];
         auto newS = set_bit(oldS, SEC(id));
         if (newS != oldS)
-            ropeBitmap[FIR(id)] = newS;
+            ropeBitmap.replace(FIR(id), newS);
     }
 
     void set(const std::vector<IndexType> &ids)
     {
-        std::unordered_map<size_t, size_t> oldMap, newMap;
+        std::unordered_map<uint64_t, uint64_t> oldMap, newMap;
         for (auto n : ids)
         {
             auto idx = FIR(n);
@@ -80,12 +80,12 @@ public:
         auto oldS = ropeBitmap[FIR(id)];
         auto newS = reset_bit(oldS, SEC(id));
         if (newS != oldS)
-            ropeBitmap[FIR(id)] = newS;
+            ropeBitmap.replace(FIR(id), newS);
     }
 
     void reset(const std::vector<IndexType> &ids)
     {
-        std::unordered_map<size_t, size_t> oldMap, newMap;
+        std::unordered_map<uint64_t, uint64_t> oldMap, newMap;
         for (auto n : ids)
         {
             auto idx = FIR(n);
@@ -107,18 +107,18 @@ public:
     }
 
 private:
-    static const size_t NBITLOG = 8;
-    static const size_t NBIT = 1 << NBITLOG;
-    static const size_t NBITMASK = NBIT - 1;
+    static const uint64_t NBITLOG = 6;
+    static const uint64_t NBIT = 1 << NBITLOG;
+    static const uint64_t NBITMASK = NBIT - 1;
 
-    inline size_t FIR(IndexType pos) const { return static_cast<size_t>(pos >> NBITLOG); }
-    inline size_t SEC(IndexType pos) const { return static_cast<size_t>(pos & NBITMASK); }
+    inline uint64_t FIR(IndexType pos) const { return static_cast<uint64_t>(pos >> NBITLOG); }
+    inline uint64_t SEC(IndexType pos) const { return static_cast<uint64_t>(pos & NBITMASK); }
 
-    static inline size_t set_bit(size_t x, size_t bit)  { return x | ((size_t)1 << bit); }
-    static inline size_t reset_bit(size_t x, size_t bit)  { return x & ~((size_t)1 << bit); }
-    static inline bool test_bit(size_t x, size_t bit)  { return x & ((size_t)1 << bit); }
+    static inline uint64_t set_bit(uint64_t x, uint64_t bit)  { return x | ((uint64_t)1 << bit); }
+    static inline uint64_t reset_bit(uint64_t x, uint64_t bit)  { return x & ~((uint64_t)1 << bit); }
+    static inline bool test_bit(uint64_t x, uint64_t bit)  { return x & ((uint64_t)1 << bit); }
 
-    using RopeContainerType = __gnu_cxx::rope<size_t>;
+    using RopeContainerType = __gnu_cxx::rope<uint64_t>;
     RopeContainerType ropeBitmap;
 };
 
