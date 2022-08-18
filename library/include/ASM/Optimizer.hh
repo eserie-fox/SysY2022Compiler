@@ -42,7 +42,7 @@ public:
 private:
     std::shared_ptr<SimpleOptimizer> simpleOp;
     std::shared_ptr<PropagationOptimizer> PropagationOp;
-    std::shared_ptr<DeadCodeOptimizer_UseDef> deadCodeOp;
+    std::shared_ptr<DeadCodeOptimizer> deadCodeOp;
     std::shared_ptr<ConstantFoldingOptimizer> constFoldOp;
 
     const size_t MAX_ROUND = 3;

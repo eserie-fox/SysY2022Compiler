@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <queue>
 #include <array>
+#include <iostream>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -71,11 +72,31 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGr
 {
     symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
     symAnalyzer->analyze();
+
+    initLiveInfo();
 }
 
 LiveAnalyzer::LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph, std::shared_ptr<SymAnalyzer> symAnalyzer_) : DataFlowAnalyzerBackWard<LiveInfo>(controlFlowGraph)
 {
     symAnalyzer = symAnalyzer_;
+
+    initLiveInfo();
+}
+
+void LiveAnalyzer::initLiveInfo()
+{
+    auto symNum = symAnalyzer->getSymSet().size();
+
+    LiveInfo tmp(symNum);
+    std::cout << tmp.get_innerContainerSize() << std::endl;
+//    assert(tmp.get_innerContainerSize() == symNum / 64 + (symNum % 64 ? 1 : 0));
+    initInfo = tmp;
+//    assert(initInfo.get_innerContainerSize() == symNum / 64 + (symNum % 64 ? 1 : 0));
+    FOR_EACH_NODE(n, cfg)
+    {
+        _in[n] = initInfo;
+        _out[n] = initInfo;
+    }
 }
 
 // 活跃信息结点间传递
@@ -83,8 +104,7 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGr
 // 框架调用时，y为x的一个后继，活跃信息从y.in传递到x.out
 void LiveAnalyzer::transOp(size_t x, size_t y)
 {
-    for (auto &e : _in[y])
-        _out[x].insert(e);
+    _out[x] |= _in[y];
 }
 
 // 活跃信息在结点u内传递 out->in
@@ -94,14 +114,22 @@ void LiveAnalyzer::transOp(size_t x, size_t y)
 void LiveAnalyzer::transFunc(size_t u)
 {
     auto tac = cfg->get_node_tac(u);
-    auto gen = tac->getUseSym();
+    auto genSyms = tac->getUseSym();
     auto kill = tac->getDefineSym();
-    
+    std::vector<size_t> gen;
+    for (auto sym : genSyms)
+        gen.push_back(symAnalyzer->getSymId(sym));
+
     _in[u] = _out[u];
-    if (_out[u].count(kill))
-        _in[u].erase(kill);
-    for (auto sym : gen)
-        _in[u].insert(sym);
+    if (kill)
+        _in[u].reset(symAnalyzer->getSymId(kill));
+    _in[u].set(gen);
+}
+
+bool LiveAnalyzer::isOutLive(SymbolPtr sym, size_t node) const
+{
+    auto &outLive = getOut(node);
+    return outLive.test(symAnalyzer->getSymId(sym));
 }
 
 UseDefAnalyzer::UseDefAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph)

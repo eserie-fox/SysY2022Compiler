@@ -2,6 +2,7 @@
 
 #include "ASM/DataFlowAnalyzer.hh"
 #include "TAC/ThreeAddressCode.hh"
+#include "RopeContainer.hh"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -15,7 +16,7 @@ class LiveAnalyzer;
 using namespace ThreeAddressCode;
 
 // 到达定值分析器
-using ArrivalInfo = std::unordered_set<size_t>;
+using ArrivalInfo = RopeContainer<size_t>;
 class ArrivalAnalyzer : public DataFlowAnalyzerForward<ArrivalInfo>
 {
 public:
@@ -40,6 +41,8 @@ private:
     std::shared_ptr<SymAnalyzer> symAnalyzer;
     std::shared_ptr<LiveAnalyzer> liveAnalyzer;
 
+    ArrivalInfo initInfo;
+    std::vector<size_t> defsOfGlobal;
     UseDefChain_T useDefChain;
 };
 

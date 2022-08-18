@@ -4,6 +4,7 @@
 #include "TAC/Symbol.hh"
 #include <optional>
 #include <cassert>
+#include <vector>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -16,6 +17,28 @@ ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> control
     symAnalyzer->analyze();
     liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg, symAnalyzer);
     liveAnalyzer->analyze();
+
+    size_t defCnt = 0;
+    FOR_EACH_NODE(n, cfg)
+    {
+        auto tac = cfg->get_node_tac(n);
+        auto defSym = tac->getDefineSym();
+        if (defSym)
+        {
+            ++defCnt;
+            if (defSym->IsGlobal())
+                defsOfGlobal.push_back(n);
+        }
+        else if (tac->operation_ == TACOperationType::Parameter)  // 参数声明需要算作定值
+            ++defCnt;
+    }
+
+    initInfo = ArrivalInfo(defCnt);
+    FOR_EACH_NODE(n, cfg)
+    {
+        _in[n] = initInfo;
+        _out[n] = initInfo;
+    }
 }
 
 // 到达定值信息结点间传递
@@ -23,8 +46,7 @@ ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> control
 // 框架调用时, x为y的后继，信息从y传递到x
 void ArrivalAnalyzer::transOp(size_t x, size_t y)
 {
-    for (auto &e : _out[y])
-        _in[x].insert(e);
+    _in[x] |= _out[y];
 }
 
 // 到达定值信息结点内传递
@@ -39,7 +61,6 @@ void ArrivalAnalyzer::transFunc(size_t u)
         {
         case TACOperationType::Variable:
         case TACOperationType::Constant:
-        case TACOperationType::Parameter:
         return true;
         break;
         
@@ -54,30 +75,21 @@ void ArrivalAnalyzer::transFunc(size_t u)
     auto def = tac->getDefineSym();
     if (def && !isDecl(tac->operation_))
     {
+        // 杀死定值变量的所有其他定值
         auto defSet = symAnalyzer->getSymDefPoints(def);
+        std::vector<size_t> defVec;
         for (auto n : defSet)
-            _out[u].erase(n);
+            defVec.push_back(n);
+        _out[u].reset(defVec);
         
         // 仅当当前变量在出口仍然活跃，才需要继续传递定值
-        auto &liveSyms = liveAnalyzer->getOut(u);
-        if (liveSyms.count(def))
-            _out[u].emplace(u);
+        if (liveAnalyzer->isOutLive(def, u))
+            _out[u].set(u);
     }
 
     // 如果当前tac有副作用(call)，删除全部全局变量的定值
     if (tac->operation_ == TACOperationType::Call)
-    {
-        std::vector<size_t> deleteLs;
-        for (auto n : _out[u])
-        {
-            auto defSym = cfg->get_node_tac(n)->getDefineSym();
-            assert(defSym);   // 正确性检查，defSym一定不为空
-            if (defSym->IsGlobal())
-                deleteLs.push_back(n);
-        }
-        for (auto n : deleteLs)
-            _out[u].erase(n);
-    }
+        _out[u].reset(defsOfGlobal);
 }
 
 void ArrivalAnalyzer::updateUseDefChain()
@@ -93,7 +105,7 @@ void ArrivalAnalyzer::updateUseDefChain()
             auto &symDefs = symAnalyzer->getSymDefPoints(sym);
             useDefChain[sym][i];   // 确保映射中sym存在，即使它的定值链为空
             for (auto d : symDefs)
-                if (arrivalDefs.count(d))
+                if (arrivalDefs.test(d))
                     useDefChain[sym][i].insert(d);
         }
     }
