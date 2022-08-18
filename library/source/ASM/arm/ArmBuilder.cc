@@ -369,17 +369,30 @@ bool ArmBuilder::TranslateFunction() {
   --end_;
   assert((*end_)->operation_ == TACOperationType::FunctionEnd);
   auto save_end_ = **end_;
+  // 尾部强行加一个return，安全起见。
   (*end_)->operation_ = TACOperationType::Return;
   (*end_)->a_ = nullptr;
   (*end_)->b_ = nullptr;
   (*end_)->c_ = nullptr;
   ++end_;
+
+  auto can_retcall_optimize = [&, this]() -> bool {
+    for (const auto &record : func_context_.arg_records_) {
+      if (record.sym->value_.Type() == SymbolValue::ValueType::Array) {
+        if (!record.sym->IsGlobal()) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
   for (; current_ != end_; ++current_) {
     if ((*current_)->operation_ == TACOperationType::Call) {
       auto next = current_;
       ++next;
       if (next != end_ && (*next)->operation_ == TACOperationType::Return) {
-        if ((*current_)->a_ == (*next)->a_) {
+        if ((*current_)->a_ == (*next)->a_ && can_retcall_optimize()) {
           TACPtr taccallret = std::make_shared<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>();
           taccallret->operation_ = TACOperationType::CallAndReturn;
           taccallret->b_ = (*current_)->b_;
@@ -397,9 +410,9 @@ bool ArmBuilder::TranslateFunction() {
   ++end_;
 
   //为了安全起见，强行加一个return
-  TACPtr tacret = std::make_shared<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>();
-  tacret->operation_ = TACOperationType::Return;
-  emit(FuncTACToASMString(tacret));
+  // TACPtr tacret = std::make_shared<HaveFunCompiler::ThreeAddressCode::ThreeAddressCode>();
+  // tacret->operation_ = TACOperationType::Return;
+  // emit(FuncTACToASMString(tacret));
 
   return true;
 }
