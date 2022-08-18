@@ -86,7 +86,8 @@ LiveAnalyzer::LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGr
 void LiveAnalyzer::initLiveInfo()
 {
     auto symNum = symAnalyzer->getSymSet().size();
-    initInfo = LiveInfo(symNum);
+    if (symNum != 0)
+        initInfo = LiveInfo(symNum);
     FOR_EACH_NODE(n, cfg)
     {
         _in[n] = initInfo;

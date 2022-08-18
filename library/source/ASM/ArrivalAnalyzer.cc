@@ -33,7 +33,8 @@ ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> control
             defIdMap[n] = defCnt++;
     }
 
-    initInfo = ArrivalInfo(defCnt);
+    if (defCnt != 0)
+        initInfo = ArrivalInfo(defCnt);
     FOR_EACH_NODE(n, cfg)
     {
         _in[n] = initInfo;
