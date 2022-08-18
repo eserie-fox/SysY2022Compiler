@@ -55,7 +55,7 @@ int DeadCodeOptimizer::optimize() {
     auto tac = cfg->get_node_tac(i);
     auto defSym = tac->getDefineSym();
     if (defSym) {
-      if (liveAnalyzer->isOutLive(defSym, i) && !hasSideEffect(defSym, tac)) 
+      if (!liveAnalyzer->isOutLive(defSym, i) && !hasSideEffect(defSym, tac)) 
         deadCodes.push_back(cfg->get_node_itr(i));
     }
   }
@@ -213,11 +213,10 @@ int PropagationOptimizer::optimize()
             // 得到到达结点node的变量sym的定值集合
             auto getSymReachableDefs = [this, &symAnalyzer](SymbolPtr sym, size_t node)
             {
-              auto &rDefs = arrivalValAnalyzer->getIn(node);
               auto &symDefs = symAnalyzer->getSymDefPoints(sym);
               std::unordered_set<size_t> res;
               for (auto d : symDefs)
-                if (rDefs.test(d))
+                if (arrivalValAnalyzer->isReachableDef(d, node))
                   res.insert(d);
               return res;
             };

@@ -70,6 +70,7 @@ private:
     void transFunc(size_t u) override;
 
     void initLiveInfo();
+
     LiveInfo initInfo;
 
     std::shared_ptr<SymAnalyzer> symAnalyzer;

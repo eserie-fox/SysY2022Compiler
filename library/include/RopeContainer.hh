@@ -3,6 +3,7 @@
 #include <ext/rope>
 #include <vector>
 #include <cassert>
+#include <iostream>
 
 namespace HaveFunCompiler {
 
@@ -10,14 +11,16 @@ template<typename IndexType = size_t>
 class RopeContainer
 {
 public:
+    using elementType = uint64_t;
+
     RopeContainer() = default;
     RopeContainer(const RopeContainer &o)  { ropeBitmap = o.ropeBitmap; }
     RopeContainer(RopeContainer &&o) { ropeBitmap = o.ropeBitmap; }
     RopeContainer(size_t elementNumber) : 
-        ropeBitmap(FIR(elementNumber) + (SEC(elementNumber) ? 1 : 0)) {}
+        ropeBitmap(FIR(elementNumber) + (SEC(elementNumber) ? 1 : 0), 0) {}
 
-    RopeContainer &operator=(const RopeContainer &) = default;
-    RopeContainer &operator=(RopeContainer &&) = default;
+    RopeContainer &operator=(const RopeContainer &o) { ropeBitmap = o.ropeBitmap; return *this; }
+    RopeContainer &operator=(RopeContainer &&o) { ropeBitmap = o.ropeBitmap; return *this; }
 
     bool operator==(const RopeContainer &o) const { return ropeBitmap == o.ropeBitmap; }
     bool operator!=(const RopeContainer &o) const { return ropeBitmap != o.ropeBitmap; } 
@@ -33,7 +36,6 @@ public:
         }
         if (it != o.ropeBitmap.end())
         {
-            assert(false);
             ropeBitmap.append(it, o.ropeBitmap.end());
         }
         return *this;
@@ -50,7 +52,6 @@ public:
         }
         if (i < ropeBitmap.size())
         {
-            assert(false); 
             ropeBitmap.erase(i, ropeBitmap.size() - i);
         }
         return *this;
@@ -58,6 +59,7 @@ public:
 
     void set(IndexType id)
     {
+        assert(FIR(id) < ropeBitmap.size());
         auto oldS = ropeBitmap[FIR(id)];
         auto newS = set_bit(oldS, SEC(id));
         if (newS != oldS)
@@ -66,9 +68,10 @@ public:
 
     void set(const std::vector<IndexType> &ids)
     {
-        std::unordered_map<uint64_t, uint64_t> oldMap, newMap;
+        std::unordered_map<elementType, elementType> oldMap, newMap;
         for (auto n : ids)
         {
+            assert(FIR(n) < ropeBitmap.size());
             auto idx = FIR(n);
             if (oldMap.count(idx) == 0)
             {
@@ -84,6 +87,7 @@ public:
 
     void reset(IndexType id)
     {
+        assert(FIR(id) < ropeBitmap.size());
         auto oldS = ropeBitmap[FIR(id)];
         auto newS = reset_bit(oldS, SEC(id));
         if (newS != oldS)
@@ -92,9 +96,10 @@ public:
 
     void reset(const std::vector<IndexType> &ids)
     {
-        std::unordered_map<uint64_t, uint64_t> oldMap, newMap;
+        std::unordered_map<elementType, elementType> oldMap, newMap;
         for (auto n : ids)
         {
+            assert(FIR(n) < ropeBitmap.size());
             auto idx = FIR(n);
             if (oldMap.count(idx) == 0)
             {
@@ -119,18 +124,18 @@ public:
     }
 
 private:
-    static const uint64_t NBITLOG = 6;
-    static const uint64_t NBIT = 1 << NBITLOG;
-    static const uint64_t NBITMASK = NBIT - 1;
+    static const elementType NBITLOG = 6;
+    static const elementType NBIT = 1 << NBITLOG;
+    static const elementType NBITMASK = NBIT - 1;
 
-    inline uint64_t FIR(IndexType pos) const { return static_cast<uint64_t>(pos >> NBITLOG); }
-    inline uint64_t SEC(IndexType pos) const { return static_cast<uint64_t>(pos & NBITMASK); }
+    inline elementType FIR(IndexType pos) const { return static_cast<elementType>(pos >> NBITLOG); }
+    inline elementType SEC(IndexType pos) const { return static_cast<elementType>(pos & NBITMASK); }
 
-    static inline uint64_t set_bit(uint64_t x, uint64_t bit)  { return x | ((uint64_t)1 << bit); }
-    static inline uint64_t reset_bit(uint64_t x, uint64_t bit)  { return x & ~((uint64_t)1 << bit); }
-    static inline bool test_bit(uint64_t x, uint64_t bit)  { return x & ((uint64_t)1 << bit); }
+    static inline elementType set_bit(elementType x, elementType bit)  { return x | ((elementType)1 << bit); }
+    static inline elementType reset_bit(elementType x, elementType bit)  { return x & ~((elementType)1 << bit); }
+    static inline bool test_bit(elementType x, elementType bit)  { return x & ((elementType)1 << bit); }
 
-    using RopeContainerType = __gnu_cxx::rope<uint64_t>;
+    using RopeContainerType = __gnu_cxx::rope<elementType>;
     RopeContainerType ropeBitmap;
 };
 
