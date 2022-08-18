@@ -33,9 +33,12 @@ LoopDetector::LoopDetector(std::shared_ptr<ControlFlowGraph> cfg) {
         loop_ranges_.emplace_back(to, node_id);
       }
     }
-    for (auto to : tree.at(node_id)) {
-      stk.emplace(to, false);
-      stk.emplace(to, true);
+    auto it = tree.find(node_id);
+    if (it != tree.end()) {
+      for (auto to : it->second) {
+        stk.emplace(to, false);
+        stk.emplace(to, true);
+      }
     }
   }
   std::sort(loop_ranges_.begin(), loop_ranges_.end(), [&](LoopRange lhs, LoopRange rhs) {

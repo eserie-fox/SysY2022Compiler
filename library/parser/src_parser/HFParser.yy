@@ -703,7 +703,7 @@ Stmt
     SymbolPtr label_con;
     SymbolPtr label_brk;
     tacbuilder->TopLoop(&label_con, &label_brk);
-    $$ = tacbuilder->CreateWhile($3, $5, label_con, label_brk);
+    $$ = tacbuilder->CreateWhileIfModel($3, $5, label_con, label_brk);
     tacbuilder->PopLoop();
     
   }
