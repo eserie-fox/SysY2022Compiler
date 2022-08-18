@@ -13,8 +13,8 @@ ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> control
     DataFlowAnalyzerForward<ArrivalInfo>(controlFlowGraph)
 {
     symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
-    liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg);
     symAnalyzer->analyze();
+    liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg, symAnalyzer);
     liveAnalyzer->analyze();
 }
 
@@ -33,10 +33,26 @@ void ArrivalAnalyzer::transOp(size_t x, size_t y)
 // kill = 所有其他对当前变量定值的结点id
 void ArrivalAnalyzer::transFunc(size_t u)
 {
+    auto isDecl = [](TACOperationType op)
+    {
+        switch (op)
+        {
+        case TACOperationType::Variable:
+        case TACOperationType::Constant:
+        case TACOperationType::Parameter:
+        return true;
+        break;
+        
+        default:
+        return false;
+        break;
+        }
+    };
+
     _out[u] = _in[u];
     auto tac = cfg->get_node_tac(u);
     auto def = tac->getDefineSym();
-    if (def)
+    if (def && !isDecl(tac->operation_))
     {
         auto defSet = symAnalyzer->getSymDefPoints(def);
         for (auto n : defSet)
@@ -74,11 +90,11 @@ void ArrivalAnalyzer::updateUseDefChain()
         
         for (auto sym : useSyms)
         {
-        auto &symDefs = symAnalyzer->getSymDefPoints(sym);
-        useDefChain[sym][i];   // 确保映射中sym存在，即使它的定值链为空
-        for (auto d : symDefs)
-            if (arrivalDefs.count(d))
-            useDefChain[sym][i].insert(d);
+            auto &symDefs = symAnalyzer->getSymDefPoints(sym);
+            useDefChain[sym][i];   // 确保映射中sym存在，即使它的定值链为空
+            for (auto d : symDefs)
+                if (arrivalDefs.count(d))
+                    useDefChain[sym][i].insert(d);
         }
     }
 }

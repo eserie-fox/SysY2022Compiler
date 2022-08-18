@@ -28,6 +28,11 @@ public:
     const UseDefChain_T& get_useDefChain() const { return useDefChain; }
     // const std::unordered_set<size_t>& get_symDefs(SymbolPtr sym, size_t u);
 
+    const std::shared_ptr<SymAnalyzer> get_symAnalyzer() const
+    {
+        return symAnalyzer;
+    }
+
 private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
