@@ -40,14 +40,15 @@ class DominatorTree {
     isbuilt_ = true;
   }
 
-  IndexType get_root() {
+  IndexType get_root() const{
     if (!isbuilt_) {
       throw std::logic_error("Query root from a unbuilt dominator tree");
     }
     return root_;
   }
 
-  IndexType get_dominator(IndexType idx) {
+  //root has no dominator.
+  IndexType get_dominator(IndexType idx) const{
     if (!isbuilt_) {
       throw std::logic_error("Query dominator from a unbuilt dominator tree");
     }
@@ -56,6 +57,15 @@ class DominatorTree {
       throw std::runtime_error("No dominator for " + std::to_string(idx));
     }
     return it->second;
+  }
+
+  // get all nodes excluding the root
+  std::vector<IndexType> get_all_nodes() const {
+    std::vector<IndexType> ret;
+    for (auto pr : idom_) {
+      ret.push_back(pr.first);
+    }
+    return ret;
   }
 
  private:
