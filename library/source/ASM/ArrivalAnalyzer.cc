@@ -1,7 +1,9 @@
 #include "ASM/ArrivalAnalyzer.hh"
 #include "ASM/SymAnalyzer.hh"
+#include "ASM/LiveAnalyzer.hh"
 #include "TAC/Symbol.hh"
 #include <optional>
+#include <cassert>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -11,7 +13,9 @@ ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> control
     DataFlowAnalyzerForward<ArrivalInfo>(controlFlowGraph)
 {
     symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
+    liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg);
     symAnalyzer->analyze();
+    liveAnalyzer->analyze();
 }
 
 // 到达定值信息结点间传递
@@ -30,13 +34,33 @@ void ArrivalAnalyzer::transOp(size_t x, size_t y)
 void ArrivalAnalyzer::transFunc(size_t u)
 {
     _out[u] = _in[u];
-    auto def = cfg->get_node_tac(u)->getDefineSym();
+    auto tac = cfg->get_node_tac(u);
+    auto def = tac->getDefineSym();
     if (def)
     {
         auto defSet = symAnalyzer->getSymDefPoints(def);
         for (auto n : defSet)
             _out[u].erase(n);
-        _out[u].emplace(u);
+        
+        // 仅当当前变量在出口仍然活跃，才需要继续传递定值
+        auto &liveSyms = liveAnalyzer->getOut(u);
+        if (liveSyms.count(def))
+            _out[u].emplace(u);
+    }
+
+    // 如果当前tac有副作用(call)，删除全部全局变量的定值
+    if (tac->operation_ == TACOperationType::Call)
+    {
+        std::vector<size_t> deleteLs;
+        for (auto n : _out[u])
+        {
+            auto defSym = cfg->get_node_tac(n)->getDefineSym();
+            assert(defSym);   // 正确性检查，defSym一定不为空
+            if (defSym->IsGlobal())
+                deleteLs.push_back(n);
+        }
+        for (auto n : deleteLs)
+            _out[u].erase(n);
     }
 }
 

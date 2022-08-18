@@ -25,9 +25,11 @@ class ArrivalAnalyzer;
 class ArrivalExprAnalyzer;
 class PropagationOptimizer;
 class DeadCodeOptimizer;
+class DeadCodeOptimizer_UseDef;
 class SimpleOptimizer;
 class ConstantFoldingOptimizer;
 class DataFlowManager;
+class UseDefAnalyzer;
 
 class OptimizeController_Simple : public OptimizeController
 {
@@ -40,7 +42,7 @@ public:
 private:
     std::shared_ptr<SimpleOptimizer> simpleOp;
     std::shared_ptr<PropagationOptimizer> PropagationOp;
-    std::shared_ptr<DeadCodeOptimizer> deadCodeOp;
+    std::shared_ptr<DeadCodeOptimizer_UseDef> deadCodeOp;
     std::shared_ptr<ConstantFoldingOptimizer> constFoldOp;
 
     const size_t MAX_ROUND = 2;
@@ -66,6 +68,26 @@ private:
 
     bool hasSideEffect(SymbolPtr defSym, TACPtr tac);
 };
+
+// 使用UD和DU链分析器进行优化
+class DeadCodeOptimizer_UseDef
+{
+public:
+    DeadCodeOptimizer_UseDef(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend);
+    NONCOPYABLE(DeadCodeOptimizer_UseDef)
+
+    int optimize();
+
+private:
+    TACList::iterator _fbegin, _fend;
+    TACListPtr _tacls;
+    
+    std::shared_ptr<ControlFlowGraph> cfg;
+    std::shared_ptr<UseDefAnalyzer> useDefAnalyzer;
+
+    bool hasSideEffect(SymbolPtr defSym, TACPtr tac);
+};
+
 
 // 常量传播/复写传播优化器
 class PropagationOptimizer

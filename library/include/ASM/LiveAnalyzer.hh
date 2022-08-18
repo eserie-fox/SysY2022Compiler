@@ -75,11 +75,40 @@ public:
     LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
     NONCOPYABLE(LiveAnalyzer)
 
-    
-
 private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
+};
+
+class SymAnalyzer;
+class UseDefAnalyzer
+{
+public:
+    UseDefAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
+    NONCOPYABLE(UseDefAnalyzer)
+
+    using Chain = std::unordered_map<size_t, std::unordered_set<size_t>>;
+    using UseInfo = std::unordered_set<size_t>;  // 使用点集合
+
+    void analyze();
+
+    const Chain& get_useDefChain(SymbolPtr sym)
+    {
+        return useDefChain[sym];
+    }
+
+    const Chain& get_defUseChain(SymbolPtr sym)
+    {
+        return defUseChain[sym];
+    }
+
+    const std::unordered_set<SymbolPtr>& get_symSet() const;
+
+private:
+    std::shared_ptr<SymAnalyzer> symAnalyzer;
+    std::shared_ptr<const ControlFlowGraph> cfg;
+
+    std::unordered_map<SymbolPtr, Chain> useDefChain, defUseChain;
 };
 
 class LiveIntervalAnalyzer

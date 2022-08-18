@@ -11,6 +11,7 @@ namespace AssemblyBuilder{
 
 class ControlFlowGraph;
 class SymAnalyzer;
+class LiveAnalyzer;
 using namespace ThreeAddressCode;
 
 // 到达定值分析器
@@ -32,6 +33,7 @@ private:
     void transFunc(size_t u) override;
 
     std::shared_ptr<SymAnalyzer> symAnalyzer;
+    std::shared_ptr<LiveAnalyzer> liveAnalyzer;
 
     UseDefChain_T useDefChain;
 };
