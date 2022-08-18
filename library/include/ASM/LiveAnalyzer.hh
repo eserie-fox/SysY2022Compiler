@@ -20,24 +20,8 @@ enum class TACOperationType;
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
-
-// 变量(std::shared_ptr<Symbol>)与整数下标(size_t)的映射
-// class SymIdxMapping
-// {
-// private:
-//     using SymPtr = std::shared_ptr<HaveFunCompiler::ThreeAddressCode::Symbol>;
-
-//     std::unordered_map<SymPtr, size_t> s2i;
-//     std::vector<SymPtr> i2s;
-
-// public:
-//     SymIdxMapping() {}
-//     bool insert(SymPtr var);
-//     std::optional<size_t> getSymIdx(SymPtr ptr) const;
-//     std::optional<SymPtr> getSymPtr(size_t idx) const;
-// };
-
 using LiveInterval = std::pair<size_t, size_t>;
+class SymAnalyzer;
 
 // 变量的活跃信息
 struct SymLiveInfo
@@ -73,14 +57,18 @@ class LiveAnalyzer : public DataFlowAnalyzerBackWard<LiveInfo>
 {
 public:
     LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
+
+    // 使用一个已经完成分析的symAnalyzer构造，则内部不会再次进行symAnalyzer
+    LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph, std::shared_ptr<SymAnalyzer> symAnalyzer_);
     NONCOPYABLE(LiveAnalyzer)
 
 private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
+
+    std::shared_ptr<SymAnalyzer> symAnalyzer;
 };
 
-class SymAnalyzer;
 class UseDefAnalyzer
 {
 public:

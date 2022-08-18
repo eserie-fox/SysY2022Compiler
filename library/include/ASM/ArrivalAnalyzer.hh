@@ -21,7 +21,7 @@ class ArrivalAnalyzer : public DataFlowAnalyzerForward<ArrivalInfo>
 public:
     ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
     NONCOPYABLE(ArrivalAnalyzer)
-    
+
     using UseDefChain_T = std::unordered_map<SymbolPtr, std::unordered_map<size_t, std::unordered_set<size_t>>>;
 
     void updateUseDefChain();
