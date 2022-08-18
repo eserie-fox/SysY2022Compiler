@@ -10,6 +10,22 @@ namespace AssemblyBuilder{
 
 class ControlFlowGraph;
 
+// 变量(std::shared_ptr<Symbol>)与整数下标(size_t)的映射
+class SymIdxMapping
+{
+private:
+    using SymPtr = std::shared_ptr<HaveFunCompiler::ThreeAddressCode::Symbol>;
+
+    std::unordered_map<SymPtr, size_t> s2i;
+    std::vector<SymPtr> i2s;
+
+public:
+    SymIdxMapping() {}
+    bool insert(SymPtr var);
+    std::optional<size_t> getSymIdx(SymPtr ptr) const;
+    std::optional<SymPtr> getSymPtr(size_t idx) const;
+};
+
 // 负责获取变量的使用点和定值点
 class SymAnalyzer
 {
@@ -34,6 +50,16 @@ public:
         return symSet;
     }
 
+    size_t getSymId(SymbolPtr sym) const
+    {
+        return symIdxMap.getSymIdx(sym).value();
+    }
+
+    SymbolPtr getIdSym(size_t id) const
+    {
+        return symIdxMap.getSymPtr(id).value();
+    }
+
 private:
 
     // 变量的定值点和使用点集合（集合元素是流图中结点下标）
@@ -42,6 +68,8 @@ private:
     std::unordered_set<SymbolPtr> symSet;  
     // 控制流图
     std::shared_ptr<const ControlFlowGraph> cfg;
+    // 变量id映射
+    SymIdxMapping symIdxMap;
 };
 
 

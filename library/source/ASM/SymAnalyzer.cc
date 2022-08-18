@@ -5,23 +5,41 @@
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 
+bool SymIdxMapping::insert(SymPtr var)
+{
+    if (i2s.size() == i2s.max_size())
+        throw std::runtime_error("too many variables!");
+    if (s2i.find(var) != s2i.end())
+        return false;
+    s2i.emplace(var, i2s.size());
+    i2s.push_back(var);
+    return true;
+}
+
+std::optional<size_t> SymIdxMapping::getSymIdx(SymPtr ptr) const
+{
+    auto it = s2i.find(ptr);
+    if (it == s2i.end())
+        return std::nullopt;
+    else
+        return it->second;
+}
+
+std::optional<SymIdxMapping::SymPtr> SymIdxMapping::getSymPtr(size_t idx) const
+{
+    if (idx >= i2s.size())
+        return std::nullopt;
+    else
+        return i2s[idx];
+}
 
 SymAnalyzer::SymAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
 {  }
 
 void SymAnalyzer::analyze()
 {
-    std::vector<bool> vis(cfg->get_nodes_number(), false);
-    std::queue<size_t> q;
-    q.push(cfg->get_startNode());
-    while (!q.empty())
+    FOR_EACH_NODE(n, cfg)
     {
-        size_t n = q.front();
-        q.pop();
-
-        if (vis[n])  continue;
-        vis[n] = 1;
-
         auto tac = cfg->get_node_tac(n);
 
         // 定值变量处理：加入函数中出现的变量集合，加入该变量的定值集合，如果是声明，则加入局部变量集合
@@ -39,11 +57,6 @@ void SymAnalyzer::analyze()
             symSet.insert(s);
             symUseMap[s].insert(n);
         }
-
-        auto& outLs = cfg->get_outNodeList(n);
-        for (auto u : outLs)
-            if (!vis[u])
-                q.push(u);
     }
 
     // bug: 全局变量可能不在函数内被定值，Defmap.at抛出异常
@@ -54,6 +67,8 @@ void SymAnalyzer::analyze()
             symDefMap.emplace(sym, std::unordered_set<size_t>());
         if (symUseMap.count(sym) == 0)
             symUseMap.emplace(sym, std::unordered_set<size_t>());
+        // 添加变量id映射
+        symIdxMap.insert(sym);
     }
 }
 

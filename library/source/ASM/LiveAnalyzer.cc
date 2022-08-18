@@ -9,34 +9,6 @@ namespace HaveFunCompiler{
 namespace AssemblyBuilder{
 using HaveFunCompiler::ThreeAddressCode::TACOperationType;
 
-// bool SymIdxMapping::insert(SymPtr var)
-// {
-//     if (i2s.size() == i2s.max_size())
-//         throw std::runtime_error("too many variables!");
-//     if (s2i.find(var) != s2i.end())
-//         return false;
-//     s2i.emplace(var, i2s.size());
-//     i2s.push_back(var);
-//     return true;
-// }
-
-// std::optional<size_t> SymIdxMapping::getSymIdx(SymPtr ptr) const
-// {
-//     auto it = s2i.find(ptr);
-//     if (it == s2i.end())
-//         return std::nullopt;
-//     else
-//         return it->second;
-// }
-
-// std::optional<SymIdxMapping::SymPtr> SymIdxMapping::getSymPtr(size_t idx) const
-// {
-//     if (idx >= i2s.size())
-//         return std::nullopt;
-//     else
-//         return i2s[idx];
-// }
-
 void SymLiveInfo::addUncoveredLiveInterval(LiveInterval &interval)
 {
     using itr = std::set<LiveInterval>::iterator;
@@ -97,6 +69,13 @@ void SymLiveInfo::updateIntervalEndPoint()
 
 LiveAnalyzer::LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : DataFlowAnalyzerBackWard<LiveInfo>(controlFlowGraph)
 {
+    symAnalyzer = std::make_shared<SymAnalyzer>(cfg);
+    symAnalyzer->analyze();
+}
+
+LiveAnalyzer::LiveAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph, std::shared_ptr<SymAnalyzer> symAnalyzer_) : DataFlowAnalyzerBackWard<LiveInfo>(controlFlowGraph)
+{
+    symAnalyzer = symAnalyzer_;
 }
 
 // 活跃信息结点间传递
