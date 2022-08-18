@@ -68,7 +68,7 @@ TEST(DominatorTree, DomTreeHelperTest) {
   dt->AddEdge(5, 7);
   dt->AddEdge(5, 8);
   dt->Build(1);
-  DomTreeHelper helper(dt.get());
+  DomTreeHelper helper(dt);
   std::set<std::pair<int,int>> S;
   auto add_positive_case = [&](int i, int j) -> void {
     S.emplace(i, j);
@@ -78,7 +78,7 @@ TEST(DominatorTree, DomTreeHelperTest) {
     add_positive_case(1, i);
   }
   add_positive_case(2, 2);
-  for(int i=4;i<=8;i++){
+  for (int i = 4; i <= 8; i++) {
     add_positive_case(2, i);
   }
   add_positive_case(3, 3);

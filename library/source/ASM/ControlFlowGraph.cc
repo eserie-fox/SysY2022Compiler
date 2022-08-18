@@ -235,24 +235,34 @@ void ControlFlowGraph::printToDot() const
 
 void ControlFlowGraph::dfsPrintToDot(size_t n, std::vector<bool> &vis, std::ostream &os) const
 {
-    auto nodeToDotLabel = [](const Node &node)
-    {
-        std::string s = std::to_string(node.dfn);
-        s += "\\n";
-        s += node.tac->ToString();
-        return s;
-    };
-    vis[n] = true;
-    os << nodes[n].dfn << " [label=\"" << nodeToDotLabel(nodes[n]) << "\"];\n";
-    for (auto u : nodes[n].outNodeList)
-    {
-        os << nodes[n].dfn << " -> " << nodes[u].dfn << " ;\n";
-        if (!vis[u])
-            dfsPrintToDot(u, vis, os);
-    }
+  // auto nodeToDotLabel = [](const Node &node)
+  // {
+  //     std::string s = std::to_string(node.dfn);
+  //     s += "\\n";
+  //     s += node.tac->ToString();
+  //     return s;
+  // };
+  // vis[n] = true;
+  // os << nodes[n].dfn << " [label=\"" << nodeToDotLabel(nodes[n]) << "\"];\n";
+  // for (auto u : nodes[n].outNodeList)
+  // {
+  //     os << nodes[n].dfn << " -> " << nodes[u].dfn << " ;\n";
+  //     if (!vis[u])
+  //         dfsPrintToDot(u, vis, os);
+  // }
+  auto nodeToDotLabel = [&, this](int n) {
+    std::string s = std::to_string(n);
+    s += "\\n";
+    s += nodes[n].tac->ToString();
+    return s;
+  };
+  vis[n] = true;
+  os << n << " [label=\"" << nodeToDotLabel(n) << "\"];\n";
+  for (auto u : nodes[n].outNodeList) {
+    os << n << " -> " << u << " ;\n";
+    if (!vis[u]) dfsPrintToDot(u, vis, os);
+  }
 }
-
-
 
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

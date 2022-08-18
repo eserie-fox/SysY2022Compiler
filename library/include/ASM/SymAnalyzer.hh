@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ASM/Common.hh"
-#include "MacroUtil.hh"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "ASM/Common.hh"
+#include "MacroUtil.hh"
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{

@@ -165,7 +165,7 @@ int PropagationOptimizer::optimize()
   arrivalValAnalyzer->updateUseDefChain();
 
   auto domTree = BuildDomTreeFromCFG(cfg);
-  DomTreeHelper domTreeHelper(domTree.get());
+  DomTreeHelper domTreeHelper(domTree);
 
   auto symAnalyzer = arrivalValAnalyzer->get_symAnalyzer();
   auto &useDefChain = arrivalValAnalyzer->get_useDefChain();
