@@ -123,6 +123,24 @@ public:
         return ropeBitmap.size();
     }
 
+    std::vector<IndexType> get_elements() const
+    {
+        constexpr size_t bitsOfElement = sizeof(elementType) * 8;
+        std::vector<IndexType> res;
+        for (size_t i = 0; i < ropeBitmap.size(); ++i)
+        {
+            auto e = ropeBitmap[i];
+            if (e == 0)  continue;
+            for (size_t j = 0; j < bitsOfElement; ++j)
+            {
+                if (e & (size_t)1)
+                    res.push_back(static_cast<IndexType>((i << NBITLOG) + j));
+                e >>= 1;
+            }
+        }
+        return res;
+    }
+
 private:
     static const elementType NBITLOG = 6;
     static const elementType NBIT = 1 << NBITLOG;

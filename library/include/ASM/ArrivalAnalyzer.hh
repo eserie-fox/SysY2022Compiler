@@ -41,6 +41,8 @@ public:
 
     bool isReachableDef(size_t def, size_t node) const;
 
+    std::unordered_set<size_t> getReachableDefs(size_t node) const;
+
 private:
     void transOp(size_t x, size_t y) override;
     void transFunc(size_t u) override;
@@ -50,7 +52,8 @@ private:
 
     ArrivalInfo initInfo;
     std::vector<size_t> defIDsOfGlobal;
-    std::unordered_map<size_t, size_t> defIdMap;
+    std::unordered_map<size_t, size_t> defIdMap;  // <def, id>
+    std::vector<size_t> idDefMap;  // id(idx)->def
     UseDefChain_T useDefChain;
 };
 

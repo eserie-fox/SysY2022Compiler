@@ -17,24 +17,27 @@ ArrivalAnalyzer::ArrivalAnalyzer(std::shared_ptr<const ControlFlowGraph> control
     symAnalyzer->analyze();
     liveAnalyzer = std::make_shared<LiveAnalyzer>(cfg, symAnalyzer);
     liveAnalyzer->analyze();
-
-    size_t defCnt = 0;
+    
     FOR_EACH_NODE(n, cfg)
     {
         auto tac = cfg->get_node_tac(n);
         auto defSym = tac->getDefineSym();
         if (defSym)
         {
-            defIdMap[n] = defCnt++;
             if (defSym->IsGlobal())
-                defIDsOfGlobal.push_back(defCnt - 1);
+                defIDsOfGlobal.push_back(idDefMap.size());
+            defIdMap[n] = idDefMap.size();
+            idDefMap.push_back(n);
         }
         else if (tac->operation_ == TACOperationType::Parameter)  // 参数声明需要算作定值
-            defIdMap[n] = defCnt++;
+        {
+            defIdMap[n] = idDefMap.size();
+            idDefMap.push_back(n);
+        }
     }
 
-    if (defCnt != 0)
-        initInfo = ArrivalInfo(defCnt);
+    if (idDefMap.size() != 0)
+        initInfo = ArrivalInfo(idDefMap.size());
     FOR_EACH_NODE(n, cfg)
     {
         _in[n] = initInfo;
@@ -116,6 +119,15 @@ bool ArrivalAnalyzer::isReachableDef(size_t def, size_t node) const
 {
     auto &inDefIds = getIn(node);
     return inDefIds.test(defIdMap.at(def));
+}
+
+std::unordered_set<size_t> ArrivalAnalyzer::getReachableDefs(size_t node) const
+{
+    auto defIds = getIn(node).get_elements();
+    std::unordered_set<size_t> res;
+    for (auto id : defIds)
+        res.emplace(idDefMap[id]);
+    return res;
 }
 
 bool ExprInfo::operator==(const ExprInfo& o) const
