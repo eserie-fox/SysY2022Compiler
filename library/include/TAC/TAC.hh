@@ -215,9 +215,11 @@ class TACBuilder {
   //  stmt_false
   TACListPtr CreateIfElse(ExpressionPtr cond, TACListPtr stmt_true, TACListPtr stmt_false,
                           SymbolPtr *out_label_true = nullptr, SymbolPtr *out_label_false = nullptr);
-  // if型
+  // if型 普通型
   TACListPtr CreateWhileIfModel(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);
   // jump middle dowhile
+  TACListPtr CreateWhileJumpMiddleModel(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);
+  // if + repeat型（if失败直接不进行循环，否则是repeat until)
   TACListPtr CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);
 
   TACListPtr CreateDoWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk);

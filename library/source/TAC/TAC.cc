@@ -713,7 +713,7 @@ TACListPtr TACBuilder::CreateWhileIfModel(ExpressionPtr cond, TACListPtr stmt, S
   return TACFactory::Instance()->MakeWhile(cond, label_cont, label_brk, stmt);
 }
 
-TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
+TACListPtr TACBuilder::CreateWhileJumpMiddleModel(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
   if (cond->ret->value_.Type() == SymbolValue::ValueType::Array) {
     auto tmpSym = CreateTempVariable(cond->ret->value_.UnderlyingType());
     (*cond->tac) += NewTAC(TACOperationType::Variable, tmpSym);
@@ -722,6 +722,21 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
   }
   return TACFactory::Instance()->MakeWhile(CreateArithmeticOperation(TACOperationType::UnaryNot, cond), label_cont,
                                            label_brk, CreateTempLabel(), stmt);
+}
+
+TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {
+  if (cond->ret->value_.Type() == SymbolValue::ValueType::Array) {
+    auto tmpSym = CreateTempVariable(cond->ret->value_.UnderlyingType());
+    (*cond->tac) += NewTAC(TACOperationType::Variable, tmpSym);
+    (*cond->tac) += NewTAC(TACOperationType::Assign, tmpSym, cond->ret);
+    cond->ret = tmpSym;
+  }
+  auto ret = NewTACList();
+  (*ret) += cond->tac;
+  (*ret) += NewTAC(TACOperationType::IfZero, label_brk, cond->ret);
+  (*ret) += TACFactory::Instance()->MakeDoWhile(CreateArithmeticOperation(TACOperationType::UnaryNot, cond), label_cont,
+                                                label_brk, CreateTempLabel(), stmt);
+  return ret;
 }
 
 TACListPtr TACBuilder::CreateDoWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPtr label_cont, SymbolPtr label_brk) {

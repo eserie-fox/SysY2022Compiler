@@ -2,8 +2,30 @@
 
 #include <algorithm>
 #include <string>
+#include <ostream>
+#include <utility>
+
+namespace std {
+
+template <typename KeyType, typename ValueType>
+struct hash<pair<KeyType, ValueType>> {
+  using hash_type = pair<KeyType, ValueType>;
+  size_t operator()(const hash_type &pr) const {
+    size_t val1 = hash<KeyType>()(pr.first);
+    size_t val2 = hash<ValueType>()(pr.second);
+    return ((val1 << 32) + (val1 << 14) + (val1 << 2)) ^ val2;
+  }
+};
+
+}  // namespace std
 
 namespace HaveFunCompiler {
+
+template <typename KeyType, typename ValueType>
+std::ostream &operator<<(std::ostream &os, const std::pair<KeyType, ValueType> pr) {
+  os << "( " << pr.first << ", " << pr.second << " )";
+  return os;
+}
 
 template <typename ContainerType>
 inline bool Contains(const ContainerType &container, const typename ContainerType::value_type &value) {
