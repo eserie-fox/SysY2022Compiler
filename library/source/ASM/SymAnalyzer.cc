@@ -64,9 +64,9 @@ void SymAnalyzer::analyze()
     for (auto sym : symSet)
     {
         if (symDefMap.count(sym) == 0)
-            symDefMap.emplace(sym, std::set<size_t>());
+            symDefMap.emplace(sym, std::unordered_set<size_t>());
         if (symUseMap.count(sym) == 0)
-            symUseMap.emplace(sym, std::set<size_t>());
+            symUseMap.emplace(sym, std::unordered_set<size_t>());
         // 添加变量id映射
         symIdxMap.insert(sym);
     }

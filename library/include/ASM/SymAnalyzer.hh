@@ -2,7 +2,6 @@
 
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
 #include <vector>
 #include "ASM/Common.hh"
 #include "MacroUtil.hh"
@@ -37,12 +36,12 @@ public:
 
     void analyze();
 
-    inline const std::set<size_t>& getSymDefPoints(SymbolPtr sym) const
+    inline const std::unordered_set<size_t>& getSymDefPoints(SymbolPtr sym) const
     {
         return symDefMap.at(sym);
     }
 
-    inline const std::set<size_t>& getSymUsePoints(SymbolPtr sym) const
+    inline const std::unordered_set<size_t>& getSymUsePoints(SymbolPtr sym) const
     {
         return symUseMap.at(sym);
     }
@@ -65,7 +64,7 @@ public:
 private:
 
     // 变量的定值点和使用点集合（集合元素是流图中结点下标）
-    std::unordered_map<SymbolPtr, std::set<size_t>> symDefMap, symUseMap;
+    std::unordered_map<SymbolPtr, std::unordered_set<size_t>> symDefMap, symUseMap;
     // 所有出现的变量的集合
     std::unordered_set<SymbolPtr> symSet;  
     // 控制流图

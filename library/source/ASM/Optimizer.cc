@@ -230,13 +230,19 @@ int PropagationOptimizer::optimize()
             assert(defNode < n);
             // b的所有定值点集合
             auto &b_defs = symAnalyzer->getSymDefPoints(defTac->b_);
-
-            // b的一个定值在defNode->n的直接路径上，则不能传播
-            if (b_defs.size())
-              if (!( n <= *(b_defs.begin()) || defNode >= *(--b_defs.end()) ))
-                continue;
-
             bool usable = true;
+
+            for (auto bd : b_defs)
+            {
+              if (bd > defNode && bd < n)
+              {
+                usable = false;
+                break;
+              }
+            }
+            // 直接路径上有对b的定值，则不能传播
+            if (!usable)  continue;
+
             // 再通过到达defNode和n的b的定值，判断是否存在循环经过n的路径上的其他定值
             for (auto bd : b_defs)
             {
