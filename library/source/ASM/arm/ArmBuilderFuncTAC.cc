@@ -1313,18 +1313,15 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       }
     }
 
-    bool has_stack_arg = false;
     for (const auto &record : func_context_.arg_records_) {
       if (!record.storage_in_reg) {
-        has_stack_arg = true;
-      }
-    }
-    //如果有溢出到栈上的arg，且regsave不够retcall相减，我们也让他启用call stack.
-    if (has_stack_arg) {
-      int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
-      if (count < 4) {
         return true;
       }
+    }
+    //如果没有溢出到栈上的arg，且regsave不够retcall相减，我们也让他启用call stack.
+    int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
+    if (count < 4) {
+      return true;
     }
     return false;
   };
