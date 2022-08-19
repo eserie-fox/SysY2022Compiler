@@ -377,17 +377,28 @@ bool ArmBuilder::TranslateFunction() {
   ++end_;
 
   auto can_retcall_optimize = [&, this]() -> bool {
+    // bool has_stack_arg = false;
     for (const auto &record : func_context_.arg_records_) {
+      // if (!record.storage_in_reg) {
+      //   has_stack_arg = true;
+      // }
       if (record.sym->value_.Type() == SymbolValue::ValueType::Array) {
-        if (!record.sym->IsGlobal()) {
+        //非形参的局部数组会阻碍retcall优化
+        if (!record.sym->IsGlobal() &&
+            record.sym->value_.GetArrayDescriptor()->base_addr.lock()->offset_ != Symbol::PARAM) {
           return false;
         }
       }
     }
-    int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
-    if (count <= 4) {
-      return false;
-    }
+    //这一部分判定移动到ArmBuilderFuncTAC了。
+    // //如果有溢出到栈的arg，那么就需要看一下栈空间够不够挪动。
+    // if (has_stack_arg) {
+    //   int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
+    //   if (count < 4) {
+    //     return false;
+    //   }
+    // }
+
     return true;
   };
 

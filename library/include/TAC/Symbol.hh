@@ -94,9 +94,11 @@ struct SymbolValue {
 extern const std::unordered_map<SymbolValue::ValueType, size_t> ValueTypeSize;
 
 struct Symbol {
+  static const int PARAM = 1;
   SymbolType type_;
   //符号的名字。可能没有名字，例如常量，所以用optional
   std::optional<std::string> name_;
+  //该值等于PARAM时显示标记为形参
   int offset_;
   SymbolValue value_;
   std::string get_name() const;
