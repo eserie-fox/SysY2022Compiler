@@ -1318,11 +1318,11 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         return true;
       }
     }
-    //如果没有溢出到栈上的arg，且regsave不够retcall相减，我们也让他启用call stack.
-    int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
-    if (count < 4) {
-      return true;
-    }
+    // //如果没有溢出到栈上的arg，且regsave不够retcall相减，我们也让他启用call stack.
+    // int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
+    // if (count < 4) {
+    //   return true;
+    // }
     return false;
   };
   auto do_call = [&, this]() -> void {
@@ -1665,12 +1665,19 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     
     int save_reg_size = 0;
     bool need_call_stack = need_call_stk();
+    int record_real_stack_var_size = func_context_.stack_size_for_vars_;
     if (need_call_stack) {
       //先压栈吧
       emitln("push {r1-r3}");
       emitln("vpush {s1-s15}");
       //全压！这是刚才压了的寄存器的大小
       save_reg_size += 3 * 4 + 15 * 4;
+    } else {
+      int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
+      if (count < 4) {
+        func_context_.stack_size_for_vars_ += 4 * (4 - count);
+        emitln("sub sp, sp, #" + std::to_string(4 * (4 - count)));
+      }
     }
 
     func_context_.stack_size_for_args_ += save_reg_size;
@@ -1985,6 +1992,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       emitln("pop {fp, ip, pc}");
     }
 
+    func_context_.stack_size_for_vars_ = record_real_stack_var_size;
     func_context_.arg_nfloatregs_ = 0;
     func_context_.arg_nintregs_ = 0;
     func_context_.arg_stacksize_ = 0;
