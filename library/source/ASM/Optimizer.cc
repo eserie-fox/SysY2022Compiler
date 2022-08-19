@@ -206,30 +206,54 @@ int PropagationOptimizer::optimize()
 
           // 如果b是一个变量，必须保证它在n可用
           // 可用性条件：
-          // 到达n和defNode的，变量b的定值，必须完全相同，否则在n点，a的值不一定和b相同
-          // defNode，必须是n的必经结点，否则运行到n点时，程序不一定经过了defNode，b的值也不一定和a的相同
+          // 1. defNode，必须是n的必经结点（这是保守估计，否则程序可能使用了未初始化的值）
+          // 2. 程序从defNode执行到n的任何可能路径上，b不能被定值，这体现在：
+          // 到达n和defNode的，变量b的定值，必须完全相同。在这个前提下，不能有定值处于defNode和n之间
+          // 因为如果有定值处于它们之间，且它们共同处于一个循环体中，到达它们的定值仍会相同
           else
           {
             // 得到到达结点node的变量sym的定值集合
-            auto getSymReachableDefs = [this, &symAnalyzer](SymbolPtr sym, size_t node)
-            {
-              auto &symDefs = symAnalyzer->getSymDefPoints(sym);
-              std::unordered_set<size_t> res;
-              for (auto d : symDefs)
-                if (arrivalValAnalyzer->isReachableDef(d, node))
-                  res.insert(d);
-              return res;
-            };
+            // auto getSymReachableDefs = [this, &symAnalyzer](SymbolPtr sym, size_t node)
+            // {
+            //   auto &symDefs = symAnalyzer->getSymDefPoints(sym);
+            //   std::unordered_set<size_t> res;
+            //   for (auto d : symDefs)
+            //     if (arrivalValAnalyzer->isReachableDef(d, node))
+            //       res.insert(d);
+            //   return res;
+            // };
 
             // defNode不是n的必经结点，则不能传播
             if (domTreeHelper.IsAncestorOf(defNode, n) == false)
               continue;
+            // 验证：序号上defNode一定比n小
+            assert(defNode < n);
+            // b的所有定值点集合
+            auto &b_defs = symAnalyzer->getSymDefPoints(defTac->b_);
+            bool usable = true;
 
-            auto bDefsAtDefNode = getSymReachableDefs(defTac->b_, defNode);
-            auto bDefsAtn = getSymReachableDefs(defTac->b_, n);
+            for (auto bd : b_defs)
+            {
+              if (bd > defNode && bd < n)
+              {
+                usable = false;
+                break;
+              }
+            }
+            // 直接路径上有对b的定值，则不能传播
+            if (!usable)  continue;
 
-            // 如果定值集合相等，可以进行传播
-            if (bDefsAtDefNode == bDefsAtn)
+            // 再通过到达defNode和n的b的定值，判断是否存在循环经过n的路径上的其他定值
+            for (auto bd : b_defs)
+            {
+              if (arrivalValAnalyzer->isReachableDef(bd, defNode) != arrivalValAnalyzer->isReachableDef(bd, n))
+              {
+                usable = false;
+                break;
+              }
+            }
+
+            if (usable)
             {
               replace(tac, sym, defTac->b_);
               ++cnt;
