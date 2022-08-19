@@ -22,6 +22,8 @@ void LoopInvariantDetector::analyze() {
     std::set<LoopRange> visited;
     const auto &loop_ranges = loop_detector_->get_loop_ranges();
     for (auto range : loop_ranges) {
+      range.first = cfg_->get_node_lino(range.first);
+      range.second = cfg_->get_node_lino(range.second);
       analyze_impl(visited, range);
     }
     is_analyzed = true;
