@@ -38,12 +38,18 @@ void error() {
   putch(111);
   putch(114);
   putch(10);
+  int x;
+  x= 1;
+  return;
 }
 
 void ok() {
   putch(111);
   putch(107);
   putch(10);
+  int x;
+  x=1;
+  return;
 }
 
 void assert(int cond) {

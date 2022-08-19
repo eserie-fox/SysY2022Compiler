@@ -1138,6 +1138,8 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     bool is_float;
     bool on_stack = false;
     int offset;
+    //将其标记为param
+    sym->offset_ = Symbol::PARAM;
     //除Float类型外均为 int。（数组算指针同int）
     if (sym->value_.Type() == SymbolValue::ValueType::Float) {
       is_float = true;
@@ -1308,6 +1310,20 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
         if (reg > 0 && reg < 4) {
           return true;
         }
+      }
+    }
+
+    bool has_stack_arg = false;
+    for (const auto &record : func_context_.arg_records_) {
+      if (!record.storage_in_reg) {
+        has_stack_arg = true;
+      }
+    }
+    //如果有溢出到栈上的arg，且regsave不够retcall相减，我们也让他启用call stack.
+    if (has_stack_arg) {
+      int count = func_context_.saveintregs_.size() + func_context_.savefloatregs_.size();
+      if (count < 4) {
+        return true;
       }
     }
     return false;
