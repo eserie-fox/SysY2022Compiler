@@ -22,7 +22,7 @@ class LoopInvariantDetector {
   LoopInvariantDetector(std::shared_ptr<ControlFlowGraph> cfg, std::shared_ptr<LoopDetector> loop_detector,
                         std::shared_ptr<ArrivalAnalyzer> arrival_analyzer);
 
-  const std::unordered_set<size_t> &get_invariants_of_loop(LoopRange range) const {
+  const std::vector<size_t> &get_invariants_of_loop(LoopRange range) const {
     if (!is_analyzed) {
       throw std::logic_error("Not analyzed");
     }
@@ -40,7 +40,7 @@ class LoopInvariantDetector {
   void analyze_impl(std::set<LoopRange> &visited, LoopRange range);
 
   bool is_analyzed;
-  std::unordered_map<LoopRange, std::unordered_set<size_t>> loop_invariants_;
+  std::unordered_map<LoopRange, std::vector<size_t>> loop_invariants_;
   std::shared_ptr<ControlFlowGraph> cfg_;
   std::shared_ptr<LoopDetector> loop_detector_;
   std::shared_ptr<ArrivalAnalyzer> arrival_analyzer_;

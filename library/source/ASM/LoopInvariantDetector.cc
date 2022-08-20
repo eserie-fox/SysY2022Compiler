@@ -34,7 +34,7 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
   static_assert(static_cast<LoopRange::first_type>(-1) > static_cast<LoopRange::first_type>(0));
   const static LoopRange::first_type MAX = static_cast<LoopRange::first_type>(-1);
   //存放对于这个循环而言的循环不变量。
-  auto &ans_invariant = loop_invariants_[range];
+  std::unordered_set<size_t> ans_invariant;
   auto sym_analyzer = arrival_analyzer_->get_symAnalyzer();
 
   auto check_vis = [&](size_t pos) -> size_t {
@@ -172,6 +172,10 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
     }
   }
   insert_range(range);
+  auto &ans = loop_invariants_[range];
+  ans.insert(ans.end(), ans_invariant.begin(), ans_invariant.end());
+  std::sort(ans.begin(), ans.end(),
+            [&](size_t nid1, size_t nid2) -> bool { return cfg_->get_node_lino(nid1) < cfg_->get_node_lino(nid2); });
 }
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

@@ -393,11 +393,22 @@ bool SymbolValue::IsAssignableTo(const SymbolValue &other) const {
       if (myAD->value_type != otherAD->value_type) {
         return false;
       }
-      if (myAD->dimensions.size() != otherAD->dimensions.size()) {
+      if (myAD->dimensions.size() < otherAD->dimensions.size()) {
         return false;
       }
-      for (size_t i = 1; i < myAD->dimensions.size(); i++) {
+      size_t i;
+      for (i = 1; i + 1 < otherAD->dimensions.size(); i++) {
         if (myAD->dimensions[i] != otherAD->dimensions[i]) {
+          return false;
+        }
+      }
+      //允许高维赋给低维，但坍缩后的大小应该吻合。
+      if (i < myAD->dimensions.size() && i < otherAD->dimensions.size()) {
+        size_t accu = 1;
+        for (auto j = i; j < myAD->dimensions.size(); j++) {
+          accu *= myAD->dimensions[j];
+        }
+        if (accu != otherAD->dimensions[i]) {
           return false;
         }
       }
