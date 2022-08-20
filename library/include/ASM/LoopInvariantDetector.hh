@@ -36,6 +36,11 @@ class LoopInvariantDetector {
 
   void analyze();
 
+  const std::shared_ptr<ArrivalAnalyzer> get_arrival_analyzer() const
+  {
+    return arrival_analyzer_;
+  }
+
  private:
   void analyze_impl(std::set<LoopRange> &visited, LoopRange range);
 
