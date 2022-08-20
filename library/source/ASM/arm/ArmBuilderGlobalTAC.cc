@@ -157,6 +157,9 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
         break;
       }
     }
+    if (target_regpos < 0) {
+      throw std::logic_error("target regpos not found");
+    }
   found_regpos:
     for (i = target_regpos; i > 0; i--) {
       glob_context_.int_regs_ranks_[i] = glob_context_.int_regs_ranks_[i - 1];
@@ -170,7 +173,7 @@ std::string ArmBuilder::GlobalTACToASMString([[maybe_unused]] TACPtr tac) {
     int target_regid = -1;
     int target_regpos = -1;
     int i, backpos, back;
-    if (hint_regid != -1) {
+    if (hint_regid == -1) {
       for (i = glob_context_.USE_FLOAT_REG_NUM - 1; i >= 0; i--) {
         if (i != except_reg && glob_context_.float_regs_[i] == nullptr) {
           target_regid = i;
