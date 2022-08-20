@@ -6,6 +6,7 @@
 #include "ASM/SymAnalyzer.hh"
 #include "ASM/ArrivalAnalyzer.hh"
 #include "TAC/Symbol.hh"
+#include "TAC/TAC.hh"
 #include "ASM/CFG2DomTreeBuilder.hh"
 #include "DomTreeHelper.hh"
 #include <iostream>
@@ -23,6 +24,7 @@ OptimizeController_Simple::OptimizeController_Simple(TACListPtr tacList, TACList
   PropagationOp = std::make_shared<PropagationOptimizer>(tacList, fbegin, fend);
   deadCodeOp = std::make_shared<DeadCodeOptimizer>(tacList, fbegin, fend);
   constFoldOp = std::make_shared<ConstantFoldingOptimizer>(tacList, fbegin, fend);
+  commExpOp = std::make_shared<CommExpOptimizer>(tacList, fbegin, fend);
 }
 
 void OptimizeController_Simple::doOptimize()
@@ -36,6 +38,7 @@ void OptimizeController_Simple::doOptimize()
     cnt += PropagationOp->optimize();
     cnt += deadCodeOp->optimize();
     cnt += constFoldOp->optimize();
+    cnt += commExpOp->optimize();
     ++round;
   } while (round < MAX_ROUND && cnt > MIN_OP_THRESHOLD);
   constFoldOp->optimize();   // 翻译时不能出现未折叠的常量运算
@@ -263,6 +266,73 @@ int PropagationOptimizer::optimize()
       }
     }
   }
+  return cnt;
+}
+
+
+CommExpOptimizer::CommExpOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend) :
+  tacLs_(tacList), fbegin_(fbegin), fend_(fend)
+{
+}
+
+int CommExpOptimizer::optimize()
+{
+  cfg = std::make_shared<ControlFlowGraph>(fbegin_, fend_);
+  commExpAnalyzer = std::make_shared<CommExpAnalyzer>(cfg);
+
+  TACRebuilder tacBuilder;
+
+  auto tmpVarGen = [&tacBuilder](SymbolType type, SymbolValue value)
+  {
+    static size_t cnt = 0;
+    return tacBuilder.NewSymbol(type, (std::string)"CommExpGen_" + std::to_string(++cnt), value);
+  };
+
+  auto reWriteToAssign = [](TACPtr tac, SymbolPtr rhs)
+  {
+    tac->operation_ = TACOperationType::Assign;
+    tac->b_ = rhs;
+    tac->c_ = nullptr;
+  };
+
+  commExpAnalyzer->analyze();
+  auto &expUseChain = commExpAnalyzer->getExpUseChain();
+  int cnt = 0;
+
+  // pos处:  x = exp
+  // useVec的每一处：  y = exp
+  for (auto &[pos, useVec] : expUseChain)
+  {
+    if (useVec.size() == 0)
+      continue;
+
+    auto defTac = cfg->get_node_tac(pos);
+    auto newSym = tmpVarGen(defTac->a_->type_, defTac->a_->value_);
+    auto newTac = tacBuilder.NewTAC(defTac->operation_, newSym, defTac->b_, defTac->c_);
+
+    // 测试用，获取老的exp
+    auto exp = commExpAnalyzer->getRhs(pos);
+
+    // newTac: u = exp
+    // 把newTac插入到pos前面
+    auto posIt = cfg->get_node_itr(pos);
+    tacLs_->insert(posIt, newTac);
+
+    // x = exp(defTac) 改为 x = u
+    reWriteToAssign(defTac, newSym);
+
+    // 把每一处exp的使用都替换为赋值u
+    for (auto u : useVec)
+    {
+      auto exp2 = commExpAnalyzer->getRhs(u);
+      assert(exp == exp2);
+
+      reWriteToAssign(cfg->get_node_tac(u), newSym);
+    }
+
+    cnt += useVec.size();
+  }
+
   return cnt;
 }
 

@@ -28,8 +28,10 @@ class DeadCodeOptimizer;
 class DeadCodeOptimizer_UseDef;
 class SimpleOptimizer;
 class ConstantFoldingOptimizer;
+class CommExpOptimizer;
 class DataFlowManager;
 class UseDefAnalyzer;
+class CommExpAnalyzer;
 
 class OptimizeController_Simple : public OptimizeController
 {
@@ -44,6 +46,7 @@ private:
     std::shared_ptr<PropagationOptimizer> PropagationOp;
     std::shared_ptr<DeadCodeOptimizer> deadCodeOp;
     std::shared_ptr<ConstantFoldingOptimizer> constFoldOp;
+    std::shared_ptr<CommExpOptimizer> commExpOp;
 
     const size_t MAX_ROUND = 2;
     const ssize_t MIN_OP_THRESHOLD = 3;
@@ -101,6 +104,24 @@ public:
 private:
     std::shared_ptr<ControlFlowGraph> cfg;
     std::shared_ptr<ArrivalAnalyzer> arrivalValAnalyzer;
+
+    TACListPtr tacLs_;
+    TACList::iterator fbegin_, fend_;
+};
+
+
+// 公共子表达式删除优化器
+class CommExpOptimizer
+{
+public:
+    CommExpOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend);
+    NONCOPYABLE(CommExpOptimizer)
+
+    int optimize();
+
+private:
+    std::shared_ptr<ControlFlowGraph> cfg;
+    std::shared_ptr<CommExpAnalyzer> commExpAnalyzer;
 
     TACListPtr tacLs_;
     TACList::iterator fbegin_, fend_;

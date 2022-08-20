@@ -99,6 +99,7 @@ class ThreeAddressCodeList {
   const_iterator cend() const { return list_.cend(); }
 
   void erase(iterator it) { list_.erase(it); }
+  void insert(iterator it, std::shared_ptr<ThreeAddressCode> tac) { list_.insert(it, tac); }
 
  private:
   list_t list_;

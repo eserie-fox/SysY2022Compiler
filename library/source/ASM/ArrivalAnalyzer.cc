@@ -2,9 +2,9 @@
 #include "ASM/SymAnalyzer.hh"
 #include "ASM/LiveAnalyzer.hh"
 #include "TAC/Symbol.hh"
-#include <optional>
 #include <cassert>
 #include <vector>
+#include <queue>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -322,6 +322,210 @@ void ArrivalExprAnalyzer::transFunc(size_t u)
     if (kill)
         for (auto id : *kill)
             _out[u].exps.erase(id);
+}
+
+
+CommExpAnalyzer::CommExpAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph) : cfg(controlFlowGraph)
+{
+}
+
+std::optional<ExprInfo> CommExpAnalyzer::getRhs(size_t u)
+{
+    auto isBin = [](TACPtr tac)
+    {
+        return tac->operation_ >= TACOperationType::Add && tac->operation_ <= TACOperationType::LogicOr;
+    };
+
+    auto isUn = [](TACPtr tac)
+    {
+        return (tac->operation_ >= TACOperationType::UnaryMinus && tac->operation_ <= TACOperationType::UnaryPositive) ||
+               (tac->operation_ == TACOperationType::FloatToInt || tac->operation_ == TACOperationType::IntToFloat);
+    };
+
+    auto isAssign = [](TACPtr tac) { return tac->operation_ == TACOperationType::Assign; };
+
+    auto tac = cfg->get_node_tac(u);
+    std::optional<ExprInfo> ret = std::nullopt;
+
+    // 如果是二元运算语句
+    // 排除常量表达式
+    if (isBin(tac))
+    {
+        if (!tac->b_->IsLiteral() && !tac->c_->IsLiteral())
+            ret = std::make_optional<ExprInfo>(tac->b_, tac->c_, (ExprInfo::Op)tac->operation_);
+    }
+
+    // 如果是一元运算语句
+    else if (isUn(tac))
+    {
+        if (!tac->b_->IsLiteral())
+            ret = std::make_optional<ExprInfo>(tac->b_, (ExprInfo::Op)tac->operation_);
+    }
+
+    // 如果是赋值语句
+    else if (isAssign(tac))
+    {
+        // 赋值右边是数组访问，才记录为表达式
+        if (tac->b_->value_.Type() == SymbolValue::ValueType::Array)
+        {
+            auto base = tac->b_->value_.GetArrayDescriptor()->base_addr.lock();
+            auto offset = tac->b_->value_.GetArrayDescriptor()->base_offset;
+            ret = std::make_optional<ExprInfo>(base, offset, ExprInfo::Op::Access);
+        }
+    } 
+
+    return ret;
+}
+
+void CommExpAnalyzer::analyze()
+{
+    // 获得所有公共的表达式并映射为id
+    std::unordered_set<ExprInfo> allExp;
+    FOR_EACH_NODE(n, cfg)
+    {
+        auto expContainer = getRhs(n);
+        if (expContainer.has_value())
+        {
+            auto exp = expContainer.value();
+
+            // 已经存在，说明是重复的表达式
+            if (allExp.count(exp) != 0)
+            {
+                // 如果没有未其分配编号，则分配一个
+                if (!CommExp2Id.count(exp))
+                {
+                    auto id = id2CommExp.size();
+                    CommExp2Id.emplace(exp, id);
+                    id2CommExp.push_back(exp);
+                    symExpLink[exp.a].push_back(id);
+                    if (exp.b)
+                        symExpLink[exp.b].push_back(id);
+                }
+            }
+
+            // 否则，加入allExp
+            else
+                allExp.insert(exp);
+        }
+
+        // 得到函数中出现的全局变量，后续分析使用
+        auto tac = cfg->get_node_tac(n);
+        auto defSym = tac->getDefineSym();
+        if (defSym && defSym->IsGlobal())
+            globalSyms.insert(defSym);
+        auto useSyms = tac->getUseSym();
+        for (auto sym : useSyms)
+            if (sym->IsGlobal())
+                globalSyms.insert(sym);
+    }
+
+    // 没有重复的表达式，直接返回
+    if (id2CommExp.size() == 0)
+        return;
+
+    std::vector<bool> vis(cfg->get_nodes_number(), 0);
+
+    // 记录每一个结点的可用公共表达式
+    std::unordered_map<size_t, RopeContainer<size_t>> usableExps;
+    // 记录每一个结点，可用公共表达式的定值点
+    // RopeArr[i]，表示在结点处，公共表达式i的到达定值点（仅在结点可用时信息有意义）
+    std::unordered_map<size_t, RopeArr> expDef;
+
+    // rope的初始值
+    RopeContainer<size_t> initUsableExps(id2CommExp.size());
+    RopeArr initExpDef(id2CommExp.size(), 0);
+
+    // 每次从一个点开始，遍历它及其下属单链，在这个范围内进行公共子表达式删除
+    FOR_EACH_NODE(n, cfg)
+    {
+        if (vis[n])
+            continue;
+        
+        std::queue<size_t> q;
+        q.push(n);
+        usableExps[n] = initUsableExps;
+        expDef[n] = initExpDef;
+
+        while (!q.empty())
+        {
+            auto u = q.front();
+            q.pop();
+            if (vis[u])  
+                continue;
+            vis[u] = 1;
+
+            // 得到u处出现的表达式
+            auto expOptional = getRhs(u);
+            if (expOptional.has_value())
+            {
+                auto exp = expOptional.value();
+
+                // 如果这个表达式是公共表达式
+                if (CommExp2Id.count(exp) != 0)
+                {
+                    auto expId = CommExp2Id[exp];
+                    // 如果该表达式在u已经可用
+                    if (usableExps[u].test(expId))
+                    {
+                        // 说明此处的exp是可以删除的公共表达式，在exp的定值点记录
+                        // exp的定值点在expDef[u][expId]中
+                        expUseChain[expDef[u][expId]].push_back(u);
+                    }
+
+                    // 否则，标记表达式exp在u定值，且接下来可用
+                    else
+                    {
+                        usableExps[u].set(expId);
+                        expDef[u].replace(expId, u);
+                    }
+                }
+            }
+
+            // 计算这条语句杀死的表达式
+            // 分四种情况：
+            // 1. 有定值，杀死与定值变量相关的表达式
+            // 2. 如果赋值给数组，保守起见，杀死该数组相关的表达式
+            // 3. 如果使用数组传参，同样杀死该数组相关的表达式
+            // 4. 如果是函数调用，杀死所有全局变量相关的表达式
+            auto tac = cfg->get_node_tac(u);  
+
+            // 如果有定值
+            auto defSym = tac->getDefineSym();
+            if (defSym)
+                usableExps[u].reset(symExpLink[defSym]);
+
+            // 如果赋值给数组或使用数组传参
+            else if ((tac->operation_ == TACOperationType::Assign && tac->a_->value_.Type() == SymbolValue::ValueType::Array) ||
+                     (tac->operation_ == TACOperationType::ArgumentAddress))            
+            {
+                auto arr = tac->a_->value_.GetArrayDescriptor()->base_addr.lock();
+                usableExps[u].reset(symExpLink[arr]);
+            }
+
+            // 如果是函数调用
+            else if (tac->operation_ == TACOperationType::Call)
+            {
+                std::vector<size_t> resetVec;
+                for (auto sym : globalSyms)
+                {
+                    auto &symLinks = symExpLink[sym];
+                    resetVec.insert(resetVec.end(), symLinks.begin(), symLinks.end());
+                }
+                usableExps[u].reset(resetVec);
+            }
+
+            for (auto v : cfg->get_outNodeList(u))
+            {
+                if (!vis[v] && cfg->get_inDegree(v) == 1)
+                {
+                    q.push(v);
+                    // 可用公共表达式的信息继续向下传递
+                    usableExps[v] = usableExps[u];
+                    expDef[v] = expDef[u];
+                }
+            }
+        }
+    }
 }
 
 }
