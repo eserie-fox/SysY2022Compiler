@@ -12,16 +12,14 @@ namespace HaveFunCompiler {
 namespace AssemblyBuilder {
 
 LoopOptimizer::LoopOptimizer(TACListPtr tacList, TACList::iterator fbegin, TACList::iterator fend)
-  : tacls_(tacList), fbegin_(fbegin), fend_(fend)
-{
-  cfg_ = std::make_shared<ControlFlowGraph>(fbegin, fend);
+  : tacls_(tacList), fbegin_(fbegin), fend_(fend) { }
+
+int LoopOptimizer::optimize() {
+  cfg_ = std::make_shared<ControlFlowGraph>(fbegin_, fend_);
   arrival_analyzer_ = std::make_shared<ArrivalAnalyzer>(cfg_);
   loop_detector_ = std::make_shared<LoopDetector>(cfg_);
   arrival_analyzer_->analyze();
   loop_invariant_detector_ = std::make_shared<LoopInvariantDetector>(cfg_, loop_detector_, arrival_analyzer_);
-}
-
-int LoopOptimizer::optimize() {
   loop_invariant_detector_->analyze();
   
   auto &loopRanges = loop_detector_->get_loop_ranges();
@@ -32,8 +30,14 @@ int LoopOptimizer::optimize() {
   auto checkLegalLoop = [this](size_t lbegin, size_t lend)
   {
     if (cfg_->get_node_tac(lbegin)->operation_ != TACOperationType::Label) return false;
-    if (cfg_->get_inDegree(lbegin) != 1)  return false;
-    if (cfg_->get_node_tac(cfg_->get_inNodeList(lbegin)[0])->operation_ != TACOperationType::IfZero)  return false;
+
+    auto &beginPre = cfg_->get_inNodeList(lbegin);
+    size_t x = 0;
+    for (; x < beginPre.size(); ++x)
+      if (x != lend && cfg_->get_node_tac(x)->operation_ != TACOperationType::IfZero)
+        break;
+    if (x == beginPre.size())  
+      return false;
   
     auto &endSuc = cfg_->get_outNodeList(lend);
     size_t u = 0;
@@ -67,6 +71,9 @@ int LoopOptimizer::optimize() {
   };
 
   int cnt = 0;
+
+  // DEBUG!!!!
+  std::unordered_set<size_t> deleted;
 
   // 由内循环到外循环，依次对循环范围进行外提
   // Begin和End：开始和结束语句的nodeid
@@ -149,7 +156,11 @@ int LoopOptimizer::optimize() {
 
     // 现在保留在extractInvariants中的就是能外提的语句
     for (auto d : extractInvariants)
+    {
+      assert(deleted.count(d) == 0);
       extract(loopBegin, d);
+      deleted.insert(d);
+    }
     cnt += extractInvariants.size();
   }
 
