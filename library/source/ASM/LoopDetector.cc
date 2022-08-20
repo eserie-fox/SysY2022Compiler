@@ -49,7 +49,7 @@ LoopDetector::LoopDetector(std::shared_ptr<ControlFlowGraph> cfg) {
     if (rhs.second + lhs.first == lhs.second + rhs.first) {
       return lhs.first < rhs.first;
     }
-    return (rhs.second + lhs.first < lhs.second + rhs.first);
+    return (lhs.second + rhs.first < rhs.second + lhs.first);
   });
 }
 
