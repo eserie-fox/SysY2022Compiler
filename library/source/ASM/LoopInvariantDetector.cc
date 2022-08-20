@@ -96,6 +96,17 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
       return false;
     }
     if (sym->value_.Type() == SymbolValue::ValueType::Array) {
+      if (blacklist.count(sym->value_.GetArrayDescriptor()->base_addr.lock())) {
+        return false;
+      }
+      if (blacklist.count(sym->value_.GetArrayDescriptor()->base_offset)) {
+        return false;
+      }
+      if (has_func_call && sym->value_.GetArrayDescriptor()->base_offset->IsGlobal()) {
+        return false;
+      }
+      // base_addr的全局判断在第一个if就做了
+
       sym = sym->value_.GetArrayDescriptor()->base_offset;
     }
     if (sym->IsLiteral()) {
