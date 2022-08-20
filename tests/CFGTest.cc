@@ -102,11 +102,13 @@ TEST(CFGTestUseParser, test)
 
     std::stringstream ss;
     driver.print(ss) << "\n";
-    auto tss = ss.str();
-    std::cout << tss << std::endl;
+    // auto tss = ss.str();
+    // std::cout << tss << std::endl;
 
     tacdriver.parse(ss);
     tac_list = tacdriver.get_tacbuilder()->GetTACList();
+
+    std::cout << tac_list->ToString() << std::endl;
 
     ControlFlowGraph cfg(tac_list);
     cfg.printToDot();
