@@ -466,7 +466,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
     return {resreg, op1reg, op2reg, freeregid};
   };
 
-  // mod很有可能有问题
+
   auto binary_operation = [&, this]() -> void {
     assert(tac->a_->value_.Type() == tac->b_->value_.Type());
     assert(tac->b_->value_.Type() == tac->c_->value_.Type());
@@ -844,7 +844,6 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
               emitln("mov " + IntRegIDToName(otherreg) + ", " + IntRegIDToName(op1reg));
               op1reg = otherreg;
             }
-
             emitln("rsbs " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", #0");
             if (ArmHelper::IsImmediateValue(mask)) {
               emitln("and " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op1reg) + ", #" + std::to_string(mask));
@@ -903,30 +902,7 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
               emitln("mov " + IntRegIDToName(regid) + ", r0");
             }
           }
-
           break;
-
-          // emitln("sdiv " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
-          // emitln("mul " + IntRegIDToName(resreg) + ", " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op2reg));
-          // if (freeregid != -1) {
-          //   if (freeregid == 0) {
-          //     assert(func_context_.int_freereg1_ == tac->b_);
-          //     func_context_.int_freereg1_ = nullptr;
-          //   } else {
-          //     assert(func_context_.int_freereg2_ == tac->b_);
-          //     func_context_.int_freereg2_ = nullptr;
-          //   }
-          //   op1reg = alloc_reg(tac->b_, resreg);
-          // }
-          // emitln("sub " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(resreg));
-          // if (freeregid != -1) {
-          //   if (freeregid == 0) {
-          //     func_context_.int_freereg1_ = tac->a_;
-          //   } else {
-          //     func_context_.int_freereg2_ = tac->a_;
-          //   }
-          // }
-          // break;
         }
         case TACOperationType::Mul: {
           emitln("mul " + IntRegIDToName(resreg) + ", " + IntRegIDToName(op1reg) + ", " + IntRegIDToName(op2reg));
@@ -1003,27 +979,39 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int basereg = alloc_reg(basesym);
       int addrreg;
       {
-        int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
-        if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
-          if (basereg == 0) {
-            // assert(func_context_.int_freereg1_ == basesym);
-            func_context_.int_freereg1_ = nullptr;
-          } else {
-            // assert(func_context_.int_freereg2_ == basesym);
-            func_context_.int_freereg2_ = nullptr;
-          }
-          addrreg = basereg;
-          //把offreg的另外一个reg驱逐。
-          evit_int_reg((addrreg == 0));
+        if (arrayDescriptor->base_offset->IsLiteral() &&
+            ArmHelper::IsImmediateValue(arrayDescriptor->base_offset->value_.GetInt())) {
+          //把basereg的另外一个reg驱逐
+          evit_int_reg((basereg == 0));
+          addrreg = basereg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
           func_context_.last_int_freereg_ = addrreg;
+          bool chk =
+              ArmHelper::EmitImmediateInstWithCheck(emitln, "add", IntRegIDToName(addrreg), IntRegIDToName(basereg),
+                                                    arrayDescriptor->base_offset->value_.GetInt() << 2);
+          assert(chk);
         } else {
-          //把offreg的另外一个reg驱逐。
-          evit_int_reg((offreg == 0));
-          addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
-          func_context_.last_int_freereg_ = addrreg;
+          int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
+          if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
+            if (basereg == 0) {
+              // assert(func_context_.int_freereg1_ == basesym);
+              func_context_.int_freereg1_ = nullptr;
+            } else {
+              // assert(func_context_.int_freereg2_ == basesym);
+              func_context_.int_freereg2_ = nullptr;
+            }
+            addrreg = basereg;
+            //把offreg的另外一个reg驱逐。
+            evit_int_reg((addrreg == 0));
+            func_context_.last_int_freereg_ = addrreg;
+          } else {
+            //把offreg的另外一个reg驱逐。
+            evit_int_reg((offreg == 0));
+            addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+            func_context_.last_int_freereg_ = addrreg;
+          }
+          emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
         }
-        emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
-               ", LSL #2");
       }
       int valuereg = alloc_reg(tac->b_, addrreg);
       if (tac->b_->value_.Type() == SymbolValue::ValueType::Float) {
@@ -1037,28 +1025,40 @@ std::string ArmBuilder::FuncTACToASMString(TACPtr tac) {
       int basereg = alloc_reg(basesym);
       int addrreg;
       {
-        int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
-        if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
-          if (basereg == 0) {
-            // assert(func_context_.int_freereg1_ == basesym);
-            func_context_.int_freereg1_ = nullptr;
-          } else {
-            // assert(func_context_.int_freereg2_ == basesym);
-            func_context_.int_freereg2_ = nullptr;
-          }
-          addrreg = basereg;
-
-          //把offreg的另外一个reg驱逐。
-          evit_int_reg((addrreg == 0));
+        if (arrayDescriptor->base_offset->IsLiteral() &&
+            ArmHelper::IsImmediateValue(arrayDescriptor->base_offset->value_.GetInt())) {
+          //把basereg的另外一个reg驱逐
+          evit_int_reg((basereg == 0));
+          addrreg = basereg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
           func_context_.last_int_freereg_ = addrreg;
+          bool chk =
+              ArmHelper::EmitImmediateInstWithCheck(emitln, "add", IntRegIDToName(addrreg), IntRegIDToName(basereg),
+                                                    arrayDescriptor->base_offset->value_.GetInt() << 2);
+          assert(chk);
         } else {
-          //把offreg的另外一个reg驱逐。
-          evit_int_reg((offreg == 0));
-          addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
-          func_context_.last_int_freereg_ = addrreg;
+          int offreg = alloc_reg(arrayDescriptor->base_offset, basereg);
+          if (basereg == 0 || basereg == func_context_.func_attr_.attr.used_regs.intReservedReg) {
+            if (basereg == 0) {
+              // assert(func_context_.int_freereg1_ == basesym);
+              func_context_.int_freereg1_ = nullptr;
+            } else {
+              // assert(func_context_.int_freereg2_ == basesym);
+              func_context_.int_freereg2_ = nullptr;
+            }
+            addrreg = basereg;
+
+            //把offreg的另外一个reg驱逐。
+            evit_int_reg((addrreg == 0));
+            func_context_.last_int_freereg_ = addrreg;
+          } else {
+            //把offreg的另外一个reg驱逐。
+            evit_int_reg((offreg == 0));
+            addrreg = offreg ? 0 : func_context_.func_attr_.attr.used_regs.intReservedReg;
+            func_context_.last_int_freereg_ = addrreg;
+          }
+          emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
+                 ", LSL #2");
         }
-        emitln("add " + IntRegIDToName(addrreg) + ", " + IntRegIDToName(basereg) + ", " + IntRegIDToName(offreg) +
-               ", LSL #2");
       }
       int valuereg = alloc_reg(tac->a_, addrreg);
       if (tac->a_->value_.Type() == SymbolValue::ValueType::Float) {
