@@ -35,6 +35,11 @@ public:
         return symAnalyzer;
     }
 
+    const std::shared_ptr<LiveAnalyzer> get_liveAnalyzer() const
+    {
+        return liveAnalyzer;
+    }
+
     size_t getDefId(size_t def) const
     {
         return defIdMap.at(def);
