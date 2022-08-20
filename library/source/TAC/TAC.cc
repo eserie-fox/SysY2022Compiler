@@ -732,7 +732,35 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
     cond->ret = tmpSym;
   }
   auto ret = NewTACList();
-  (*ret) += cond->tac;
+  //处理重复标签的重命名问题
+  {
+    std::unordered_map<std::string, SymbolPtr> replace_label;
+    auto replace_sym = [&replace_label](SymbolPtr &sym) -> void {
+      if (sym != nullptr && sym->type_ == SymbolType::Label) {
+        auto it = replace_label.find(sym->get_tac_name());
+        if (it != replace_label.end()) {
+          sym = it->second;
+        }
+      }
+    };
+    auto replace = [&replace_sym](ThreeAddressCodePtr tac) -> void {
+      replace_sym(tac->a_);
+      replace_sym(tac->b_);
+      replace_sym(tac->c_);
+    };
+    for (auto duptac : *cond->tac) {
+      if (duptac->operation_ == TACOperationType::Label) {
+        auto name = duptac->a_->get_tac_name();
+        replace_label[name] = NewSymbol(SymbolType::Label, "D" + name);
+      }
+    }
+    for (auto duptac : *cond->tac) {
+      auto tac = NewTAC(duptac->operation_, duptac->a_, duptac->b_, duptac->c_);
+      replace(tac);
+      (*ret) += tac;
+    }
+  }
+
   (*ret) += NewTAC(TACOperationType::IfZero, label_brk, cond->ret);
   (*ret) += TACFactory::Instance()->MakeDoWhile(CreateArithmeticOperation(TACOperationType::UnaryNot, cond), label_cont,
                                                 label_brk, CreateTempLabel(), stmt);
