@@ -36,6 +36,10 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
   //存放对于这个循环而言的循环不变量。
   std::unordered_set<size_t> ans_invariant;
   auto sym_analyzer = arrival_analyzer_->get_symAnalyzer();
+  //黑名单，用于排除一些因函数副作用导致无法成为不变量的符号
+  std::unordered_set<SymbolPtr> blacklist;
+  //当有func call时，全局变量都不会成为不变量
+  bool has_func_call = false;
 
   auto check_vis = [&](size_t pos) -> size_t {
     if (visited.empty()) {
@@ -85,6 +89,12 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
   };
 
   auto is_invariant_sym = [&](SymbolPtr sym, const std::unordered_set<size_t> &reachable_defs) -> bool {
+    if (has_func_call && sym->IsGlobal()) {
+      return false;
+    }
+    if (blacklist.count(sym)) {
+      return false;
+    }
     if (sym->value_.Type() == SymbolValue::ValueType::Array) {
       sym = sym->value_.GetArrayDescriptor()->base_offset;
     }
@@ -154,6 +164,28 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
     }
     return is_invariant_sym(tac->b_, reachable_defs) && is_invariant_sym(tac->c_, reachable_defs);
   };
+  {
+    for (auto i = range.first; i <= range.second; i++) {
+      auto chk = check_vis(i);
+      if (chk != MAX) {
+        i = chk;
+        continue;
+      }
+      auto node_id = cfg_->get_node_id(i);
+      //如果被删除就忽略
+      if (cfg_->get_node_dfn(node_id) == 0) {
+        continue;
+      }
+      auto tac = cfg_->get_node_tac(node_id);
+      if (tac->operation_ == TACOperationType::ArgumentAddress) {
+        assert(tac->a_->value_.Type() == SymbolValue::ValueType::Array);
+        blacklist.insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
+      }
+      if (tac->operation_ == TACOperationType::Call) {
+        has_func_call = true;
+      }
+    }
+  }
 
   for (auto i = range.first; i <= range.second; i++) {
     // i是行号
