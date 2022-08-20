@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <optional>
 
 namespace HaveFunCompiler{
 namespace AssemblyBuilder{
@@ -141,6 +142,37 @@ private:
     std::unordered_map<ExprInfo, size_t> exprMap;
     std::vector<ExprInfo> idxMap;
     std::unordered_map<SymbolPtr, std::vector<size_t>> symExpLink;  // sym映射到包含它的表达式
+};
+
+
+// 公共表达式分析器
+class CommExpAnalyzer
+{
+public:
+    CommExpAnalyzer(std::shared_ptr<const ControlFlowGraph> controlFlowGraph);
+    NONCOPYABLE(CommExpAnalyzer)
+
+    void analyze();
+
+    const std::unordered_map<size_t, std::vector<size_t>> &getExpUseChain() const
+    {
+        return expUseChain;
+    }
+
+    std::optional<ExprInfo> getRhs(size_t u);
+
+private:
+    std::unordered_map<ExprInfo, size_t> CommExp2Id;
+    std::vector<ExprInfo> id2CommExp;
+    std::unordered_map<SymbolPtr, std::vector<size_t>> symExpLink;  // sym映射到包含它的表达式
+    std::unordered_set<SymbolPtr> globalSyms;
+
+    // 在size_t处的exp，到达了vector<size_t>处的相同exp，可以进行消除
+    std::unordered_map<size_t, std::vector<size_t>> expUseChain;
+
+    std::shared_ptr<const ControlFlowGraph> cfg;
+
+    using RopeArr = __gnu_cxx::rope<size_t>;
 };
 
 }
