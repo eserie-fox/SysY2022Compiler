@@ -188,11 +188,15 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
         continue;
       }
       auto tac = cfg_->get_node_tac(node_id);
-      if (tac->operation_ == TACOperationType::ArgumentAddress) {
+
+      // 检查语句的副作用
+      if (tac->operation_ == TACOperationType::Assign && tac->a_->value_.Type() == SymbolValue::ValueType::Array)
+        blacklist.insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
+      else if (tac->operation_ == TACOperationType::ArgumentAddress) {
         assert(tac->a_->value_.Type() == SymbolValue::ValueType::Array);
         blacklist.insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
       }
-      if (tac->operation_ == TACOperationType::Call) {
+      else if (tac->operation_ == TACOperationType::Call) {
         has_func_call = true;
       }
     }
