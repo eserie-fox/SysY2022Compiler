@@ -11,22 +11,18 @@ namespace AssemblyBuilder {
 LoopInvariantDetector::LoopInvariantDetector(std::shared_ptr<ControlFlowGraph> cfg,
                                              std::shared_ptr<LoopDetector> loop_detector,
                                              std::shared_ptr<ArrivalAnalyzer> arrival_analyzer)
-    : is_analyzed(false),
-      loop_invariants_(),
+    : loop_invariants_(),
       cfg_(cfg),
       loop_detector_(loop_detector),
       arrival_analyzer_(arrival_analyzer) {}
 
 void LoopInvariantDetector::analyze() {
-  if (!is_analyzed) {
-    std::set<LoopRange> visited;
-    const auto &loop_ranges = loop_detector_->get_loop_ranges();
-    for (auto range : loop_ranges) {
-      range.first = cfg_->get_node_lino(range.first);
-      range.second = cfg_->get_node_lino(range.second);
-      analyze_impl(visited, range);
-    }
-    is_analyzed = true;
+  std::set<LoopRange> visited;
+  const auto &loop_ranges = loop_detector_->get_loop_ranges();
+  for (auto range : loop_ranges) {
+    range.first = cfg_->get_node_lino(range.first);
+    range.second = cfg_->get_node_lino(range.second);
+    analyze_impl(visited, range);
   }
 }
 void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange range) {

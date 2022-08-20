@@ -23,15 +23,17 @@ class LiveAnalyzer;
 class SymAnalyzer;
 class ArrivalAnalyzer;
 class ArrivalExprAnalyzer;
-class PropagationOptimizer;
-class DeadCodeOptimizer;
+class UseDefAnalyzer;
+class CommExpAnalyzer;
+
 class DeadCodeOptimizer_UseDef;
 class SimpleOptimizer;
 class ConstantFoldingOptimizer;
+class PropagationOptimizer;
+class DeadCodeOptimizer;
 class CommExpOptimizer;
+class LoopOptimizer;
 class DataFlowManager;
-class UseDefAnalyzer;
-class CommExpAnalyzer;
 
 class OptimizeController_Simple : public OptimizeController
 {
@@ -47,6 +49,7 @@ private:
     std::shared_ptr<DeadCodeOptimizer> deadCodeOp;
     std::shared_ptr<ConstantFoldingOptimizer> constFoldOp;
     std::shared_ptr<CommExpOptimizer> commExpOp;
+    std::shared_ptr<LoopOptimizer> loopOp;
 
     const size_t MAX_ROUND = 2;
     const ssize_t MIN_OP_THRESHOLD = 3;

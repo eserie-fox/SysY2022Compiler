@@ -8,6 +8,7 @@
 #include "TAC/Symbol.hh"
 #include "TAC/TAC.hh"
 #include "ASM/CFG2DomTreeBuilder.hh"
+#include "ASM/LoopOptimizer.hh"
 #include "DomTreeHelper.hh"
 #include <iostream>
 #include <cassert>
@@ -25,6 +26,7 @@ OptimizeController_Simple::OptimizeController_Simple(TACListPtr tacList, TACList
   deadCodeOp = std::make_shared<DeadCodeOptimizer>(tacList, fbegin, fend);
   constFoldOp = std::make_shared<ConstantFoldingOptimizer>(tacList, fbegin, fend);
   commExpOp = std::make_shared<CommExpOptimizer>(tacList, fbegin, fend);
+  loopOp = std::make_shared<LoopOptimizer>(tacList, fbegin, fend);
 }
 
 void OptimizeController_Simple::doOptimize()
@@ -39,6 +41,7 @@ void OptimizeController_Simple::doOptimize()
     cnt += deadCodeOp->optimize();
     cnt += constFoldOp->optimize();
     cnt += commExpOp->optimize();
+    cnt += loopOp->optimize();
     ++round;
   } while (round < MAX_ROUND && cnt > MIN_OP_THRESHOLD);
   constFoldOp->optimize();   // 翻译时不能出现未折叠的常量运算
