@@ -7,6 +7,7 @@
 #include "ASM/LiveAnalyzer.hh"
 #include "ASM/Optimizer.hh"
 #include "ASM/arm/ArmHelper.hh"
+#include "ASM/arm/ArmPostOptimizer.hh"
 #include "ASM/arm/RegAllocator.hh"
 #include "MacroUtil.hh"
 #include "MagicEnum.hh"
@@ -494,6 +495,10 @@ bool ArmBuilder::Translate(std::string *output) {
   if (!AppendSuffix()) {
     return false;
   }
+  if (OP_flag) {
+    *target_output_ = ArmPostOptimizer(*target_output_).optimize();
+  }
+
   return true;
 }
 
