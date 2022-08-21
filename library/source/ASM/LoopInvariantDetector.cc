@@ -33,7 +33,10 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
   std::unordered_set<size_t> ans_invariant;
   auto sym_analyzer = arrival_analyzer_->get_symAnalyzer();
   //黑名单，用于排除一些因函数副作用导致无法成为不变量的符号
-  std::unordered_set<SymbolPtr> blacklist;
+  auto blacklist = std::make_shared<std::unordered_set<SymbolPtr>>();
+  auto &blacklists = blacklist_[range];
+  blacklists.push_back(blacklist);
+
   //当有func call时，全局变量都不会成为不变量
   bool has_func_call = false;
 
@@ -84,18 +87,27 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
     return false;
   };
 
+  auto inblacklist = [&](SymbolPtr sym) -> bool {
+    for (auto bl : blacklists) {
+      if (bl->count(sym)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   auto is_invariant_sym = [&](SymbolPtr sym, const std::unordered_set<size_t> &reachable_defs) -> bool {
     if (has_func_call && sym->IsGlobal()) {
       return false;
     }
-    if (blacklist.count(sym)) {
+    if (inblacklist(sym)) {
       return false;
     }
     if (sym->value_.Type() == SymbolValue::ValueType::Array) {
-      if (blacklist.count(sym->value_.GetArrayDescriptor()->base_addr.lock())) {
+      if (inblacklist(sym->value_.GetArrayDescriptor()->base_addr.lock())) {
         return false;
       }
-      if (blacklist.count(sym->value_.GetArrayDescriptor()->base_offset)) {
+      if (inblacklist(sym->value_.GetArrayDescriptor()->base_offset)) {
         return false;
       }
       if (has_func_call && sym->value_.GetArrayDescriptor()->base_offset->IsGlobal()) {
@@ -161,10 +173,10 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
     if (is_unary_operation(tac->operation_)) {
       if (tac->operation_ == TACOperationType::Assign) {
         if (tac->a_->value_.Type() == SymbolValue::ValueType::Array) {
-          auto sym = tac->a_->value_.GetArrayDescriptor()->base_offset;
-          if (!is_invariant_sym(sym, reachable_defs)) {
-            return false;
-          }
+          // auto sym = tac->a_->value_.GetArrayDescriptor()->base_offset;
+          // if (!is_invariant_sym(sym, reachable_defs)) {
+          return false;
+          // }
         }
       }
       return is_invariant_sym(tac->b_, reachable_defs);
@@ -175,6 +187,13 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
     for (auto i = range.first; i <= range.second; i++) {
       auto chk = check_vis(i);
       if (chk != MAX) {
+        if (!has_func_call && has_func_call_[LoopRange(i, chk)]) {
+          has_func_call = true;
+        }
+        auto subbl = blacklist_[LoopRange(i, chk)];
+        for (auto x : subbl) {
+          blacklists.push_back(x);
+        }
         i = chk;
         continue;
       }
@@ -187,10 +206,10 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
 
       // 检查语句的副作用
       if (tac->operation_ == TACOperationType::Assign && tac->a_->value_.Type() == SymbolValue::ValueType::Array)
-        blacklist.insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
+        blacklist->insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
       else if (tac->operation_ == TACOperationType::ArgumentAddress) {
         assert(tac->a_->value_.Type() == SymbolValue::ValueType::Array);
-        blacklist.insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
+        blacklist->insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
       }
       else if (tac->operation_ == TACOperationType::Call) {
         has_func_call = true;
@@ -202,6 +221,16 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
     // i是行号
     auto chk = check_vis(i);
     if (chk != MAX) {
+      auto &subinv = loop_invariants_[LoopRange(i, chk)];
+      std::unordered_set<size_t> buffer;
+      for (auto node_id : subinv) {
+        if (is_invariant(node_id)) {
+          buffer.insert(node_id);
+        }
+      }
+      ans_invariant.insert(buffer.begin(), buffer.end());
+      EraseIf(subinv, [&](size_t node_id) -> bool { return buffer.count(node_id); });
+
       i = chk;
       continue;
     }
@@ -219,6 +248,7 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
   ans.insert(ans.end(), ans_invariant.begin(), ans_invariant.end());
   std::sort(ans.begin(), ans.end(),
             [&](size_t nid1, size_t nid2) -> bool { return cfg_->get_node_lino(nid1) < cfg_->get_node_lino(nid2); });
+  has_func_call_[range] = has_func_call;
 }
 }  // namespace AssemblyBuilder
 }  // namespace HaveFunCompiler

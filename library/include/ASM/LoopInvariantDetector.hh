@@ -42,6 +42,8 @@ class LoopInvariantDetector {
   void analyze_impl(std::set<LoopRange> &visited, LoopRange range);
 
   std::unordered_map<LoopRange, std::vector<size_t>> loop_invariants_;
+  std::unordered_map<LoopRange, bool> has_func_call_;
+  std::unordered_map<LoopRange, std::vector<std::shared_ptr<std::unordered_set<SymbolPtr>>>> blacklist_;
   std::shared_ptr<ControlFlowGraph> cfg_;
   std::shared_ptr<LoopDetector> loop_detector_;
   std::shared_ptr<ArrivalAnalyzer> arrival_analyzer_;
