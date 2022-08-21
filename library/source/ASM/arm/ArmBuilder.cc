@@ -482,25 +482,29 @@ bool ArmBuilder::Translate(std::string *output) {
   ref_data_.clear();
   func_sections_.clear();
 
-  if (!AppendPrefix()) {
-    return false;
+  if (!tac_only) {
+    if (!AppendPrefix()) {
+      return false;
+    }
+    if (!TranslateGlobal()) {
+      return false;
+    }
+    target_output_->append(data_section_);
   }
-  if (!TranslateGlobal()) {
-    return false;
-  }
-  target_output_->append(data_section_);
   if (!TranslateFunctions()) {
     return false;
   }
-  for (auto &func_section : func_sections_) {
-    target_output_->append(func_section.body_);
-  }
-  target_output_->append(EndCurrentDataPool(true));
-  if (!AppendSuffix()) {
-    return false;
-  }
-  if (OP_flag) {
-    *target_output_ = ArmPostOptimizer(*target_output_).optimize();
+  if (!tac_only) {
+    for (auto &func_section : func_sections_) {
+      target_output_->append(func_section.body_);
+    }
+    target_output_->append(EndCurrentDataPool(true));
+    if (!AppendSuffix()) {
+      return false;
+    }
+    if (OP_flag) {
+      *target_output_ = ArmPostOptimizer(*target_output_).optimize();
+    }
   }
 
   return true;
