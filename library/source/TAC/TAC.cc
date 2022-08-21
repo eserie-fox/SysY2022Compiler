@@ -748,6 +748,15 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
       replace_sym(tac->a_);
       replace_sym(tac->b_);
       replace_sym(tac->c_);
+      if (tac->a_ && tac->a_->value_.Type() == SymbolValue::ValueType::Array) {
+        replace_sym(tac->a_->value_.GetArrayDescriptor()->base_offset);
+      }
+      if (tac->b_ && tac->b_->value_.Type() == SymbolValue::ValueType::Array) {
+        replace_sym(tac->b_->value_.GetArrayDescriptor()->base_offset);
+      }
+      if (tac->c_ && tac->c_->value_.Type() == SymbolValue::ValueType::Array) {
+        replace_sym(tac->c_->value_.GetArrayDescriptor()->base_offset);
+      }
     };
     for (auto duptac : *cond->tac) {
       if (duptac->operation_ == TACOperationType::Label) {
