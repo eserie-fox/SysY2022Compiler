@@ -732,13 +732,13 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
     cond->ret = tmpSym;
   }
   auto ret = NewTACList();
-  //处理重复标签的重命名问题
+  //处理重复定义的重命名问题
   {
-    std::unordered_map<std::string, SymbolPtr> replace_label;
-    auto replace_sym = [&replace_label](SymbolPtr &sym) -> void {
-      if (sym != nullptr && sym->type_ == SymbolType::Label) {
-        auto it = replace_label.find(sym->get_tac_name());
-        if (it != replace_label.end()) {
+    std::unordered_map<std::string, SymbolPtr> rename_sym;
+    auto replace_sym = [&rename_sym](SymbolPtr &sym) -> void {
+      if (sym != nullptr) {
+        auto it = rename_sym.find(sym->get_tac_name());
+        if (it != rename_sym.end()) {
           sym = it->second;
         }
       }
@@ -751,9 +751,14 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
     for (auto duptac : *cond->tac) {
       if (duptac->operation_ == TACOperationType::Label) {
         auto name = duptac->a_->get_tac_name();
-        replace_label[name] = NewSymbol(SymbolType::Label, "D" + name);
+        rename_sym[name] = NewSymbol(SymbolType::Label, "D" + name);
+      }
+      if (duptac->operation_ == TACOperationType::Variable || duptac->operation_ == TACOperationType::Constant) {
+        auto name = duptac->a_->get_tac_name();
+        rename_sym[name] = NewSymbol(duptac->a_->type_, "D" + name, duptac->a_->value_, duptac->a_->offset_);
       }
     }
+
     for (auto duptac : *cond->tac) {
       auto tac = NewTAC(duptac->operation_, duptac->a_, duptac->b_, duptac->c_);
       replace(tac);
