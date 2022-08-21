@@ -51,7 +51,7 @@ private:
     std::shared_ptr<CommExpOptimizer> commExpOp;
     std::shared_ptr<LoopOptimizer> loopOp;
 
-    const size_t MAX_ROUND = 2;
+    const size_t MAX_ROUND = 3;
     const ssize_t MIN_OP_THRESHOLD = 3;
 };
 
