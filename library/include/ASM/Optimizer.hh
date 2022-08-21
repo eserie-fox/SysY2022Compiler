@@ -51,8 +51,8 @@ private:
     std::shared_ptr<CommExpOptimizer> commExpOp;
     std::shared_ptr<LoopOptimizer> loopOp;
 
-    const size_t MAX_ROUND = 3;
-    const ssize_t MIN_OP_THRESHOLD = 3;
+    const size_t MAX_ROUND = 4;
+    const ssize_t MIN_OP_THRESHOLD = 2;
 };
 
 // optimizer需要保证，不修改fbegin和fend
