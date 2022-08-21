@@ -203,7 +203,7 @@ void ArmPostOptimizer::SubOptimize2() {
   FillBuffer(noncomm_lines_idx_, buf, 0, 5);
 
   do {
-    if (StartWithRegular(lines_, regular, buf)) {
+    if (StartWithRegular(lines_, regular, buf) && CheckCanOptimize(buf)) {
       ssize_t condition_test_res = -1;
       for (size_t i = 0; i < condition_regular.size(); i++) {
         if (StartWith(lines_[buf[1]], condition_regular[i]) &&
@@ -265,6 +265,46 @@ void ArmPostOptimizer::SubOptimize2() {
   } while (res_siz > 0);
 }
 
+bool ArmPostOptimizer::CheckCanOptimize(const std::vector<size_t> &buf) {
+  size_t l = buf[0];
+  size_t r = buf.back();
+  const static size_t FIND_RANGE = 6;
+  size_t res;
+  res = FIND_RANGE;
+  for (size_t i = l; i <= r; i++) {
+    if (lines_[i].find("CommExpGen_") != lines_[i].npos) {
+      return false;
+    }
+  }
+
+  while (res > 0) {
+    if (StartWith(lines_[l], "//")) {
+      if (lines_[l].find("CommExpGen_") != lines_[l].npos) {
+        return false;
+      }
+      res--;
+    }
+    if (l == 0) {
+      break;
+    }
+    l--;
+  }
+  res = FIND_RANGE;
+  while (r < lines_.size() && res > 0) {
+    if (StartWith(lines_[r], "//")) {
+      if (lines_[r].find("CommExpGen_") != lines_[r].npos) {
+        return false;
+      }
+      res--;
+    }
+    r++;
+    if (r >= lines_.size()) {
+      break;
+    }
+  }
+  return true;
+}
+
 void ArmPostOptimizer::SubOptimize1() {
   /*
   优化形如
@@ -298,7 +338,7 @@ void ArmPostOptimizer::SubOptimize1() {
   FillBuffer(noncomm_lines_idx_, buf, 0, 6);
 
   do {
-    if (StartWithRegular(lines_, regular, buf)) {
+    if (StartWithRegular(lines_, regular, buf) && CheckCanOptimize(buf)) {
       ssize_t condition_test_res = -1;
       for (size_t i = 0; i < condition_regular.size(); i++) {
         if (StartWith(lines_[buf[1]], condition_regular[i]) &&

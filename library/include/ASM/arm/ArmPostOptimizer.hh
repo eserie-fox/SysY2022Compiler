@@ -19,6 +19,8 @@ class ArmPostOptimizer {
   void SplitToLines();
   void SummarizeNoncommentLines();
 
+  bool CheckCanOptimize(const std::vector<size_t> &buf);
+
   void SubOptimize1();
   
   void SubOptimize2();
