@@ -744,18 +744,29 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
         }
       }
     };
-    auto replace = [&replace_sym](ThreeAddressCodePtr tac) -> void {
+    auto handle_array = [&replace_sym, this](SymbolPtr &arrsym) -> void {
+      auto new_ad = NewArrayDescriptor();
+      auto ad = arrsym->value_.GetArrayDescriptor();
+      new_ad->base_addr = ad->base_addr;
+      new_ad->base_offset = ad->base_offset;
+      new_ad->dimensions = ad->dimensions;
+      new_ad->subarray = ad->subarray;
+      new_ad->value_type = ad->value_type;
+      replace_sym(new_ad->base_offset);
+      arrsym = NewSymbol(arrsym->type_, arrsym->name_, SymbolValue(new_ad), arrsym->offset_);
+    };
+    auto replace = [&replace_sym, &handle_array](ThreeAddressCodePtr tac) -> void {
       replace_sym(tac->a_);
       replace_sym(tac->b_);
       replace_sym(tac->c_);
       if (tac->a_ && tac->a_->value_.Type() == SymbolValue::ValueType::Array) {
-        replace_sym(tac->a_->value_.GetArrayDescriptor()->base_offset);
+        handle_array(tac->a_);
       }
       if (tac->b_ && tac->b_->value_.Type() == SymbolValue::ValueType::Array) {
-        replace_sym(tac->b_->value_.GetArrayDescriptor()->base_offset);
+        handle_array(tac->b_);
       }
       if (tac->c_ && tac->c_->value_.Type() == SymbolValue::ValueType::Array) {
-        replace_sym(tac->c_->value_.GetArrayDescriptor()->base_offset);
+        handle_array(tac->c_);
       }
     };
     for (auto duptac : *cond->tac) {
