@@ -732,6 +732,7 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
     cond->ret = tmpSym;
   }
   auto ret = NewTACList();
+  auto ifzsym = cond->ret;
   //处理重复定义的重命名问题
   {
     std::unordered_map<std::string, SymbolPtr> rename_sym;
@@ -764,9 +765,10 @@ TACListPtr TACBuilder::CreateWhile(ExpressionPtr cond, TACListPtr stmt, SymbolPt
       replace(tac);
       (*ret) += tac;
     }
+    replace_sym(ifzsym);
   }
 
-  (*ret) += NewTAC(TACOperationType::IfZero, label_brk, cond->ret);
+  (*ret) += NewTAC(TACOperationType::IfZero, label_brk, ifzsym);
   (*ret) += TACFactory::Instance()->MakeDoWhile(CreateArithmeticOperation(TACOperationType::UnaryNot, cond), label_cont,
                                                 label_brk, CreateTempLabel(), stmt);
   return ret;
