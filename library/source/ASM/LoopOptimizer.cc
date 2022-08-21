@@ -5,6 +5,7 @@
 #include "ASM/LoopInvariantDetector.hh"
 #include "ASM/LiveAnalyzer.hh"
 #include "ASM/CFG2DomTreeBuilder.hh"
+#include "ASM/SymAnalyzer.hh"
 #include "DomTreeHelper.hh"
 #include <deque>
 
@@ -23,7 +24,9 @@ int LoopOptimizer::optimize() {
   loop_invariant_detector_->analyze();
   
   auto &loopRanges = loop_detector_->get_loop_ranges();
-  auto &liveAnalyzer = loop_invariant_detector_->get_arrival_analyzer()->get_liveAnalyzer();
+  auto liveAnalyzer = arrival_analyzer_->get_liveAnalyzer();
+  auto symAnalyzer = arrival_analyzer_->get_symAnalyzer();
+  
   auto domTree = BuildDomTreeFromCFG(cfg_);
   DomTreeHelper domTreeHelper(domTree);
 
@@ -70,6 +73,25 @@ int LoopOptimizer::optimize() {
     tacls_->erase(srcIt);
   };
 
+  auto countInRange = [](const std::unordered_set<size_t> &set, LoopDetector::LoopRange range) -> bool {
+    size_t cnt = 0;
+    // size < second - first + 1
+    if (set.size() + range.first < range.second + 1) {
+      for (auto x : set) {
+        if (x >= range.first && x <= range.second) {
+          ++cnt;
+        }
+      }
+    } else {
+      for (auto i = range.first; i <= range.second; i++) {
+        if (set.count(i)) {
+          ++cnt;
+        }
+      }
+    }
+    return cnt;
+  };
+
   int cnt = 0;
 
   // DEBUG!!!!
@@ -92,34 +114,45 @@ int LoopOptimizer::optimize() {
     // 保存只有1个定值的不变量，其他的不能外提
     // 如果有多个定值，外提后无法保证循环内得到正确的值
     // 对数组元素的定值，特殊处理，SymbolPtr保存数组symbol
-    std::unordered_map<SymbolPtr, size_t> repDef;
-    for (auto d : invariants)
-    {
-      auto dTac = cfg_->get_node_tac(d);
-      auto invariantSym = getDefSym(dTac);
-      ++repDef[invariantSym];
-    }
+    // std::unordered_map<SymbolPtr, size_t> repDef;
+    // for (auto d : invariants)
+    // {
+    //   auto dTac = cfg_->get_node_tac(d);
+    //   auto invariantSym = getDefSym(dTac);
+    //   ++repDef[invariantSym];
+    // }
+
+    // for (auto d : invariants)
+    // {
+    //   if (repDef[getDefSym(cfg_->get_node_tac(d))] == 1)
+    //     extractInvariants.push_back(d);
+    // }
 
     std::deque<size_t> extractInvariants;
     for (auto d : invariants)
     {
-      if (repDef[getDefSym(cfg_->get_node_tac(d))] == 1)
+      auto invariantSym = getDefSym(cfg_->get_node_tac(d));
+      auto &defSet = symAnalyzer->getSymDefPoints(invariantSym);
+      auto cnt = countInRange(defSet, loopRange);
+      if (cnt == 1)
         extractInvariants.push_back(d);
     }
 
     // 得到循环前置结点和循环出口结点
-    size_t loopHead = cfg_->get_inNodeList(loopBegin)[0];
-    std::vector<size_t> loopOut;
-    for (auto u = loopBegin; u <= loopEnd; ++u)
-    {
-      auto &outls = cfg_->get_outNodeList(u);
-      for (auto v : outls)
-        if (v < loopBegin || v > loopEnd)
-        {
-          loopOut.push_back(u);
-          break;
-        }
-    }
+    // size_t loopHead = cfg_->get_inNodeList(loopBegin)[0];
+    // std::vector<size_t> loopOut;
+    // for (auto u = loopBegin; u <= loopEnd; ++u)
+    // {
+    //   auto &outls = cfg_->get_outNodeList(u);
+    //   for (auto v : outls)
+    //     if (v < loopBegin || v > loopEnd)
+    //     {
+    //       loopOut.push_back(u);
+    //       break;
+    //     }
+    // }
+    size_t loopHead = loopBegin;
+    size_t loopOut = loopEnd + 1;
 
     // 对每个不变量，进行其它外提条件检查
     auto uniqSiz = extractInvariants.size();
@@ -134,19 +167,16 @@ int LoopOptimizer::optimize() {
       if (liveAnalyzer->isOutLive(invariantSym, loopHead))
         continue;
       
-      // 对于出口活跃集合包含invariantSym的循环出口节点
+      // 如果invariantSym在循环出口节点出口活跃
       // d必须是该节点的必经结点
       // 否则，循环内部不一定会计算d，不能将其外提
       bool canExtract = true;
-      for (auto out : loopOut)
+      if (liveAnalyzer->isOutLive(invariantSym, loopOut))
       {
-        if (liveAnalyzer->isOutLive(invariantSym, out))
+        if (!domTreeHelper.IsAncestorOf(d, loopOut))
         {
-          if (!domTreeHelper.IsAncestorOf(d, out))
-          {
-            canExtract = false;
-            break;
-          }
+          canExtract = false;
+          break;
         }
       }
 

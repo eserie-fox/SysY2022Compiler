@@ -242,8 +242,12 @@ bool ArmBuilder::TranslateFunction() {
 
     if (tac_only)
     {
-      target_output_->append(tac_list_->ToString());
-      target_output_->append("\n\n");
+      target_output_->append("\n");
+      for (auto it = current_; it != end_; ++it)
+      {
+        target_output_->append((*it)->ToString());
+        target_output_->append("\n");
+      }
       return true;
     }
 

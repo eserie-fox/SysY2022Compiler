@@ -41,7 +41,6 @@ void OptimizeController_Simple::doOptimize()
     cnt += deadCodeOp->optimize();
     cnt += constFoldOp->optimize();
     cnt += commExpOp->optimize();
-    cnt += loopOp->optimize();
     ++round;
   } while (round < MAX_ROUND && cnt > MIN_OP_THRESHOLD);
   loopOp->optimize();
