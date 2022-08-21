@@ -73,7 +73,7 @@ int LoopOptimizer::optimize() {
     tacls_->erase(srcIt);
   };
 
-  auto countInRange = [](const std::unordered_set<size_t> &set, LoopDetector::LoopRange range) -> bool {
+  auto countInRange = [](const std::unordered_set<size_t> &set, LoopDetector::LoopRange range) -> size_t {
     size_t cnt = 0;
     // size < second - first + 1
     if (set.size() + range.first < range.second + 1) {
@@ -93,9 +93,6 @@ int LoopOptimizer::optimize() {
   };
 
   int cnt = 0;
-
-  // DEBUG!!!!
-  std::unordered_set<size_t> deleted;
 
   // 由内循环到外循环，依次对循环范围进行外提
   // Begin和End：开始和结束语句的nodeid
@@ -181,17 +178,36 @@ int LoopOptimizer::optimize() {
       }
 
       if (canExtract)
+      {
         extractInvariants.push_back(d);
+      }
     }
 
     // 现在保留在extractInvariants中的就是能外提的语句
+    std::unordered_set<size_t> extracted;
     for (auto d : extractInvariants)
     {
-      assert(deleted.count(d) == 0);
-      extract(loopBegin, d);
-      deleted.insert(d);
+      assert(extracted.count(d) == 0);
+
+      // 检查外提依赖：查看当前能外提的语句，其不变量的依赖值是否已经外提，如果已经外提，则当前语句才能外提
+      auto &depends = loop_invariant_detector_->get_invariant_dependent(d);
+      bool canExtract = true;
+      for (auto dep : depends)
+      {
+        if (extracted.count(dep) == 0)
+        {
+          canExtract = false;
+          break;
+        }
+      }
+
+      if (canExtract)
+      {
+        extract(loopBegin, d);
+        extracted.insert(d);
+      }
     }
-    cnt += extractInvariants.size();
+    cnt += extracted.size();
   }
 
   return cnt;
