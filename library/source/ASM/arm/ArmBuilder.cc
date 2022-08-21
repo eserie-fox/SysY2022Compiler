@@ -499,9 +499,9 @@ bool ArmBuilder::Translate(std::string *output) {
   if (!AppendSuffix()) {
     return false;
   }
-  if (OP_flag) {
-    *target_output_ = ArmPostOptimizer(*target_output_).optimize();
-  }
+  // if (OP_flag) {
+  //   *target_output_ = ArmPostOptimizer(*target_output_).optimize();
+  // }
 
   return true;
 }
