@@ -11,10 +11,7 @@ namespace AssemblyBuilder {
 LoopInvariantDetector::LoopInvariantDetector(std::shared_ptr<ControlFlowGraph> cfg,
                                              std::shared_ptr<LoopDetector> loop_detector,
                                              std::shared_ptr<ArrivalAnalyzer> arrival_analyzer)
-    : loop_invariants_(),
-      cfg_(cfg),
-      loop_detector_(loop_detector),
-      arrival_analyzer_(arrival_analyzer) {}
+    : loop_invariants_(), cfg_(cfg), loop_detector_(loop_detector), arrival_analyzer_(arrival_analyzer) {}
 
 void LoopInvariantDetector::analyze() {
   std::set<LoopRange> visited;
@@ -96,7 +93,8 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
     return false;
   };
 
-  auto is_invariant_sym = [&](SymbolPtr sym, const std::unordered_set<size_t> &reachable_defs) -> bool {
+  auto is_invariant_sym = [&](SymbolPtr sym, const std::unordered_set<size_t> &reachable_defs,
+                              size_t tac_node_id) -> bool {
     if (has_func_call && sym->IsGlobal()) {
       return false;
     }
@@ -144,6 +142,7 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
       return false;
     }
     if (ans_invariant.count(res_node_id.value())) {
+      dependent_[tac_node_id].push_back(res_node_id.value());
       return true;
     }
     return false;
@@ -179,9 +178,9 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
           // }
         }
       }
-      return is_invariant_sym(tac->b_, reachable_defs);
+      return is_invariant_sym(tac->b_, reachable_defs, node_id);
     }
-    return is_invariant_sym(tac->b_, reachable_defs) && is_invariant_sym(tac->c_, reachable_defs);
+    return is_invariant_sym(tac->b_, reachable_defs, node_id) && is_invariant_sym(tac->c_, reachable_defs, node_id);
   };
   {
     for (auto i = range.first; i <= range.second; i++) {
@@ -210,8 +209,7 @@ void LoopInvariantDetector::analyze_impl(std::set<LoopRange> &visited, LoopRange
       else if (tac->operation_ == TACOperationType::ArgumentAddress) {
         assert(tac->a_->value_.Type() == SymbolValue::ValueType::Array);
         blacklist->insert(tac->a_->value_.GetArrayDescriptor()->base_addr.lock());
-      }
-      else if (tac->operation_ == TACOperationType::Call) {
+      } else if (tac->operation_ == TACOperationType::Call) {
         has_func_call = true;
       }
     }

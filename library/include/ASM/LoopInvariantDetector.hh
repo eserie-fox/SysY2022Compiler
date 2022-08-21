@@ -31,6 +31,15 @@ class LoopInvariantDetector {
     return it->second;
   }
 
+  const std::vector<size_t> &get_invariant_dependent(size_t node_id) const {
+    auto it = dependent_.find(node_id);
+    if (it == dependent_.end()) {
+      static std::vector<size_t> empty;
+      return empty;
+    }
+    return it->second;
+  }
+
   void analyze();
 
   const std::shared_ptr<ArrivalAnalyzer> get_arrival_analyzer() const
@@ -42,6 +51,7 @@ class LoopInvariantDetector {
   void analyze_impl(std::set<LoopRange> &visited, LoopRange range);
 
   std::unordered_map<LoopRange, std::vector<size_t>> loop_invariants_;
+  std::unordered_map<size_t, std::vector<size_t>> dependent_;
   std::unordered_map<LoopRange, bool> has_func_call_;
   std::unordered_map<LoopRange, std::vector<std::shared_ptr<std::unordered_set<SymbolPtr>>>> blacklist_;
   std::shared_ptr<ControlFlowGraph> cfg_;
