@@ -74,6 +74,29 @@ bool ArmBuilder::TranslateGlobal() {
   current_ = tac_list_->begin();
   end_ = tac_list_->end();
   int func_level = 0;
+
+  if (tac_only)
+  {
+    for (; current_ != end_; ++current_) {
+      auto tac = *current_;
+      switch (tac->operation_) {
+        case TACOperationType::FunctionBegin:
+          func_level++;
+          break;
+        case TACOperationType::FunctionEnd:
+          func_level--;
+          break;
+        default:
+          if (!func_level) {
+            target_output_->append(tac->ToString());
+            target_output_->append("\n");
+          }
+        break;
+      }
+    }
+    return true;
+  }
+
   //第一遍进行变量地址分配
   try {
     for (; current_ != end_; ++current_) {
@@ -486,11 +509,11 @@ bool ArmBuilder::Translate(std::string *output) {
     if (!AppendPrefix()) {
       return false;
     }
-    if (!TranslateGlobal()) {
-      return false;
-    }
-    target_output_->append(data_section_);
   }
+  if (!TranslateGlobal()) {
+    return false;
+  }
+  target_output_->append(data_section_);
   if (!TranslateFunctions()) {
     return false;
   }
